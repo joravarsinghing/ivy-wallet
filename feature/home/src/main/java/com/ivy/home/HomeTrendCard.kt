@@ -78,7 +78,7 @@ fun HomeTrendCard(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "Monthly cash flow over time",
+                    text = if (state.range.isDaily) "Daily cash flow over time" else "Monthly cash flow over time",
                     style = UI.typo.c.style(
                         color = UI.colors.gray,
                         fontWeight = FontWeight.Medium,
@@ -156,16 +156,16 @@ fun HomeTrendCard(
                                 modifier = Modifier.padding(horizontal = 24.dp),
                             )
                         }
-                        when (state.points.count { it.isObserved }) {
+                        when (state.points.count { it.hasActivity() }) {
                             1 -> {
                                 Spacer(Modifier.height(8.dp))
                                 TrendMessage(
-                                    "One month recorded. A second month will show the first direction of change."
+                                    if (state.range.isDaily) "One day recorded. More days will make the pattern clearer." else "One month recorded. More months will make the pattern clearer."
                                 )
                             }
                             2 -> {
                                 Spacer(Modifier.height(8.dp))
-                                TrendMessage("Two months recorded. More months will make the trend clearer.")
+                                TrendMessage(if (state.range.isDaily) "Two days recorded. More days will make the trend clearer." else "Two months recorded. More months will make the trend clearer.")
                             }
                         }
                     }
@@ -262,6 +262,7 @@ private fun TrendChart(
     currency: String,
     modifier: Modifier = Modifier,
 ) {
+    val hasMultipleActivityPeriods = state.points.count { it.hasActivity() } > 1
     val values = state.points.flatMap { point ->
         if (!point.isObserved) return@flatMap emptyList()
         buildList {
@@ -314,7 +315,7 @@ private fun TrendChart(
                 .weight(1f)
                 .height(136.dp)
                 .semantics {
-                    contentDescription = "Trend chart for ${state.points.size} months. Missing months are shown as gaps."
+                    contentDescription = "Trend chart for ${state.points.size} ${if (state.range.isDaily) "days" else "months"}. Pre-activity periods are shown as gaps."
                 },
         ) {
             repeat(3) { index ->
@@ -349,7 +350,7 @@ private fun TrendChart(
                         }
                     }
                     points.zipWithNext().forEach { (start, end) ->
-                        if (start != null && end != null) {
+                        if (hasMultipleActivityPeriods && start != null && end != null) {
                             drawLine(
                                 color = metricColors.getValue(metric),
                                 start = start,
@@ -370,6 +371,9 @@ private fun TrendChart(
         }
     }
 }
+
+private fun HomeTrendPoint.hasActivity(): Boolean =
+    isObserved && (income.signum() != 0 || expenses.signum() != 0)
 
 @Composable
 private fun TrendPeriodLabels(

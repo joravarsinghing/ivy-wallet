@@ -46,8 +46,6 @@ import com.ivy.legacy.data.model.MainTab
 import com.ivy.legacy.data.model.Month
 import com.ivy.legacy.data.model.TimePeriod
 import com.ivy.legacy.ivyWalletCtx
-import com.ivy.legacy.ui.component.transaction.TransactionsDividerLine
-import com.ivy.legacy.ui.component.transaction.transactions
 import com.ivy.legacy.utils.horizontalSwipeListener
 import com.ivy.legacy.utils.rememberSwipeListenerState
 import com.ivy.legacy.utils.verticalSwipeListener
@@ -167,12 +165,15 @@ fun BoxWithConstraintsScope.HomeUi(
             },
             balance = uiState.balance,
             protectedBuffer = uiState.buffer.amount,
+            visibleDashboardCards = uiState.visibleDashboardCards,
+            spendingBreakdown = uiState.spendingBreakdown,
             moneyComingUp = uiState.moneyComingUp,
             trend = uiState.trend,
             onTrendRangeSelected = { onEvent(HomeEvent.SetTrendRange(it)) },
             onTrendMetricToggle = { onEvent(HomeEvent.ToggleTrendMetric(it)) },
             onOpenTrendEditor = { onEvent(HomeEvent.OpenTrendEditor) },
             onCloseTrendEditor = { onEvent(HomeEvent.CloseTrendEditor) },
+            onOpenDashboardEditor = { onEvent(HomeEvent.OpenDashboardEditor) },
             onOpenMoreMenu = {
                 setMoreMenuExpanded(true)
             },
@@ -286,6 +287,15 @@ fun BoxWithConstraintsScope.HomeUi(
         onEvent(HomeEvent.SkipAllPlanned(uiState.overdue.trns))
         skipAllModalVisible = false
     }
+
+    if (uiState.dashboardEditorVisible) {
+        HomeDashboardEditorDialog(
+            visibleCards = uiState.visibleDashboardCards,
+            onCardToggle = { onEvent(HomeEvent.ToggleDashboardCard(it)) },
+            onClose = { onEvent(HomeEvent.CloseDashboardEditor) },
+            onRestoreDefaults = { onEvent(HomeEvent.RestoreDashboardDefaults) },
+        )
+    }
 }
 
 @Suppress("LongParameterList")
@@ -305,6 +315,8 @@ fun HomeLazyColumn(
     overdue: LegacyDueSection,
     balance: BigDecimal,
     protectedBuffer: BigDecimal,
+    visibleDashboardCards: Set<HomeDashboardCardId>,
+    spendingBreakdown: HomeSpendingBreakdownState,
     moneyComingUp: MoneyComingUpState,
     trend: HomeTrendState,
     onTrendRangeSelected: (HomeTrendRange) -> Unit,
@@ -321,6 +333,7 @@ fun HomeLazyColumn(
 
     onOpenMoreMenu: () -> Unit,
     onBalanceClick: () -> Unit,
+    onOpenDashboardEditor: () -> Unit,
 
     onPayOrGet: (Transaction) -> Unit,
     onDismiss: (CustomerJourneyCardModel) -> Unit,
@@ -375,6 +388,9 @@ fun HomeLazyColumn(
             )
         }
         item {
+            HomeDashboardToolbar(onOpenEditor = onOpenDashboardEditor)
+        }
+        if (HomeDashboardCardId.SAFE_TO_SPEND in visibleDashboardCards) item {
             Spacer(Modifier.height(16.dp))
 
             SafeToSpendCard(
@@ -384,7 +400,7 @@ fun HomeLazyColumn(
             )
         }
 
-        item {
+        if (HomeDashboardCardId.MONEY_COMING_UP in visibleDashboardCards) item {
             Spacer(Modifier.height(16.dp))
 
             MoneyComingUpCard(
@@ -394,7 +410,7 @@ fun HomeLazyColumn(
             )
         }
 
-        item {
+        if (HomeDashboardCardId.MONEY_TRENDS in visibleDashboardCards) item {
             Spacer(Modifier.height(16.dp))
 
             HomeTrendCard(
@@ -408,10 +424,13 @@ fun HomeLazyColumn(
             )
         }
 
-        item {
-            Spacer(Modifier.height(24.dp))
-
-            TransactionsDividerLine()
+        if (HomeDashboardCardId.SPENDING_BREAKDOWN in visibleDashboardCards) item {
+            Spacer(Modifier.height(16.dp))
+            HomeSpendingBreakdownCard(
+                state = spendingBreakdown,
+                currency = baseData.baseCurrency,
+                hideBalance = hideBalance,
+            )
         }
 
         item {
@@ -421,28 +440,19 @@ fun HomeLazyColumn(
             )
         }
 
-        transactions(
-            baseData = baseData,
-            upcoming = upcoming,
-            setUpcomingExpanded = setUpcomingExpanded,
-            overdue = overdue,
-            setOverdueExpanded = setOverdueExpanded,
-            history = history,
-            onPayOrGet = onPayOrGet,
-            emptyStateTitle = stringRes(R.string.no_transactions),
-            emptyStateText = stringRes(
-                R.string.no_transactions_description,
-                period.toDisplayLong(
-                    startDateOfMonth = ivyContext.startDayOfMonth,
-                    timeProvider = timeProvider,
-                    timeConverter = timeConverter,
-                    timeFormatter = timeFormatter,
-                )
-            ),
-            shouldShowAccountSpecificColorInTransactions = shouldShowAccountSpecificColorInTransactions,
-            onSkipTransaction = onSkipTransaction,
-            onSkipAllTransactions = onSkipAllTransactions
-        )
+        item {
+            Spacer(Modifier.height(16.dp))
+            HomeCompactActivity(
+                baseData = baseData,
+                upcoming = upcoming,
+                overdue = overdue,
+                history = history,
+                hideBalance = hideBalance,
+                onPayOrGet = onPayOrGet,
+                onSkipTransaction = onSkipTransaction,
+                onSkipAllTransactions = onSkipAllTransactions,
+            )
+        }
     }
 }
 

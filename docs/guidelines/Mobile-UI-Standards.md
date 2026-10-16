@@ -49,6 +49,17 @@ These standards apply to new and modified Android screens, sheets, dialogs, and 
 - Financial charts must show a readable value scale. When all observed values are non-negative, use a visible zero baseline; only extend below zero when a real observed value is negative. Scale bounds are calculated from observed values only.
 - Sparse history, loading, empty, and hidden-balance states are first-class designs. They must not collapse into a blank card or reveal values that the user has chosen to hide.
 - Range changes must preserve the chart's measured height and keep the previous result visible under a lightweight updating state until the replacement data arrives.
+- Home must not repeat detailed account balances in a dashboard card. The Accounts tab is the authoritative account-management surface; Home may show only derived reservations or spendability when that answers a different question.
+- Trends support `7D` and `30D` daily buckets plus `3M`, `6M`, and `12M` monthly buckets. Use explicit date/YearMonth identities for ordering; never sort by display labels.
+- Before the first observed activity, periods are gaps. After activity starts, quiet periods are real zero-activity points. A single activity period is rendered as a point without a connecting line.
+- Keep chart height fixed while changing ranges. Preserve the previous plot under a small updating overlay instead of collapsing the card.
+
+## Home density and activity
+
+- Prefer one neutral activity surface with compact rows over one large card per transaction. Home rows show category color/icon, title, account, and grouped amount; descriptions and tags stay on the edit screen.
+- Bound Home activity to seven recent records, retain date headings, ellipsize long titles/account names, and keep the final row above the bottom navigation inset.
+- A spending breakdown uses ranked horizontal bars: top three categories plus `Other`, amount and percentage, existing category colors, and an honest empty state when no categorized expenses exist. Do not add a second donut or duplicate forecast card.
+- Every Home card answers one question and has one primary destination/action. Card visibility preferences may hide optional cards but must never change financial calculations.
 
 ## Screenshot review checklist
 

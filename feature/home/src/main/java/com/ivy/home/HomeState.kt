@@ -37,4 +37,7 @@ data class HomeState(
     val shouldShowAccountSpecificColorInTransactions: Boolean,
     val moneyComingUp: MoneyComingUpState = MoneyComingUpState(),
     val trend: HomeTrendState = HomeTrendState(),
+    val spendingBreakdown: HomeSpendingBreakdownState = HomeSpendingBreakdownState(),
+    val visibleDashboardCards: Set<HomeDashboardCardId> = defaultVisibleHomeDashboardCards,
+    val dashboardEditorVisible: Boolean = false,
 )

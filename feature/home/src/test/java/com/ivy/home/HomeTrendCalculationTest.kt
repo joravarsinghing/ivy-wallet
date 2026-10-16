@@ -1,6 +1,8 @@
 package com.ivy.home
 
 import java.math.BigDecimal
+import java.time.LocalDate
+import java.time.YearMonth
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -80,6 +82,98 @@ class HomeTrendCalculationTest {
         )
     }
 
+    @Test
+    fun `explicit identities sort by period identity rather than display label`() {
+        val result = buildHomeTrendPoints(
+            points = listOf(
+                explicitMonth("December label", "2026-12", income = "30"),
+                explicitMonth("January label", "2027-01", income = "40"),
+                explicitMonth("November label", "2026-11", income = "20"),
+            ),
+            range = HomeTrendRange.THREE_MONTHS,
+        )
+
+        assertEquals(
+            listOf("2026-11", "2026-12", "2027-01"),
+            result.map { (it.periodIdentity as HomeTrendPeriodIdentity.Month).yearMonth.toString() },
+        )
+    }
+
+    @Test
+    fun `daily ranges produce daily buckets`() {
+        val result = buildHomeTrendPoints(
+            points = listOf(
+                explicitDay("Oct 1", "2026-10-01", income = "100"),
+                explicitDay("Oct 3", "2026-10-03", expenses = "20"),
+            ),
+            range = HomeTrendRange.SEVEN_DAYS,
+            anchorDate = LocalDate.parse("2026-10-03"),
+        )
+
+        assertEquals(7, result.size)
+        assertEquals(
+            LocalDate.parse("2026-09-27"),
+            (result.first().periodIdentity as HomeTrendPeriodIdentity.Day).date,
+        )
+        assertEquals(
+            LocalDate.parse("2026-10-03"),
+            (result.last().periodIdentity as HomeTrendPeriodIdentity.Day).date,
+        )
+        assertTrue(result[0].isObserved.not())
+        assertTrue(result[4].isObserved)
+        assertEquals(BigDecimal.ZERO, result[5].income)
+        assertEquals(BigDecimal("20"), result.last().expenses)
+    }
+
+    @Test
+    fun `thirty day range keeps pre activity null and fills later quiet days with zeroes`() {
+        val result = buildHomeTrendPoints(
+            points = listOf(
+                explicitDay("first entry", "2026-10-01", income = "100"),
+            ),
+            range = HomeTrendRange.THIRTY_DAYS,
+            anchorDate = LocalDate.parse("2026-10-10"),
+        )
+
+        assertEquals(30, result.size)
+        assertTrue(result.take(20).none { it.isObserved })
+        assertTrue(result.drop(20).all { it.isObserved })
+        assertEquals(BigDecimal("100"), result[20].income)
+        assertTrue(result.drop(21).all { it.income == BigDecimal.ZERO && it.expenses == BigDecimal.ZERO })
+    }
+
+    @Test
+    fun `monthly coverage aggregates daily points and fills post activity months`() {
+        val result = buildHomeTrendPoints(
+            points = listOf(
+                explicitDay("Jan 1", "2027-01-01", income = "100"),
+                explicitDay("Jan 20", "2027-01-20", expenses = "20"),
+            ),
+            range = HomeTrendRange.THREE_MONTHS,
+            anchorDate = LocalDate.parse("2027-02-15"),
+        )
+
+        assertEquals(3, result.size)
+        assertFalse(result[0].isObserved)
+        assertTrue(result[1].isObserved)
+        assertEquals(BigDecimal("100"), result[1].income)
+        assertEquals(BigDecimal("20"), result[1].expenses)
+        assertTrue(result[2].isObserved)
+        assertEquals(BigDecimal.ZERO, result[2].income)
+    }
+
+    @Test
+    fun `single explicit point is retained without inventing a trend`() {
+        val result = buildHomeTrendPoints(
+            points = listOf(explicitDay("only", "2026-10-01", income = "50")),
+            range = HomeTrendRange.SEVEN_DAYS,
+        )
+
+        assertEquals(7, result.size)
+        assertEquals(1, result.count { it.isObserved && it.income == BigDecimal("50") })
+        assertTrue(isSingleHomeTrendPeriod(result))
+    }
+
     private fun point(
         periodLabel: String,
         income: String,
@@ -90,5 +184,29 @@ class HomeTrendCalculationTest {
         income = BigDecimal(income),
         expenses = BigDecimal(expenses),
         isObserved = isObserved,
+    )
+
+    private fun explicitDay(
+        label: String,
+        date: String,
+        income: String = "0",
+        expenses: String = "0",
+    ) = HomeTrendPoint(
+        periodLabel = label,
+        income = BigDecimal(income),
+        expenses = BigDecimal(expenses),
+        periodIdentity = HomeTrendPeriodIdentity.Day(LocalDate.parse(date)),
+    )
+
+    private fun explicitMonth(
+        label: String,
+        month: String,
+        income: String = "0",
+        expenses: String = "0",
+    ) = HomeTrendPoint(
+        periodLabel = label,
+        income = BigDecimal(income),
+        expenses = BigDecimal(expenses),
+        periodIdentity = HomeTrendPeriodIdentity.Month(YearMonth.parse(month)),
     )
 }

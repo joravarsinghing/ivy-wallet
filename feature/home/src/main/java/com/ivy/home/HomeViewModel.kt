@@ -17,6 +17,7 @@ import com.ivy.base.legacy.TransactionHistoryItem
 import com.ivy.base.time.TimeConverter
 import com.ivy.base.time.TimeProvider
 import com.ivy.data.datastore.IvyDataStore
+import com.ivy.data.model.Category
 import com.ivy.data.model.primitive.AssetCode
 import com.ivy.data.repository.CategoryRepository
 import com.ivy.data.repository.GoalRepository
@@ -35,6 +36,7 @@ import com.ivy.legacy.data.LegacyDueSection
 import com.ivy.legacy.data.model.MainTab
 import com.ivy.legacy.data.model.Month
 import com.ivy.legacy.data.model.TimePeriod
+import com.ivy.legacy.data.model.FromToTimeRange
 import com.ivy.legacy.data.model.toUTCCloseTimeRange
 import com.ivy.legacy.datamodel.Account
 import com.ivy.legacy.datamodel.Settings
@@ -48,6 +50,7 @@ import com.ivy.navigation.MainScreen
 import com.ivy.navigation.Navigation
 import com.ivy.ui.ComposeViewModel
 import com.ivy.wallet.domain.action.account.AccountsAct
+import com.ivy.wallet.domain.action.category.LegacyCategoryIncomeWithAccountFiltersAct
 import com.ivy.wallet.domain.action.global.StartDayOfMonthAct
 import com.ivy.wallet.domain.action.settings.CalcBufferDiffAct
 import com.ivy.wallet.domain.action.settings.SettingsAct
@@ -59,6 +62,7 @@ import com.ivy.wallet.domain.action.viewmodel.home.UpcomingAct
 import com.ivy.wallet.domain.action.viewmodel.home.UpdateAccCacheAct
 import com.ivy.wallet.domain.action.viewmodel.home.UpdateCategoriesCacheAct
 import com.ivy.wallet.domain.action.wallet.CalcIncomeExpenseAct
+import com.ivy.base.model.TransactionType
 import com.ivy.wallet.domain.action.wallet.CalcWalletBalanceAct
 import com.ivy.wallet.domain.deprecated.logic.PlannedPaymentsLogic
 import com.ivy.wallet.domain.pure.data.ClosedTimeRange
@@ -77,6 +81,7 @@ import javax.inject.Inject
 
 private val HOME_TREND_RANGE_KEY = stringPreferencesKey("home_trend_range")
 private val HOME_TREND_METRICS_KEY = stringSetPreferencesKey("home_trend_metrics")
+private val HOME_DASHBOARD_CARDS_KEY = stringSetPreferencesKey("home_dashboard_cards")
 
 @Stable
 @HiltViewModel
@@ -91,6 +96,7 @@ class HomeViewModel @Inject constructor(
     private val settingsAct: SettingsAct,
     private val accountsAct: AccountsAct,
     private val categoryRepository: CategoryRepository,
+    private val categoryIncomeWithAccountFiltersAct: LegacyCategoryIncomeWithAccountFiltersAct,
     private val goalRepository: GoalRepository,
     private val calcBufferDiffAct: CalcBufferDiffAct,
     private val upcomingAct: UpcomingAct,
@@ -150,6 +156,9 @@ class HomeViewModel @Inject constructor(
     private var expanded by mutableStateOf(true)
     private var moneyComingUp by mutableStateOf(MoneyComingUpState())
     private var trend by mutableStateOf(HomeTrendState())
+    private var spendingBreakdown by mutableStateOf(HomeSpendingBreakdownState())
+    private var visibleDashboardCards by mutableStateOf(defaultVisibleHomeDashboardCards)
+    private var dashboardEditorVisible by mutableStateOf(false)
 
     @Composable
     override fun uiState(): HomeState {
@@ -175,6 +184,9 @@ class HomeViewModel @Inject constructor(
             shouldShowAccountSpecificColorInTransactions = getShouldShowAccountSpecificColorInTransactions(),
             moneyComingUp = moneyComingUp,
             trend = trend,
+            spendingBreakdown = spendingBreakdown,
+            visibleDashboardCards = visibleDashboardCards,
+            dashboardEditorVisible = dashboardEditorVisible,
         )
     }
 
@@ -276,12 +288,17 @@ class HomeViewModel @Inject constructor(
                 is HomeEvent.ToggleTrendMetric -> toggleTrendMetric(event.metric)
                 HomeEvent.OpenTrendEditor -> trend = trend.copy(editorVisible = true)
                 HomeEvent.CloseTrendEditor -> trend = trend.copy(editorVisible = false)
+                HomeEvent.OpenDashboardEditor -> dashboardEditorVisible = true
+                HomeEvent.CloseDashboardEditor -> dashboardEditorVisible = false
+                is HomeEvent.ToggleDashboardCard -> toggleDashboardCard(event.card)
+                HomeEvent.RestoreDashboardDefaults -> restoreDashboardDefaults()
             }
         }
     }
 
     private suspend fun start() {
         loadTrendPreferences()
+        loadDashboardPreferences()
         suspend {
             val startDay = startDayOfMonthAct(Unit)
             ivyContext.initSelectedPeriodInMemory(
@@ -371,57 +388,62 @@ class HomeViewModel @Inject constructor(
     ) {
         trend = trend.copy(loading = true)
 
-        val anchor = trendAnchorDate()
-        val points = (trend.range.months - 1 downTo 0).map { offset ->
-            val monthDate = anchor.minusMonths(offset.toLong())
-            val monthPeriod = TimePeriod(
-                month = Month.fromMonthValue(monthDate.monthValue),
-                year = monthDate.year,
-            )
-            val monthRange = monthPeriod.toRange(
-                // Trends are calendar-month views. The user's custom budgeting period must not
-                // relabel an October 1 transaction as a September trend point.
-                startDateOfMonth = 1,
-                timeConverter = timeConverter,
-                timeProvider = timeProvider,
-            ).toUTCCloseTimeRange()
+        val end = trendEndDate()
+        val rawPoints = (trend.range.periodCount - 1 downTo 0).map { offset ->
+            val pointDate = if (trend.range.isDaily) {
+                end.minusDays(offset.toLong())
+            } else {
+                end.withDayOfMonth(1).minusMonths(offset.toLong())
+            }
+            val bucketStart = if (trend.range.isDaily) pointDate else pointDate.withDayOfMonth(1)
+            val bucketEnd = if (trend.range.isDaily) pointDate else pointDate.withDayOfMonth(1).plusMonths(1).minusDays(1)
+            val bucketRange = trendRange(bucketStart, bucketEnd)
             val historyItems = historyWithDateDivsAct(
-                HistoryWithDateDivsAct.Input(
-                    range = monthRange,
-                    baseCurrency = baseCurrency,
-                )
+                HistoryWithDateDivsAct.Input(bucketRange, baseCurrency)
             )
             val hasSourceData = historyItems.any { it is Transaction }
-            val monthStats = if (hasSourceData) {
-                calcIncomeExpenseAct(
-                    CalcIncomeExpenseAct.Input(
-                        baseCurrency = baseCurrency,
-                        accounts = accounts,
-                        range = monthRange,
-                    )
-                )
+            val stats = if (hasSourceData) {
+                calcIncomeExpenseAct(CalcIncomeExpenseAct.Input(baseCurrency, accounts, bucketRange))
+            } else null
+            val label = if (trend.range.isDaily) {
+                "${pointDate.month.getDisplayName(TextStyle.SHORT, Locale.US)} ${pointDate.dayOfMonth}"
             } else {
-                null
+                "${pointDate.month.getDisplayName(TextStyle.SHORT, Locale.US)} ${pointDate.year}"
             }
-            val shortMonth = monthDate.month.getDisplayName(TextStyle.SHORT, Locale.US)
             HomeTrendPoint(
-                periodLabel = if (trend.range == HomeTrendRange.TWELVE_MONTHS ||
-                    monthDate.year != anchor.year
-                ) {
-                    "$shortMonth ${monthDate.year}"
-                } else {
-                    shortMonth
-                },
-                income = monthStats?.income ?: BigDecimal.ZERO,
-                expenses = monthStats?.expense ?: BigDecimal.ZERO,
+                periodLabel = label,
+                income = stats?.income ?: BigDecimal.ZERO,
+                expenses = stats?.expense ?: BigDecimal.ZERO,
                 isObserved = hasSourceData,
+                periodIdentity = if (trend.range.isDaily) {
+                    HomeTrendPeriodIdentity.Day(pointDate)
+                } else {
+                    HomeTrendPeriodIdentity.Month(java.time.YearMonth.from(pointDate))
+                },
             )
-        }.toImmutableList()
+        }
+        val points = buildHomeTrendPoints(rawPoints, trend.range, anchorDate = end)
 
         trend = trend.copy(
-            points = points,
+            points = points.toImmutableList(),
             loading = false,
         )
+    }
+
+    private fun trendRange(from: LocalDate, to: LocalDate): ClosedTimeRange =
+        FromToTimeRange(
+            from = timeConverter.run { from.atStartOfDay().toUTC() },
+            to = timeConverter.run { to.plusDays(1).atStartOfDay().toUTC() },
+        ).toUTCCloseTimeRange()
+
+    private fun trendEndDate(): LocalDate {
+        val selectedStart = trendAnchorDate()
+        val now = timeProvider.localDateNow()
+        return if (selectedStart.year == now.year && selectedStart.month == now.month) {
+            now
+        } else {
+            selectedStart.plusMonths(1).minusDays(1)
+        }
     }
 
     private fun trendAnchorDate(): LocalDate {
@@ -441,7 +463,7 @@ class HomeViewModel @Inject constructor(
         val preferences = dataStore.data.first()
         val storedRange = preferences[HOME_TREND_RANGE_KEY]
             ?.let { value -> HomeTrendRange.values().firstOrNull { it.name == value } }
-            ?: HomeTrendRange.THREE_MONTHS
+            ?: HomeTrendRange.THIRTY_DAYS
         val storedMetrics = preferences[HOME_TREND_METRICS_KEY]
             ?.mapNotNull { value -> HomeTrendMetric.values().firstOrNull { it.name == value } }
             ?.toSet()
@@ -466,6 +488,34 @@ class HomeViewModel @Inject constructor(
         }.toSet()
         trend = trend.copy(visibleMetrics = updated)
         dataStore.edit { it[HOME_TREND_METRICS_KEY] = updated.map(HomeTrendMetric::name).toSet() }
+    }
+
+    private suspend fun loadDashboardPreferences() {
+        val stored = dataStore.data.first()[HOME_DASHBOARD_CARDS_KEY]
+            ?.mapNotNull { value ->
+                HomeDashboardCardId.entries.firstOrNull { it.stableId == value }
+            }
+            ?.toSet()
+        visibleDashboardCards = stored?.takeIf { it.isNotEmpty() }
+            ?: defaultVisibleHomeDashboardCards
+    }
+
+    private suspend fun toggleDashboardCard(card: HomeDashboardCardId) {
+        val updated = toggleHomeDashboardCard(visibleDashboardCards, card)
+            .takeIf { it.isNotEmpty() }
+            ?: visibleDashboardCards
+        visibleDashboardCards = updated
+        dataStore.edit { preferences ->
+            preferences[HOME_DASHBOARD_CARDS_KEY] = updated.map { it.stableId }.toSet()
+        }
+    }
+
+    private suspend fun restoreDashboardDefaults() {
+        visibleDashboardCards = defaultVisibleHomeDashboardCards
+        dataStore.edit { preferences ->
+            preferences[HOME_DASHBOARD_CARDS_KEY] =
+                defaultVisibleHomeDashboardCards.map { it.stableId }.toSet()
+        }
     }
 
     private suspend fun loadBuffer(
@@ -517,7 +567,33 @@ class HomeViewModel @Inject constructor(
             )
         )
 
+        loadSpendingBreakdown(history.filterIsInstance<Transaction>())
+
         return baseCurrency to timeRange
+    }
+
+    private suspend fun loadSpendingBreakdown(transactions: List<Transaction>) {
+        val categories: List<Category?> = baseData.categories.toList() + listOf(null)
+        val rows = categories.mapNotNull { category ->
+            val result = categoryIncomeWithAccountFiltersAct(
+                LegacyCategoryIncomeWithAccountFiltersAct.Input(
+                    transactions = transactions,
+                    accountFilterList = baseData.accounts.toList(),
+                    category = category,
+                    baseCurrency = baseData.baseCurrency,
+                )
+            )
+            val amount = result.expense
+            if (amount.signum() <= 0) return@mapNotNull null
+            HomeSpendingBreakdownRow(
+                categoryId = category?.id?.value?.toString(),
+                label = category?.name?.value ?: "Uncategorized",
+                color = category?.color?.value ?: 0xFF777777.toInt(),
+                amount = amount,
+                percentage = BigDecimal.ZERO,
+            )
+        }
+        spendingBreakdown = buildHomeSpendingBreakdown(rows)
     }
 
     private suspend fun loadDueTrns(

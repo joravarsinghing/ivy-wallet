@@ -34,4 +34,9 @@ sealed interface HomeEvent {
     data class ToggleTrendMetric(val metric: HomeTrendMetric) : HomeEvent
     data object OpenTrendEditor : HomeEvent
     data object CloseTrendEditor : HomeEvent
+
+    data object OpenDashboardEditor : HomeEvent
+    data object CloseDashboardEditor : HomeEvent
+    data class ToggleDashboardCard(val card: HomeDashboardCardId) : HomeEvent
+    data object RestoreDashboardDefaults : HomeEvent
 }

@@ -4,7 +4,7 @@ Last updated: 2026-10-15 (Asia/Dubai)
 
 ## Current gate
 
-**Wave 0 — Reconnaissance: COMPLETE / Wave 1 product packets: COMPLETE / Wave 2 product packets: IMPLEMENTED / VERIFICATION PASS IN PROGRESS**
+**Wave 0 — Reconnaissance: COMPLETE / Wave 1 product packets: COMPLETE / Wave 2 product packets: IMPLEMENTED / RELEASE BUILD VERIFIED / DEVICE QA PENDING**
 
 The first low-risk product packets are complete: Jvy Wallet identity, monthly savings, safe-to-spend, and emergency-fund coverage. The inherited Hilt unit-test aggregation stall remains a verification limitation; all four packets preserve import, database, package, and legacy data contracts.
 
@@ -134,15 +134,41 @@ Wave 2 now contains the three practical planning features from the current sprin
 - Official numbered demo APK: `Jvy_wallet_v0.2.3.apk` / Android version code `209`.
 - SHA-256: `0CE0BBA8B8D85F94FEB9175627D3F223CC9D3B885A9840B1362AC099242207A9`.
 
+**W2-UI-MASHUP — BudgetBakers-inspired modular Home: SUPERSEDED BY W2-HOME-FOCUS**
+
+- Inspected the supplied BudgetBakers Wallet 9.3.12 split bundle and screenshot from a read-only copy; the newer bundle targets API 36 and includes the arm64-v8a split needed by the Samsung S22 Ultra Snapdragon.
+- Used the useful product pattern—accounts-first orientation, independent dashboard cards, and user-controlled card visibility—while keeping Jvy's own calculations, visual language, privacy behavior, and Ivy import compatibility.
+- The earlier account snapshot experiment was intentionally removed from Home because the Accounts tab is the authoritative account surface.
+- Added a Home dashboard editor with stable card IDs, persisted DataStore visibility preferences, and a restore-defaults action.
+- Added grouped number formatting, hidden-balance masking, long-name ellipsis, 24dp internal card spacing, and a horizontal account strip to prevent the dense dashboard wall seen in the reference app.
+- Targeted verification passed: `:feature:home:testDebugUnitTest` with 27 tests and Home production compilation.
+- Reconnaissance record: `docs/recon/BUDGETBAKERS-UI-REFERENCE-AND-JVY-MASHUP.md`.
+- ADR: `docs/adr/0015-budgetbakers-inspired-modular-dashboard.md`.
+- Follow-up candidates: expense-structure card, planned-payments card, and drag-to-reorder after the visibility model proves useful on device.
+- Official numbered demo APK: `Jvy_wallet_v0.2.4.apk` / Android version code `210`.
+- APK SHA-256: `0910414CBC4EE3FBA6E0827447EE47250E6FC021A79B870E8A4FED550116EFD5`.
+
+**W2-HOME-FOCUS — Focused dashboard redesign: IMPLEMENTED / TARGETED VERIFIED**
+
+- Removed the redundant Home account snapshot and ignored the legacy `accounts` dashboard preference without a migration; Accounts remains unchanged.
+- Added adaptive `7D`, `30D`, `3M`, `6M`, and `12M` trends. Daily buckets use local dates; monthly buckets use explicit `YearMonth` identities. Pre-activity periods are gaps and post-activity quiet periods are zeroes.
+- Replaced large Home transaction cards with a compact, bounded recent-activity surface showing at most seven records, planned-payment actions, and a `View all` route. The full Transactions screen remains unchanged.
+- Added `Where your money went`: top three expense categories plus `Other`, ranked bars, grouped amounts, percentages, category colors, reports navigation, and an honest no-spending state.
+- Added pure breakdown tests and trend coverage for daily/monthly ranges, October 1 boundaries, sparse history, and single-period rendering.
+- Documentation updated: Mobile UI standards, BudgetBakers mash-up notes, ADR 0016, and this status file.
+- Verification: `:feature:home:compileDebugKotlin` and `:feature:home:testDebugUnitTest` pass with 34 tests completed; the Home Paparazzi report was generated; and the official demo APK build completed successfully. Samsung S22 Ultra QA remains pending because the local ADB daemon could not start.
+
 **RELEASE-STANDARD — Numbered APK generation: COMPLETE**
 
 - Added `version.properties` as the authoritative semantic version and Android version-code source.
 - Added `scripts/build-jvy-apk.ps1` as the only official workflow for APKs intended for installation, QA, sharing, or release.
 - Numbered artifacts use `Jvy_wallet_v<major>.<minor>.<patch>.apk`; the Android `versionCode` increases by one after each successful official build.
-- The current release is `0.2.3` / version code `209`; the next official patch build will be `0.2.4` / version code `210`.
+- The current release is `0.2.5` / version code `211`; the next official patch build will be `0.2.6` / version code `212`.
 - Failed builds do not consume numbers. Test and compile-only Gradle tasks do not consume numbers.
 - Documentation is in `README.md`, `AGENTS.md`, and `docs/standards/APK-GENERATION.md`.
 - Validation: APK script syntax passed; Home compile/unit/Paparazzi verification passed; and the official demo APK packaging completed successfully on 2026-10-15.
+- Current artifact: `artifacts/apk/Jvy_wallet_v0.2.5.apk`.
+- Current artifact SHA-256: `21D25E5CE77ED8BD98853985D057DF3AD23136E6639D476F4F2517E4938DD985`.
 
 ## Workspace
 

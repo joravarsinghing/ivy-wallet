@@ -25,7 +25,7 @@ The rules are:
 - A failed build does not consume a version number.
 - Version numbers are never reused after an APK has been successfully generated.
 
-The authoritative state is tracked in [`version.properties`](../../version.properties). The current release is `0.2.3` / version code `209`; the next patch APK is `Jvy_wallet_v0.2.4.apk` / version code `210`.
+The authoritative state is tracked in [`version.properties`](../../version.properties). The current release is `0.2.5` / version code `211`; the next patch APK is `Jvy_wallet_v0.2.6.apk` / version code `212`.
 
 ## Official build command
 

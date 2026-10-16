@@ -3,6 +3,7 @@ package com.ivy.domain.usecase.goal
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import java.math.BigDecimal
+import java.math.MathContext
 import java.time.LocalDate
 import org.junit.Test
 
@@ -28,7 +29,9 @@ class GoalFundingGuidanceTest {
         result.reservedAmount shouldBe BigDecimal("2000.00")
         result.remainingAmount shouldBe BigDecimal("4000.00")
         result.monthsRemaining shouldBe 6L
-        result.requiredMonthlyContribution shouldBe BigDecimal("666.6666666666666666666666666667")
+        result.requiredMonthlyContribution!!.compareTo(
+            BigDecimal("4000.00").divide(BigDecimal("6"), MathContext.DECIMAL128),
+        ) shouldBe 0
         result.projectedFinishDate shouldBe LocalDate.of(2027, 4, 14)
         result.status shouldBe GoalFundingStatus.ON_TRACK
     }

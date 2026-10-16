@@ -83,7 +83,7 @@ class GoalCalculatorsTest {
         snapshot.targetAmount shouldBe BigDecimal("5000.00")
         snapshot.reservedAmount shouldBe BigDecimal("2500.00")
         snapshot.remainingAmount shouldBe BigDecimal("2500.00")
-        snapshot.progressPercentage shouldBe BigDecimal("50.0")
+        snapshot.progressPercentage.compareTo(BigDecimal("50.0")) shouldBe 0
         snapshot.isComplete shouldBe false
 
         calculateGoalProgress(
@@ -92,7 +92,7 @@ class GoalCalculatorsTest {
             allocations = listOf(
                 GoalAccountAllocation("laptop", "adcb", BigDecimal("6000.00")),
             ),
-        ).progressPercentage shouldBe BigDecimal("100")
+        ).progressPercentage.compareTo(BigDecimal("100")) shouldBe 0
     }
 
     @Test

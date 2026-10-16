@@ -51,7 +51,9 @@ internal fun calculateEmergencyFundCoverage(
 ): EmergencyFundCoverage {
     val normalizedBuffer = protectedBuffer.max(BigDecimal.ZERO)
     val normalizedExpenses = monthlyExpenses.max(BigDecimal.ZERO)
-    val monthsCovered = if (normalizedExpenses.signum() == 0) {
+    val monthsCovered = if (
+        normalizedExpenses.signum() == 0 || normalizedBuffer.signum() == 0
+    ) {
         BigDecimal.ZERO
     } else {
         normalizedBuffer.divide(normalizedExpenses, 2, RoundingMode.HALF_UP)

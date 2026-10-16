@@ -347,7 +347,7 @@ class EditTransactionViewModel @Inject constructor(
             is EditTransactionViewEvent.OnAmountChanged -> onAmountChanged(event.newAmount)
             is EditTransactionViewEvent.OnCategoryChanged -> onCategoryChanged(event.newCategory)
             is EditTransactionViewEvent.SetRememberCategoryRule ->
-                setRememberCategoryRule(event.enabled)
+                updateRememberCategoryRule(event.enabled)
             is EditTransactionViewEvent.OnDescriptionChanged ->
                 onDescriptionChanged(event.newDescription)
 
@@ -698,7 +698,7 @@ class EditTransactionViewModel @Inject constructor(
         updateTitleSuggestions()
     }
 
-    private fun setRememberCategoryRule(enabled: Boolean) {
+    private fun updateRememberCategoryRule(enabled: Boolean) {
         rememberCategoryRule = enabled && showRememberCategoryRule
     }
 

@@ -1,14 +1,14 @@
 # Joravar Agentic Roadmap Status
 
-Last updated: 2026-10-14 (Asia/Dubai)
+Last updated: 2026-10-15 (Asia/Dubai)
 
 ## Current gate
 
-**Wave 0 — Reconnaissance: COMPLETE / Wave 1 product packets: COMPLETE / Wave 2 product packets: IN PROGRESS**
+**Wave 0 — Reconnaissance: COMPLETE / Wave 1 product packets: COMPLETE / Wave 2 product packets: IMPLEMENTED / VERIFICATION PASS IN PROGRESS**
 
 The first low-risk product packets are complete: Jvy Wallet identity, monthly savings, safe-to-spend, and emergency-fund coverage. The inherited Hilt unit-test aggregation stall remains a verification limitation; all four packets preserve import, database, package, and legacy data contracts.
 
-The first Wave 2 packet is now implemented: Goals/Saving Pools with account-level reservations. The packet preserves Ivy import compatibility and keeps reservations separate from transactions, balances, and net-worth history.
+Wave 2 now contains the three practical planning features from the current sprint: account-aware goals with reservations and funding guidance, a 30-day Money Coming Up forecast, and deterministic category memory rules. The features preserve Ivy import compatibility and keep reservations, projections, and category suggestions separate from ledger transactions.
 
 ## Wave 1 packet status
 
@@ -47,7 +47,7 @@ The first Wave 2 packet is now implemented: Goals/Saving Pools with account-leve
 - APK: `E:\AI\joravar-ivy-wallet\app\build\outputs\apk\demo\app-demo.apk`.
 - APK metadata label verified as `Jvy Wallet`; application ID remains `com.ivy.wallet.debug` for Ivy-compatible upgrades.
 
-**W2-GOALS — Goals and account reservations: IMPLEMENTED / VERIFICATION PENDING**
+**W2-GOALS — Goals, account reservations, and funding guidance: COMPLETE / TARGETED VERIFIED**
 
 - Added persisted goals for emergency funds, purchases, sinking funds, and custom targets.
 - Added multi-account allocations so a laptop, phone, or emergency fund can be funded from one or more named accounts without creating fake transactions.
@@ -58,10 +58,39 @@ The first Wave 2 packet is now implemented: Goals/Saving Pools with account-leve
 - Home safe-to-spend now subtracts actual active goal reservations. The legacy global buffer target is no longer treated as already-saved money, preventing false results such as `155 months covered` from a target alone.
 - UI implementation follows the mobile taste review: one clear primary action, generous spacing, high-contrast dark surfaces, cyan/green progress for healthy progress, amber for due-soon, and red only for blocked or invalid states.
 - Verification: `:app:assembleDemo --offline --no-daemon --no-configuration-cache --max-workers=2 -x :app:uploadCrashlyticsMappingFileDemo` passed on 2026-10-14.
-- Focused domain tests were started but reached the existing Hilt aggregation stall at `:shared:domain:hiltAggregateDepsDebugUnitTest`; they did not produce a pass/fail result.
+- Added deadline-aware funding guidance: remaining amount, required amount per whole month, and `Complete`, `Past due`, `Needs AED X/month`, or `No deadline` status.
+- Number formatting is grouped consistently for goal amounts and monthly requirements; goal screens retain the 24dp mobile content gutter.
+- Targeted verification passed: `:shared:domain:testDebugUnitTest` and `:feature:goals:testDebugUnitTest`, including Goals Paparazzi light/dark snapshots.
 - No connected Android device/emulator was available for an APK screenshot or interaction pass.
 - APK: `E:\AI\joravar-ivy-wallet\app\build\outputs\apk\demo\app-demo.apk`.
 - ADR: `docs/adr/0013-goals-and-account-reservations.md`.
+
+**W2-CASHFLOW — Money Coming Up forecast: COMPLETE / TARGETED VERIFIED**
+
+- Added a default 30-day forecast using current balances, active goal reservations, planned income, and planned expenses.
+- Forecast output includes available balance now, upcoming income, upcoming expenses, lowest projected available balance, projected shortfall, and forecast-based Safe to Spend.
+- Goal reservations are deducted once; unallocated goal targets do not reduce available money. Transfers are intentionally excluded from this first version.
+- Planned payments remain projections and the forecast never creates, edits, or skips transactions.
+- Added an expandable Home card titled `Money coming up`, with plain-language explanations and a safe fallback to the current goal-aware available balance when no events exist.
+- Targeted verification passed: `:shared:domain:testDebugUnitTest`, `:feature:home:testDebugUnitTest`, and Home debug/release Kotlin compilation.
+- Domain calculations use `BigDecimal`; legacy persisted `Double` values are adapted at the boundary.
+
+**W2-CATEGORY — Remember My Categories: COMPLETE / TARGETED VERIFIED**
+
+- Added offline Room-backed category rules created from edited transactions.
+- Rules normalize transaction titles, match case-insensitively by title substring, and choose deterministically by priority/specificity.
+- Future transaction entry can suggest or preselect the remembered category; historical transactions and Ivy imports are never silently rewritten.
+- Added disable/delete support and Room schema version 132 with an import-safe migration.
+- Targeted verification passed: `:feature:edit-transaction:testDebugUnitTest` and `:shared:data:core:testDebugUnitTest`.
+- No import mapping behavior was modified.
+
+**W2-INTEGRATION — Release candidate verification: COMPLETE / DEVICE QA PENDING**
+
+- Demo APK build passed on 2026-10-15 with `:app:assembleDemo --no-daemon --no-configuration-cache --max-workers=2 -x :app:uploadCrashlyticsMappingFileDemo`.
+- APK: `E:\AI\joravar-ivy-wallet\app\build\outputs\apk\demo\app-demo.apk`.
+- APK SHA-256: `1BE31B1455B778962751BDD95488F6A8EAEE79D79AA1C59D9FA7847DAC7CDADD`.
+- The full unfiltered/Hilt aggregation and Ivy import test suites remain inherited environment blockers; targeted feature tests and packaging pass.
+- No connected Samsung Galaxy S22 Ultra was available in this build environment, so Android 16 / One UI 8 interaction and screenshot QA remains pending.
 
 ## Workspace
 

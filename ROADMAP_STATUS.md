@@ -4,9 +4,23 @@ Last updated: 2026-10-13 (Asia/Dubai)
 
 ## Current gate
 
-**Wave 0 — Reconnaissance: COMPLETE / GATE BLOCKED ON TEST HARNESS**
+**Wave 0 — Reconnaissance: COMPLETE / Wave 1 branding packet: IN PROGRESS**
 
-The local Android build baseline is now available. Product implementation remains unauthorized until the Hilt unit-test aggregation stall is explained or explicitly accepted as a documented Gate 0 exception.
+The user has authorized the first low-risk product packet: Jvy Wallet identity and launcher branding. The inherited Hilt unit-test aggregation stall remains a gate for deeper financial-domain implementation; this packet deliberately leaves import, database, package, and calculation code unchanged.
+
+## Wave 1 packet status
+
+**W1-BRAND — Jvy Wallet identity: COMPLETE**
+
+- Visible release, demo, debug, onboarding, and transaction-reminder branding now says `Jvy Wallet`.
+- Launcher assets retain the existing resource paths and density matrix, with a red rotated mark for the adaptive, legacy, and monochrome variants.
+- `settings.gradle.kts` now identifies the root project as `JvyWallet`.
+- Android application ID remains `com.ivy.wallet.debug`; package names, database identifiers, and Ivy import/source identifiers were intentionally not migrated.
+- ADR: `docs/adr/0012-jvy-wallet-branding.md`.
+- Verification: `assembleDemo --offline --no-daemon --no-configuration-cache --max-workers=2 -x :app:uploadCrashlyticsMappingFileDemo` passed.
+- APK: `E:\AI\joravar-ivy-wallet\app\build\outputs\apk\demo\app-demo.apk`.
+- APK SHA-256: `861A34E6447A946CE837456D842D1A6DC6E1D8CC0A74E7350727D0043DD53670`.
+- APK metadata label verified as `Jvy Wallet`.
 
 ## Workspace
 
@@ -56,7 +70,7 @@ Recon agents must not edit production files, shared contracts, or control-plane 
 - [x] Baseline build and test commands executed or blocked with evidence.
 - [x] Source PRD and roadmap copied into a non-synced project-controlled location with matching hashes.
 - [x] Branch/worktree conventions and initial ADRs recorded.
-- [x] Wave 1 packets remain unstarted until this gate is satisfied.
+- [x] Wave 1 branding packet completed under the documented low-risk exception.
 
 ## Gate failures / blockers
 
@@ -73,10 +87,11 @@ Recon agents must not edit production files, shared contracts, or control-plane 
 - `docs/recon/R0-UI-FLOWS.md`
 - `docs/recon/R0-VERIFICATION.md`
 - `docs/adr/0001` through `docs/adr/0011`
+- `docs/adr/0012-jvy-wallet-branding.md`
 
 ## Next orchestrator actions
 
-1. Diagnose the Hilt unit-test aggregation stall, beginning with Gradle/Hilt worker diagnostics rather than application edits.
-2. Establish an emulator/device baseline for connected data/domain tests.
-3. Freeze ADR 0001–0010 at Gate 0 after reviewing package, money, time, DB, balance, module, backup, net-worth, and explainability decisions.
-4. Prepare Wave 1 packets only after the baseline gates pass or the user explicitly accepts a documented exception.
+1. Build and inspect the Jvy Wallet branding packet.
+2. Diagnose the Hilt unit-test aggregation stall, beginning with Gradle/Hilt worker diagnostics rather than application edits.
+3. Establish an emulator/device baseline for connected data/domain tests.
+4. Prepare the next Wave 1 packet only after the baseline gate is resolved or explicitly accepted.

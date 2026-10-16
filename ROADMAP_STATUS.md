@@ -104,6 +104,16 @@ Wave 2 now contains the three practical planning features from the current sprin
 - Updated demo APK built on 2026-10-15: `E:\AI\joravar-ivy-wallet\app\build\outputs\apk\demo\app-demo.apk`.
 - Updated APK SHA-256: `6C6B37F9B01EE723B9554FA4B20A724C3AB44E9258B7E93D1F24DE418215014B`.
 
+**RELEASE-STANDARD — Numbered APK generation: COMPLETE**
+
+- Added `version.properties` as the authoritative semantic version and Android version-code source.
+- Added `scripts/build-jvy-apk.ps1` as the only official workflow for APKs intended for installation, QA, sharing, or release.
+- Numbered artifacts use `Jvy_wallet_v<major>.<minor>.<patch>.apk`; the Android `versionCode` increases by one after each successful official build.
+- The current baseline is `0.2.0` / version code `206`; the next patch artifact is `Jvy_wallet_v0.2.1.apk` / version code `207`.
+- Failed builds do not consume numbers. Test and compile-only Gradle tasks do not consume numbers.
+- Documentation is in `README.md`, `AGENTS.md`, and `docs/standards/APK-GENERATION.md`.
+- Validation: APK script syntax passed and `:app:compileDemoKotlin` passed on 2026-10-15 without changing the baseline.
+
 ## Workspace
 
 - Working copy: `E:\AI\joravar-ivy-wallet`

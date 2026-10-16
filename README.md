@@ -39,15 +39,17 @@ The roadmap is intentionally staged so the app becomes more helpful without beco
 - Android Studio with the bundled JDK 17.
 - An Android device or emulator running a supported Android version.
 
-### Build a debug APK
+### Build a numbered APK
 
 From the repository root:
 
 ```powershell
-.\gradlew.bat :app:assembleDemo
+.\scripts\build-jvy-apk.ps1
 ```
 
-The generated APK is written under `app/build/outputs/apk/demo/`.
+This is the official APK workflow. It generates a successive artifact such as `Jvy_wallet_v0.2.1.apk` under `artifacts/apk/`, records the Android `versionCode`, and writes a checksum manifest beside it. Use `-Bump minor` for a feature release or `-Bump major` for an intentional compatibility-breaking release.
+
+Raw Gradle commands remain available for compilation and tests, but they do not allocate APK release numbers. See the [APK generation standard](docs/standards/APK-GENERATION.md) and [agent instructions](AGENTS.md).
 
 ### Run tests
 
@@ -62,6 +64,8 @@ Before changing import, balance, money, or reservation behavior, run the relevan
 - [Roadmap status](ROADMAP_STATUS.md)
 - [Developer guidelines](docs/guidelines/README.md)
 - [Goal and saving-pool plan](docs/plans/001-goals-and-saving-pools.md)
+- [APK generation standard](docs/standards/APK-GENERATION.md)
+- [Agent instructions](AGENTS.md)
 - [Contributing guide](CONTRIBUTING.md)
 - [License](LICENSE)
 

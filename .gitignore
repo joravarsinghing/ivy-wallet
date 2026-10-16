@@ -21,6 +21,7 @@ out/
 .gradle/
 build/
 **/build/
+artifacts/apk/
 
 **/.DS_Store
 

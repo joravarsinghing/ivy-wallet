@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -11,6 +13,21 @@ plugins {
     id("io.gitlab.arturbosch.detekt")
 }
 
+val persistedVersion = Properties().apply {
+    val versionFile = rootProject.file("version.properties")
+    if (versionFile.exists()) {
+        versionFile.inputStream().use { load(it) }
+    }
+}
+
+val appVersionName = providers.gradleProperty("jvyVersionName")
+    .orElse(persistedVersion.getProperty("versionName") ?: libs.versions.version.name.get())
+    .get()
+val appVersionCode = providers.gradleProperty("jvyVersionCode")
+    .orElse(persistedVersion.getProperty("versionCode") ?: libs.versions.version.code.get())
+    .get()
+    .toInt()
+
 android {
     namespace = "com.ivy.wallet"
     compileSdk = libs.versions.compile.sdk.get().toInt()
@@ -19,8 +36,8 @@ android {
         applicationId = "com.ivy.wallet"
         minSdk = libs.versions.min.sdk.get().toInt()
         targetSdk = libs.versions.compile.sdk.get().toInt()
-        versionName = libs.versions.version.name.get()
-        versionCode = libs.versions.version.code.get().toInt()
+        versionName = appVersionName
+        versionCode = appVersionCode
     }
 
     androidResources {

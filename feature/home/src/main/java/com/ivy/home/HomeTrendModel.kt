@@ -74,7 +74,9 @@ sealed interface HomeTrendPeriodIdentity {
 enum class HomeTrendMetric(val label: String) {
     INCOME("Income"),
     EXPENSES("Spent"),
-    SAVINGS("Saved"),
+    // Kept as SAVINGS for DataStore compatibility. This is income minus spending,
+    // not money moved into a savings account.
+    SAVINGS("Net change"),
 }
 
 @Immutable

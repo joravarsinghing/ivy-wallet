@@ -27,7 +27,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -293,8 +292,6 @@ private fun BoxWithConstraintsScope.UI(
         val listState = rememberScrollPositionListState(
             key = "item_stats_lazy_column"
         )
-        val density = LocalDensity.current
-
         val timeProvider = LocalTimeProvider.current
         val timeConverter = LocalTimeConverter.current
         val timeFormatter = LocalTimeFormatter.current
@@ -302,7 +299,7 @@ private fun BoxWithConstraintsScope.UI(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .padding(top = 16.dp)
+                .padding(top = 8.dp)
                 .clip(UI.shapes.r1Top)
                 .background(UI.colors.pure)
                 .testTag("item_stats_lazy_column"),
@@ -414,9 +411,7 @@ private fun BoxWithConstraintsScope.UI(
                 setOverdueExpanded = setOverdueExpanded,
 
                 history = history,
-                lastItemSpacer = with(density) {
-                    (ivyContext.screenHeight * 0.7f).toDp()
-                },
+                lastItemSpacer = 112.dp,
 
                 onPayOrGet = onPayOrGet,
                 onSkipTransaction = onSkipTransaction,
@@ -619,7 +614,7 @@ private fun Header(
     Column(
         modifier = Modifier.background(itemColor)
     ) {
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(12.dp))
 
         val hideEditAndDeleteButtonForAccountTransfer =
             !allTransactions && screen.transactions.none { it.type == TransactionType.TRANSFER }
@@ -632,7 +627,7 @@ private fun Header(
             showDeleteButton = hideEditAndDeleteButtonForAccountTransfer,
         )
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(16.dp))
 
         Item(
             contrastColor = contrastColor,
@@ -645,7 +640,7 @@ private fun Header(
 
         BalanceRow(
             modifier = Modifier
-                .padding(start = 32.dp)
+                .padding(start = 24.dp)
                 .testTag("balance")
                 .clickableNoIndication(rememberInteractionSource()) {
                     onBalanceClick()
@@ -666,7 +661,7 @@ private fun Header(
         if (currency != baseCurrency && balanceBaseCurrency != null) {
             BalanceRowMedium(
                 modifier = Modifier
-                    .padding(start = 32.dp)
+                    .padding(start = 24.dp)
                     .clickableNoIndication(rememberInteractionSource()) {
                         onBalanceClick()
                     },
@@ -684,7 +679,7 @@ private fun Header(
             )
         }
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(12.dp))
 
         val nav = navigation()
         IncomeExpensesCards(

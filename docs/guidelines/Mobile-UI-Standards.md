@@ -61,6 +61,23 @@ These standards apply to new and modified Android screens, sheets, dialogs, and 
 - A spending breakdown uses ranked horizontal bars: top three categories plus `Other`, amount and percentage, existing category colors, and an honest empty state when no categorized expenses exist. Do not add a second donut or duplicate forecast card.
 - Every Home card answers one question and has one primary destination/action. Card visibility preferences may hide optional cards but must never change financial calculations.
 
+## Cross-screen density baseline
+
+- The newer Home interface is the baseline for Accounts, Goals, Transactions, Reports, Budgets, Planned Payments, and Settings: normal-sized controls, readable hierarchy, and useful information visible without excessive scrolling.
+- Use a 24dp page gutter, 16dp standard card inset, 12–16dp section spacing, and 8dp spacing for related values. Reserve 24dp+ spacing for real section transitions.
+- Prefer compact rows, inline summaries, and expandable details over large colored cards that repeat the same information. A card should earn its surface by communicating hierarchy or an action.
+- Keep primary amounts prominent but avoid display-sized numbers for every row. Use tabular/grouped money formatting and right-align comparable numeric values.
+- Accounts should show balance, reserved, and available money in a compact hierarchy; the Accounts tab remains authoritative and Home should not duplicate account cards.
+- Goals should lead with progress, remaining amount, deadline guidance, and account allocations without oversized hero panels. Use a smaller summary surface and denser goal rows.
+- Full transaction history may be denser than Home activity, but it must retain comfortable touch targets, compact date grouping, and enough bottom inset for navigation controls.
+- Redesigns must not change navigation destinations, ledger calculations, import behavior, backup format, hidden-balance rules, or goal reservation semantics.
+- For each redesigned screen, verify empty, loading, error, long-name, large-number, hidden-balance, and bottom-navigation states before release.
+
+## Trend metric semantics
+
+- `Net change` means income minus spending for the selected period. It must not be labeled `Saved`, because it does not prove that money was moved into a savings account.
+- A true balance trend must use end-of-period account balances; do not substitute net change or duplicate the current balance until historical balance calculation is available.
+
 ## Screenshot review checklist
 
 Before merging a UI change, inspect a current-device screenshot for:

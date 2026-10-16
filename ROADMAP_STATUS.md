@@ -180,17 +180,24 @@ Wave 2 now contains the three practical planning features from the current sprin
 - Fixed transaction month navigation mutating the shared legacy `selectedPeriod` used by Home. History now uses a local pure month cursor, so switching to September and returning Home cannot move or corrupt the Home trend anchor.
 - Focused Home/Transactions compilation and Home tests pass; the official numbered demo APK is `Jvy_wallet_v0.2.9.apk` / Android version code `215`.
 
+**W2-DENSITY-REDESIGN — Cross-screen normal-density UI: IMPLEMENTED / TARGETED VERIFIED**
+
+- Applied the newer Home density baseline to Accounts, Goals, and the full Transactions shell: reduced oversized spacing and amounts, tightened summary/goal rows, reduced decorative border weight, removed the transaction-screen height-based spacer, and preserved navigation/action targets.
+- Renamed the trend and monthly summary `Saved` metric to `Net change` while keeping the persisted `SAVINGS` key for DataStore compatibility. The value remains income minus spending and is no longer presented as money actually set aside.
+- Updated `docs/guidelines/Mobile-UI-Standards.md` with cross-screen density and trend-semantics rules for future UI work.
+- Targeted compilation, Home tests, and official APK packaging passed. Device screenshot QA remains pending.
+
 **RELEASE-STANDARD — Numbered APK generation: COMPLETE**
 
 - Added `version.properties` as the authoritative semantic version and Android version-code source.
 - Added `scripts/build-jvy-apk.ps1` as the only official workflow for APKs intended for installation, QA, sharing, or release.
 - Numbered artifacts use `Jvy_wallet_v<major>.<minor>.<patch>.apk`; the Android `versionCode` increases by one after each successful official build.
-- The current release is `0.2.9` / version code `215`; the next official patch build will be `0.2.10` / version code `216`.
+- The current release is `0.2.10` / version code `216`; the next official patch build will be `0.2.11` / version code `217`.
 - Failed builds do not consume numbers. Test and compile-only Gradle tasks do not consume numbers.
 - Documentation is in `README.md`, `AGENTS.md`, and `docs/standards/APK-GENERATION.md`.
-- Validation: APK script syntax passed; Home compile/unit/Paparazzi verification passed; and the official demo APK packaging completed successfully on 2026-10-15.
-- Current artifact: `artifacts/apk/Jvy_wallet_v0.2.9.apk`.
-- Current artifact SHA-256: `3D6E6CF1084A27CFA21753307C762460148873C214EE82FC292F3940D98784B9`.
+- Validation: APK script syntax passed; Accounts, Goals, Home, and Transactions debug compilation passed; Home unit/Paparazzi verification passed; and the official demo APK packaging completed successfully on 2026-10-15.
+- Current artifact: `artifacts/apk/Jvy_wallet_v0.2.10.apk`.
+- Current artifact SHA-256: `3D6802135EF1F567376322F7552AC76A0F216423B357D17FE7D2C50FEB5B230D`.
 
 ## Workspace
 

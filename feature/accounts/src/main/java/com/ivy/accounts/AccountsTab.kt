@@ -108,7 +108,7 @@ private fun BoxWithConstraintsScope.UI(
         state = listState
     ) {
         item {
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(24.dp))
 
             Row(
                 verticalAlignment = Alignment.CenterVertically
@@ -174,7 +174,7 @@ private fun BoxWithConstraintsScope.UI(
         }
 
         item {
-            Spacer(Modifier.height(150.dp)) // scroll hack
+            Spacer(Modifier.height(112.dp))
         }
     }
 
@@ -212,10 +212,10 @@ private fun AccountCard(
 ) {
     Column(
         modifier = Modifier
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 24.dp)
             .fillMaxWidth()
             .clip(UI.shapes.r4)
-            .border(2.dp, UI.colors.medium, UI.shapes.r4)
+            .border(1.dp, UI.colors.medium, UI.shapes.r4)
             .clickable(
                 onClick = onClick
             )
@@ -233,7 +233,7 @@ private fun AccountCard(
         )
 
         if (!compactModeEnabled) {
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
 
             IncomeExpensesRow(
                 currency = currency,
@@ -243,7 +243,7 @@ private fun AccountCard(
                 expenses = accountData.monthlyExpenses
             )
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
 
             IncomeExpensesRow(
                 currency = currency,
@@ -253,7 +253,7 @@ private fun AccountCard(
                 expenses = (accountData.balance - accountData.reservedForGoals).coerceAtLeast(0.0)
             )
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
         }
     }
 }
@@ -273,12 +273,12 @@ private fun AccountHeader(
             .fillMaxWidth()
             .background(account.color.value.toComposeColor(), UI.shapes.r4Top)
     ) {
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(12.dp))
 
         Row(
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Spacer(Modifier.width(20.dp))
+            Spacer(Modifier.width(16.dp))
 
             ItemIconSDefaultIcon(
                 iconName = account.icon?.id,
@@ -308,11 +308,12 @@ private fun AccountHeader(
             }
         }
 
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(2.dp))
 
         BalanceRow(
             modifier = Modifier
-                .align(Alignment.CenterHorizontally)
+                .align(Alignment.Start)
+                .padding(horizontal = 16.dp)
                 .clickableNoIndication(rememberInteractionSource()) {
                     onBalanceClick()
                 },
@@ -320,8 +321,8 @@ private fun AccountHeader(
             currency = currency,
             balance = accountData.balance,
 
-            balanceFontSize = 30.sp,
-            currencyFontSize = 30.sp,
+            balanceFontSize = 24.sp,
+            currencyFontSize = 24.sp,
 
             currencyUpfront = false
         )
@@ -341,7 +342,7 @@ private fun AccountHeader(
             )
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(12.dp))
     }
 }
 

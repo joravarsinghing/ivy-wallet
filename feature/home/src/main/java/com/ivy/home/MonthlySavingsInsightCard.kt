@@ -122,7 +122,7 @@ fun MonthlySavingsInsightCard(
             )
             MonthlyMetric(
                 modifier = Modifier.weight(1f),
-                label = "Saved",
+                label = "Net change",
                 amount = insight.savings,
                 color = if (insight.status == MonthlySavingsStatus.SAVING) Green else UI.colors.pureInverse,
             )

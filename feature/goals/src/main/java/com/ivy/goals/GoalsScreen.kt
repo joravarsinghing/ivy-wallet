@@ -83,7 +83,7 @@ fun BoxWithConstraintsScope.GoalsScreenContent(
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 112.dp)
         ) {
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(16.dp))
             Text(
                 text = "Goals",
                 style = UI.typo.h2.style(
@@ -96,7 +96,7 @@ fun BoxWithConstraintsScope.GoalsScreenContent(
                 text = "Give your money a job, then watch it get there.",
                 style = UI.typo.b2.style(color = UI.colors.gray)
             )
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(16.dp))
 
             ReservedSummary(
                 reservedAmount = goals.sumOf { it.savedAmount },
@@ -104,7 +104,7 @@ fun BoxWithConstraintsScope.GoalsScreenContent(
                 goalsCount = goals.count { it.status == GoalStatus.ACTIVE }
             )
 
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(20.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -204,9 +204,9 @@ private fun ReservedSummary(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(18.dp))
             .background(UI.colors.primary)
-            .padding(20.dp)
+            .padding(16.dp)
     ) {
         Text(
             text = "Reserved for goals",
@@ -218,7 +218,7 @@ private fun ReservedSummary(
         Spacer(Modifier.height(10.dp))
         Text(
             text = money(reservedAmount, currency),
-            style = UI.typo.h1.style(
+            style = UI.typo.h2.style(
                 color = UI.colors.pureInverse,
                 fontWeight = FontWeight.ExtraBold
             )
@@ -257,16 +257,16 @@ private fun GoalCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(16.dp))
             .background(UI.colors.medium)
             .clickable(onClick = onClick)
-            .padding(18.dp)
+            .padding(14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(14.dp))
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(12.dp))
                     .background(accent.copy(alpha = 0.18f)),
                 contentAlignment = Alignment.Center
             ) {
@@ -275,7 +275,7 @@ private fun GoalCard(
                     style = UI.typo.b1.style(color = accent, fontWeight = FontWeight.ExtraBold)
                 )
             }
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = goal.name,
@@ -300,9 +300,9 @@ private fun GoalCard(
             )
         }
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(12.dp))
         ProgressTrack(progress = goal.progress, color = accent)
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = "Reserved ${money(guidance.reservedAmount.toDouble(), goal.currency)}",
@@ -314,7 +314,7 @@ private fun GoalCard(
                 style = UI.typo.c.style(color = UI.colors.gray)
             )
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = guidance.displayLabel(goal.currency),
@@ -327,7 +327,7 @@ private fun GoalCard(
                 textAlign = TextAlign.End
             )
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             val accountNames = goal.allocations.mapNotNull { allocation ->
                 accounts.firstOrNull { it.id == allocation.accountId }?.name
@@ -346,14 +346,14 @@ internal fun ProgressTrack(progress: Float, color: Color) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(8.dp)
+            .height(6.dp)
             .clip(RoundedCornerShape(50))
             .background(UI.colors.gray.copy(alpha = 0.25f))
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth(progress)
-                .height(8.dp)
+                .height(6.dp)
                 .clip(RoundedCornerShape(50))
                 .background(color)
         )

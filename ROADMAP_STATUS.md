@@ -202,12 +202,12 @@ Wave 2 now contains the three practical planning features from the current sprin
 - Added `version.properties` as the authoritative semantic version and Android version-code source.
 - Added `scripts/build-jvy-apk.ps1` as the only official workflow for APKs intended for installation, QA, sharing, or release.
 - Numbered artifacts use `Jvy_wallet_v<major>.<minor>.<patch>.apk`; the Android `versionCode` increases by one after each successful official build.
-- The current release is `0.2.11` / version code `217`; the next official patch build will be `0.2.12` / version code `218`.
+- The current release is `0.2.12` / version code `218`; the next official patch build will increment to `0.2.13` / version code `219`.
 - Failed builds do not consume numbers. Test and compile-only Gradle tasks do not consume numbers.
 - Documentation is in `README.md`, `AGENTS.md`, and `docs/standards/APK-GENERATION.md`.
 - Validation: APK script syntax passed; Accounts, Goals, Home, and Transactions debug compilation passed; Home unit/Paparazzi verification passed; and the official demo APK packaging completed successfully on 2026-10-15.
-- Current artifact: `artifacts/apk/Jvy_wallet_v0.2.11.apk`.
-- Current artifact SHA-256: `0C55852B61B0FAD19F7EB8B0091BF5FDDC1EDAC1F8EAA1DE00371D4ECB158BB9`.
+- Current artifact: `artifacts/apk/Jvy_wallet_v0.2.12.apk`.
+- Current artifact SHA-256: `436B32CF129C1B7ABBE22E8393C08DC27149BE51488D708F0F824D6F304CDC3B`.
 
 ## Workspace
 

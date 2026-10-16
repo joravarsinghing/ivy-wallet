@@ -96,7 +96,7 @@
         <service
             android:name=".PaymentTileService"
             android:exported="true"
-            android:icon="@drawable/ic_launcher_foreground"
+            android:icon="@drawable/jvy_wallet_mark_white"
             android:label="Add Payment"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>

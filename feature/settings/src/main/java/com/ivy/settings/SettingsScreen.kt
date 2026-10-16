@@ -338,7 +338,7 @@ private fun BoxWithConstraintsScope.UI(
                 lockApp = showNotifications,
                 onSetLockApp = onSetShowNotifications,
                 text = stringResource(R.string.show_notifications),
-                icon = R.drawable.ic_notification_m
+                icon = R.drawable.jvy_wallet_notification_white
             )
 
             Spacer(Modifier.height(12.dp))

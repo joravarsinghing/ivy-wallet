@@ -35,6 +35,15 @@ These standards apply to new and modified Android screens, sheets, dialogs, and 
 - Labels, helper text, and buttons must remain readable at normal device scale.
 - Use copy that describes the accounting truth. Goal allocations are **reserved**, not **saved** or transferred, unless a real transaction occurred.
 
+## Jvy logo and icon variants
+
+- Use the Jvy color logo for the app launcher, onboarding, marketing renders, and other surfaces where the mark is the primary visual identity.
+- Use the Jvy monochrome mark for Android adaptive-icon monochrome layers, notifications, quick settings, and small system surfaces. It must be a single-color silhouette with transparent negative space; do not tint or reuse the full color tile at runtime.
+- Use the black mark on white for documentation, print, and high-contrast light surfaces. Use the white mark on transparent or dark surfaces.
+- Do not use the inherited Ivy/V logo in new UI, launcher metadata, notifications, onboarding, or marketing assets. Legacy resource files may remain only when they are not active references.
+- Keep one canonical color master and derive variants from it so silhouette, cutout placement, and safe-area padding stay consistent across densities.
+- Verify launcher foreground and monochrome assets on both circular and squircle masks. The mark must remain recognizable without relying on the white tile or a surrounding shadow.
+
 ## Home insight cards and trends
 
 - A Home insight card must answer a different question from the balance and cash-flow header. Do not repeat the same current-period total as a second “insight.” Use a trend, explanation, or next action instead.

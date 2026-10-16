@@ -138,6 +138,9 @@ class BackupDataUseCase @Inject constructor(
         hashmap[SharedPrefs.HIDE_CURRENT_BALANCE] =
             sharedPrefs.getBoolean(SharedPrefs.HIDE_CURRENT_BALANCE, false).toString()
 
+        hashmap[SharedPrefs.HIDE_INCOME] =
+            sharedPrefs.getBoolean(SharedPrefs.HIDE_INCOME, false).toString()
+
         hashmap[SharedPrefs.TRANSFERS_AS_INCOME_EXPENSE] =
             sharedPrefs.getBoolean(SharedPrefs.TRANSFERS_AS_INCOME_EXPENSE, false).toString()
 
@@ -298,6 +301,11 @@ class BackupDataUseCase @Inject constructor(
             sharedPrefs.putBoolean(
                 SharedPrefs.HIDE_CURRENT_BALANCE,
                 (completeData.sharedPrefs[SharedPrefs.HIDE_CURRENT_BALANCE] ?: "false").toBoolean()
+            )
+
+            sharedPrefs.putBoolean(
+                SharedPrefs.HIDE_INCOME,
+                (completeData.sharedPrefs[SharedPrefs.HIDE_INCOME] ?: "false").toBoolean()
             )
 
             sharedPrefs.putBoolean(

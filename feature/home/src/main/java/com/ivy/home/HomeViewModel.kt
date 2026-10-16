@@ -92,6 +92,7 @@ class HomeViewModel @Inject constructor(
     private val updateCategoriesCacheAct: UpdateCategoriesCacheAct,
     private val syncExchangeRatesUseCase: SyncExchangeRatesUseCase,
     private val transactionMapper: TransactionMapper,
+    private val moneyComingUpAdapter: MoneyComingUpAdapter,
     private val timeProvider: TimeProvider,
     private val timeConverter: TimeConverter,
     private val features: Features
@@ -134,6 +135,7 @@ class HomeViewModel @Inject constructor(
     private var hideBalance by mutableStateOf(false)
     private var hideIncome by mutableStateOf(false)
     private var expanded by mutableStateOf(true)
+    private var moneyComingUp by mutableStateOf(MoneyComingUpState())
 
     @Composable
     override fun uiState(): HomeState {
@@ -156,7 +158,8 @@ class HomeViewModel @Inject constructor(
             hideBalance = getHideBalance(),
             expanded = getExpanded(),
             hideIncome = getHideIncome(),
-            shouldShowAccountSpecificColorInTransactions = getShouldShowAccountSpecificColorInTransactions()
+            shouldShowAccountSpecificColorInTransactions = getShouldShowAccountSpecificColorInTransactions(),
+            moneyComingUp = moneyComingUp,
         )
     }
 
@@ -293,7 +296,7 @@ class HomeViewModel @Inject constructor(
             ).toUTCCloseTimeRange()
         )
     } then ::loadAppBaseData then ::loadIncomeExpenseBalance then
-            ::loadBuffer then ::loadTrnHistory then
+            ::loadBuffer then ::loadMoneyComingUp then ::loadTrnHistory then
             ::loadDueTrns thenInvokeAfter ::loadCustomerJourney
 
     private suspend fun loadAppBaseData(
@@ -364,6 +367,17 @@ class HomeViewModel @Inject constructor(
         )
 
         return settings.baseCurrency to timeRange
+    }
+
+    private suspend fun loadMoneyComingUp(
+        input: Pair<String, ClosedTimeRange>
+    ): Pair<String, ClosedTimeRange> {
+        moneyComingUp = moneyComingUpAdapter.load(
+            openingBalance = balance,
+            baseCurrency = input.first,
+            accounts = baseData.accounts.toList(),
+        )
+        return input
     }
 
     private suspend fun loadTrnHistory(

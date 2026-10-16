@@ -31,6 +31,7 @@ import com.ivy.base.legacy.stringRes
 import com.ivy.design.api.LocalTimeConverter
 import com.ivy.design.api.LocalTimeFormatter
 import com.ivy.design.api.LocalTimeProvider
+import com.ivy.domain.usecase.cashflow.PlannedCashflowType
 import com.ivy.frp.forward
 import com.ivy.frp.then2
 import com.ivy.home.Constants.SWIPE_HORIZONTAL_THRESHOLD
@@ -165,6 +166,7 @@ fun BoxWithConstraintsScope.HomeUi(
             },
             balance = uiState.balance,
             protectedBuffer = uiState.buffer.amount,
+            moneyComingUp = uiState.moneyComingUp,
             onOpenMoreMenu = {
                 setMoreMenuExpanded(true)
             },
@@ -297,6 +299,7 @@ fun HomeLazyColumn(
     overdue: LegacyDueSection,
     balance: BigDecimal,
     protectedBuffer: BigDecimal,
+    moneyComingUp: MoneyComingUpState,
     stats: IncomeExpensePair,
     history: ImmutableList<TransactionHistoryItem>,
 
@@ -385,6 +388,16 @@ fun HomeLazyColumn(
         }
 
         item {
+            Spacer(Modifier.height(16.dp))
+
+            MoneyComingUpCard(
+                state = moneyComingUp,
+                currency = baseData.baseCurrency,
+                hideBalance = hideBalance,
+            )
+        }
+
+        item {
             CustomerJourney(
                 customerJourneyCards = customerJourneyCards,
                 onDismiss = onDismiss
@@ -453,7 +466,27 @@ private fun BoxWithConstraintsScope.PreviewHomeTab(isDark: Boolean = false) {
                 hideBalance = false,
                 hideIncome = false,
                 expanded = false,
-                shouldShowAccountSpecificColorInTransactions = false
+                shouldShowAccountSpecificColorInTransactions = false,
+                moneyComingUp = MoneyComingUpState(
+                    status = MoneyComingUpStatus.CONTENT,
+                    currentAvailable = BigDecimal("1200.00"),
+                    upcomingIncome = BigDecimal("1500.00"),
+                    upcomingExpenses = BigDecimal("800.00"),
+                    lowestProjectedAvailable = BigDecimal("900.00"),
+                    safeToSpend = BigDecimal("900.00"),
+                    events = persistentListOf(
+                        MoneyComingUpEvent(
+                            date = java.time.LocalDate.of(2023, 1, 15),
+                            type = PlannedCashflowType.INCOME,
+                            amount = BigDecimal("1500.00"),
+                        ),
+                        MoneyComingUpEvent(
+                            date = java.time.LocalDate.of(2023, 1, 20),
+                            type = PlannedCashflowType.EXPENSE,
+                            amount = BigDecimal("800.00"),
+                        ),
+                    ),
+                )
             ),
             onEvent = {}
         )

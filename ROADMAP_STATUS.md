@@ -68,7 +68,7 @@ The first Wave 2 packet is now implemented: Goals/Saving Pools with account-leve
 - Working copy: `E:\AI\joravar-ivy-wallet`
 - Upstream remote: `https://github.com/Ivy-Apps/ivy-wallet.git`
 - GitHub fork: `https://github.com/joravarsinghing/ivy-wallet` (forked from `Ivy-Apps/ivy-wallet`)
-- Published branch: `joravar/wave-0-control-plane` at commit `ca92c0310`.
+- Published branch: `joravar/wave-0-control-plane` at commit `a61d81849`.
 - Initial branch: `main` tracking `upstream/main`
 - Fork control branch: `joravar/wave-0-control-plane`
 - Integration base before control-plane docs: `710733dbe4729a437d573cdfb8429c50e617ded1`

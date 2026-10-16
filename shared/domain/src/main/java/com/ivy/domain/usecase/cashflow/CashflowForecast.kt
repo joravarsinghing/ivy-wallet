@@ -78,7 +78,9 @@ fun calculateCashflowForecast(request: CashflowForecastRequest): CashflowForecas
         .sortedWith(compareBy<PlannedCashflowEntry>({ it.date }, { it.id }))
         .groupBy { it.date }
 
-    val reservations = request.reservations.fold(BigDecimal.ZERO, BigDecimal::add)
+    val reservations = request.reservations.fold(BigDecimal.ZERO) { total, reservation ->
+        total.add(reservation.amount)
+    }
     var closingBalance = request.openingBalance.subtract(reservations)
     val days = (0 until CASHFLOW_FORECAST_DAYS).map { offset ->
         val date = request.openingDate.plusDays(offset.toLong())

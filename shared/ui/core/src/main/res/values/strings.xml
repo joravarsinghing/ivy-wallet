@@ -97,8 +97,11 @@
     <string name="hi_name">Hi %1$s</string>
     <string name="cashflow">Cashflow: %1$s%2$s %3$s</string>
     <string name="search_transactions">Search transactions...</string>
-    <string name="ivy_wallet_open_source">Ivy Wallet is open-source</string>
+    <string name="ivy_wallet_open_source">Jvy Wallet is open-source</string>
+    <string name="jvy_wallet_open_source">Jvy Wallet is open-source</string>
     <string name="savings_goal">Savings goal</string>
+    <string name="reserved_for_goals">Reserved for goals</string>
+    <string name="goals">Goals</string>
     <string name="quick_access">Quick access</string>
     <string name="settings">Settings</string>
     <string name="light_mode">Light mode</string>
@@ -106,7 +109,8 @@
     <string name="amoled_mode">AMOLED Dark mode</string>
     <string name="auto_mode">Auto mode</string>
     <string name="planned_payments">Planned\nPayments</string>
-    <string name="share_ivy">Share Ivy</string>
+    <string name="share_ivy">Share Jvy</string>
+    <string name="share_jvy">Share Jvy</string>
     <string name="reports">Reports</string>
     <string name="loans">Loans</string>
     <string name="set_currency">Set currency</string>
@@ -250,7 +254,7 @@
     <string name="hide_income_description">Tap on the hidden income to reveal it for 5s</string>
     <string name="other">Other</string>
     <string name="rate_us_on_google_play">Rate us on Google Play</string>
-    <string name="share_ivy_wallet">Share Ivy Wallet</string>
+    <string name="share_ivy_wallet">Share Jvy Wallet</string>
     <string name="product">Product</string>
     <string name="danger_zone">Danger zone</string>
     <string name="delete_all_user_data">Delete all user data</string>

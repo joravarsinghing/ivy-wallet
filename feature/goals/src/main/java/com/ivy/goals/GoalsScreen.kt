@@ -201,7 +201,7 @@ private fun ReservedSummary(
             .padding(20.dp)
     ) {
         Text(
-            text = "Money with a job",
+            text = "Reserved for goals",
             style = UI.typo.b2.style(
                 color = UI.colors.pureInverse,
                 fontWeight = FontWeight.Bold
@@ -223,6 +223,11 @@ private fun ReservedSummary(
                 "$goalsCount active ${if (goalsCount == 1) "goal" else "goals"}"
             },
             style = UI.typo.c.style(color = UI.colors.pureInverse)
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "Excluded from Safe to Spend while reserved.",
+            style = UI.typo.c.style(color = UI.colors.pureInverse.copy(alpha = 0.82f))
         )
     }
 }
@@ -288,7 +293,7 @@ private fun GoalCard(
         Spacer(Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "${(goal.progress * 100).toInt()}% saved",
+                text = "${(goal.progress * 100).toInt()}% reserved",
                 style = UI.typo.c.style(color = accent, fontWeight = FontWeight.Bold)
             )
             Spacer(Modifier.weight(1f))

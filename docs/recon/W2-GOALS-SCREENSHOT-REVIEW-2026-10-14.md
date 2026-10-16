@@ -107,13 +107,24 @@ The detail sheet only offers `Reserve money` and `Done`. Future iterations need 
 
 ## Follow-up implementation order
 
-1. Replace the legacy More-menu Savings goal row with Goals-aware copy and navigation.
-2. Fix modal safe horizontal padding and verify on small and large Android widths.
-3. Add a dedicated Goals icon and rebalance Quick access layout.
-4. Correct fork branding and attribution links in the More menu.
-5. Add goal monthly contribution and on-track calculations.
-6. Add category-linked goal semantics only after contribution rules are specified.
-7. Add lifecycle actions and historical progress snapshots.
+## Fixes implemented in this pass
+
+The first four screenshot-driven fixes are now implemented in the app:
+
+1. The More menu no longer exposes the legacy `Savings goal` editor as if it were the Goals system. It now shows `Reserved for goals`, explains that reservations are excluded from Safe to Spend, and opens Goals.
+2. The Goals detail, add, and reserve sheets now apply a consistent horizontal inset to prevent the left-edge clipping visible in the screenshot.
+3. Quick access is now a balanced three-column grid with a dedicated Goals icon instead of an isolated third-row item reusing the Budgets icon.
+4. The visible More-menu fork branding and share/open-source destination now use Jvy Wallet and the Jvy fork URL.
+5. Goal progress and detail copy now say `reserved` rather than `saved`, matching the current account-reservation behavior and avoiding the implication that a transfer or transaction occurred.
+
+The demo APK build completed successfully after these changes. Runtime visual validation on the Samsung S22 Ultra remains pending installation of this new APK.
+
+### Remaining follow-up order
+
+1. Install the new APK and verify the More menu, goal sheets, and goals list on Android 16 / One UI 8.
+2. Add goal monthly contribution and on-track calculations.
+3. Add category-linked goal semantics only after contribution rules are specified.
+4. Add lifecycle actions and historical progress snapshots.
 
 ## Source references inspected
 

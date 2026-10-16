@@ -93,7 +93,7 @@ private fun AddGoalContent(onCreated: (Goal) -> Unit) {
     var deadline by remember { mutableStateOf("") }
     var type by remember { mutableStateOf(GoalType.PURCHASE) }
 
-    Column {
+    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
         Spacer(Modifier.height(8.dp))
         ModalTitle(text = "Create a goal")
         Spacer(Modifier.height(20.dp))
@@ -203,7 +203,7 @@ private fun GoalDetailContent(
     accounts: List<GoalAccount>,
     onReserve: () -> Unit
 ) {
-    Column {
+    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
         Spacer(Modifier.height(8.dp))
         ModalTitle(text = goal.name)
         Spacer(Modifier.height(6.dp))
@@ -213,7 +213,7 @@ private fun GoalDetailContent(
         )
         Spacer(Modifier.height(20.dp))
         Text(
-            text = "${money(goal.savedAmount, goal.currency)} saved",
+            text = "${money(goal.savedAmount, goal.currency)} reserved",
             style = UI.typo.h2.style(
                 color = UI.colors.pureInverse,
                 fontWeight = FontWeight.ExtraBold
@@ -273,7 +273,7 @@ private fun ReserveMoneyContent(
     }
     var amounts by remember(goal.id) { mutableStateOf(existing) }
 
-    Column {
+    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
         Spacer(Modifier.height(8.dp))
         ModalTitle(text = "Reserve for ${goal.name}")
         Spacer(Modifier.height(6.dp))

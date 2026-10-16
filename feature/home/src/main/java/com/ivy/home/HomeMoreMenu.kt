@@ -36,7 +36,6 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.layout
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -77,7 +76,6 @@ import com.ivy.navigation.navigation
 import com.ivy.ui.R
 import com.ivy.wallet.ui.theme.Blue
 import com.ivy.wallet.ui.theme.Gray
-import com.ivy.wallet.ui.theme.components.BufferBattery
 import com.ivy.wallet.ui.theme.components.CircleButtonFilled
 import com.ivy.wallet.ui.theme.components.IvyIcon
 import com.ivy.wallet.ui.theme.modal.AddModalBackHandling
@@ -252,11 +250,10 @@ private fun ColumnScope.Content(
 
     Spacer(Modifier.height(40.dp))
 
-    Buffer(
-        buffer = buffer,
+    GoalsSummary(
+        reservedAmount = buffer,
         currency = currency,
-        balance = balance,
-        onBufferClick = onBufferClick
+        onOpenGoals = { nav.navigateTo(GoalsScreen) }
     )
 
     Spacer(Modifier.height(16.dp))
@@ -315,7 +312,7 @@ private fun ColumnScope.OpenSource() {
             .clickable {
                 openUrl(
                     uriHandler = uriHandler,
-                    url = Constants.URL_IVY_WALLET_REPO
+                    url = Constants.URL_JVY_WALLET_REPO
                 )
             }
             .padding(vertical = 12.dp),
@@ -333,7 +330,7 @@ private fun ColumnScope.OpenSource() {
                 .padding(start = 16.dp, end = 24.dp)
         ) {
             Text(
-                text = stringResource(R.string.ivy_wallet_open_source),
+                text = stringResource(R.string.jvy_wallet_open_source),
                 style = UI.typo.b2.style(
                     fontWeight = FontWeight.ExtraBold
                 )
@@ -342,7 +339,7 @@ private fun ColumnScope.OpenSource() {
             Spacer(Modifier.height(4.dp))
 
             Text(
-                text = Constants.URL_IVY_WALLET_REPO,
+                text = Constants.URL_JVY_WALLET_REPO,
                 style = UI.typo.c.style(
                     fontWeight = FontWeight.ExtraBold,
                     color = Blue
@@ -353,51 +350,40 @@ private fun ColumnScope.OpenSource() {
 }
 
 @Composable
-private fun ColumnScope.Buffer(
-    buffer: Double,
+private fun ColumnScope.GoalsSummary(
+    reservedAmount: Double,
     currency: String,
-    balance: Double,
-    onBufferClick: () -> Unit
+    onOpenGoals: () -> Unit
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickableNoIndication(rememberInteractionSource()) {
-                onBufferClick()
-            }
-            .testTag("savings_goal_row"),
-        verticalAlignment = Alignment.CenterVertically
+            .clip(UI.shapes.r4)
+            .background(UI.colors.pure)
+            .clickable(onClick = onOpenGoals)
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+            .testTag("goals_summary_row"),
     ) {
-        Spacer(Modifier.width(24.dp))
-
-        Text(
-            text = stringResource(R.string.savings_goal),
-            style = UI.typo.b1.style(
-                color = UI.colors.pureInverse,
-                fontWeight = FontWeight.ExtraBold
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(R.string.reserved_for_goals),
+                style = UI.typo.b1.style(
+                    color = UI.colors.pureInverse,
+                    fontWeight = FontWeight.ExtraBold
+                )
             )
+            Spacer(Modifier.weight(1f))
+            AmountCurrencyB1(
+                amount = reservedAmount,
+                currency = currency,
+                amountFontWeight = FontWeight.ExtraBold
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "Reserved in goals and excluded from Safe to Spend. Tap to manage.",
+            style = UI.typo.c.style(color = UI.colors.gray)
         )
-
-        Spacer(Modifier.weight(1f))
-
-        AmountCurrencyB1(
-            amount = buffer,
-            currency = currency,
-            amountFontWeight = FontWeight.ExtraBold
-        )
-
-        Spacer(Modifier.width(32.dp))
-    }
-
-    Spacer(Modifier.height(12.dp))
-
-    BufferBattery(
-        modifier = Modifier.padding(horizontal = 16.dp),
-        buffer = buffer,
-        currency = currency,
-        balance = balance,
-    ) {
-        onBufferClick()
     }
 }
 
@@ -417,32 +403,15 @@ private fun QuickAccess(
 
         Spacer(Modifier.height(16.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Start,
-            verticalAlignment = Alignment.Top
-        ) {
-            Spacer(Modifier.weight(1f))
-
-            MoreMenuButton(
-                icon = R.drawable.home_more_menu_settings,
-                label = stringResource(R.string.settings)
-            ) {
+        val rootScreen = rootScreen()
+        val items = listOf(
+            QuickAccessItem(R.drawable.home_more_menu_settings, stringResource(R.string.settings)) {
                 nav.navigateTo(SettingsScreen)
-            }
-
-            Spacer(Modifier.weight(1f))
-
-            MoreMenuButton(
-                icon = R.drawable.home_more_menu_categories,
-                label = stringResource(R.string.categories)
-            ) {
+            },
+            QuickAccessItem(R.drawable.home_more_menu_categories, stringResource(R.string.categories)) {
                 nav.navigateTo(CategoriesScreen)
-            }
-
-            Spacer(Modifier.weight(1f))
-
-            MoreMenuButton(
+            },
+            QuickAccessItem(
                 icon = when (theme) {
                     Theme.LIGHT -> R.drawable.home_more_menu_light_mode
                     Theme.DARK -> R.drawable.home_more_menu_dark_mode
@@ -457,111 +426,63 @@ private fun QuickAccess(
                 },
                 backgroundColor = when (theme) {
                     Theme.LIGHT -> UI.colors.pure
-                    Theme.DARK -> UI.colors.pureInverse
-                    Theme.AMOLED_DARK -> UI.colors.pureInverse
+                    Theme.DARK, Theme.AMOLED_DARK -> UI.colors.pureInverse
                     Theme.AUTO -> UI.colors.pure
                 },
                 tint = when (theme) {
-                    Theme.LIGHT -> UI.colors.pureInverse
-                    Theme.DARK -> UI.colors.pure
-                    Theme.AMOLED_DARK -> UI.colors.pure
-                    Theme.AUTO -> UI.colors.pureInverse
-                }
-            ) {
-                onSwitchTheme()
-            }
-
-            Spacer(Modifier.weight(1f))
-
-            MoreMenuButton(
-                icon = R.drawable.home_more_menu_planned_payments,
-                label = stringResource(R.string.planned_payments)
-            ) {
+                    Theme.LIGHT, Theme.AUTO -> UI.colors.pureInverse
+                    Theme.DARK, Theme.AMOLED_DARK -> UI.colors.pure
+                },
+                onClick = onSwitchTheme
+            ),
+            QuickAccessItem(R.drawable.home_more_menu_planned_payments, stringResource(R.string.planned_payments)) {
                 nav.navigateTo(PlannedPaymentsScreen)
-            }
-
-            Spacer(Modifier.weight(1f))
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        // Second Row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Start,
-            verticalAlignment = Alignment.Top
-        ) {
-            Spacer(Modifier.weight(1f))
-
-            val context = LocalContext.current
-//        MoreMenuButton(
-//            icon = R.drawable.home_more_menu_reports,
-//            label = "Charts"
-//        ) {
-//            ivyContext.navigateTo(Screen.Charts)
-//        }
-
-            val rootScreen = rootScreen()
-            MoreMenuButton(
-                icon = R.drawable.home_more_menu_share,
-                label = stringResource(R.string.share_ivy)
-            ) {
+            },
+            QuickAccessItem(R.drawable.home_more_menu_share, stringResource(R.string.share_jvy)) {
                 rootScreen.shareIvyWallet()
-            }
-
-            Spacer(Modifier.weight(1f))
-
-            MoreMenuButton(
-                icon = R.drawable.home_more_menu_reports,
-                label = stringResource(R.string.reports),
-            ) {
+            },
+            QuickAccessItem(R.drawable.home_more_menu_reports, stringResource(R.string.reports)) {
                 nav.navigateTo(ReportScreen)
-            }
-
-            Spacer(Modifier.weight(1f))
-
-            MoreMenuButton(
-                icon = R.drawable.home_more_menu_budgets,
-                label = stringResource(R.string.budgets),
-            ) {
+            },
+            QuickAccessItem(R.drawable.home_more_menu_budgets, stringResource(R.string.budgets)) {
                 nav.navigateTo(BudgetScreen)
-            }
-
-            Spacer(Modifier.weight(1f))
-
-            MoreMenuButton(
-                icon = R.drawable.home_more_menu_loans,
-                label = stringResource(R.string.loans),
-            ) {
+            },
+            QuickAccessItem(R.drawable.home_more_menu_loans, stringResource(R.string.loans)) {
                 nav.navigateTo(LoansScreen)
-            }
-
-            Spacer(Modifier.weight(1f))
-        }
-
-        Spacer(Modifier.height(24.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Start,
-            verticalAlignment = Alignment.Top
-        ) {
-            Spacer(Modifier.weight(1f))
-
-            MoreMenuButton(
-                icon = R.drawable.home_more_menu_budgets,
-                label = "Goals",
-            ) {
+            },
+            QuickAccessItem(R.drawable.home_more_menu_goals, stringResource(R.string.goals)) {
                 nav.navigateTo(GoalsScreen)
             }
+        )
 
-            Spacer(Modifier.weight(1f))
-            Spacer(Modifier.weight(1f))
-            Spacer(Modifier.weight(1f))
-            Spacer(Modifier.weight(1f))
+        items.chunked(3).forEachIndexed { index, rowItems ->
+            if (index > 0) Spacer(Modifier.height(20.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.Top
+            ) {
+                rowItems.forEach { item ->
+                    MoreMenuButton(
+                        icon = item.icon,
+                        label = item.label,
+                        backgroundColor = item.backgroundColor,
+                        tint = item.tint,
+                        onClick = item.onClick
+                    )
+                }
+            }
         }
     }
 }
+
+private data class QuickAccessItem(
+    @DrawableRes val icon: Int,
+    val label: String,
+    val backgroundColor: Color = Color.Black,
+    val tint: Color = Color.White,
+    val onClick: () -> Unit
+)
 
 @Composable
 private fun MoreMenuButton(

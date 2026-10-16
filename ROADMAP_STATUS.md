@@ -141,9 +141,22 @@ Recon agents must not edit production files, shared contracts, or control-plane 
 
 ## Next orchestrator actions
 
-1. Replace the legacy More-menu Savings goal editor with a Goals-aware summary and navigation; keep the old buffer value only as an import/migration compatibility field.
-2. Fix goal-sheet horizontal clipping, add a distinct Goals icon, and rebalance the Quick access grid.
-3. Correct remaining Jvy branding and attribution links in the More menu.
-4. Install the demo APK on the Samsung Galaxy S22 Ultra test device and validate create-goal, multi-account allocation, edit, and delete flows visually across Android 16 / One UI 8.
-5. Diagnose the Hilt unit-test aggregation stall, beginning with Gradle/Hilt worker diagnostics rather than application edits.
-6. Add category-scoped savings rules only after contribution semantics are specified.
+1. Install the new demo APK on the Samsung Galaxy S22 Ultra test device and validate the More menu, goal sheets, create-goal, multi-account allocation, edit, and delete flows visually across Android 16 / One UI 8.
+2. Diagnose the Hilt unit-test aggregation stall, beginning with Gradle/Hilt worker diagnostics rather than application edits.
+3. Add goal monthly contribution and on-track calculations.
+4. Add category-scoped savings rules only after contribution semantics are specified.
+5. Add goal lifecycle actions and historical progress snapshots.
+
+## Screenshot-fix verification
+
+The following screenshot-driven fixes are implemented on the current branch and included in the successful demo build:
+
+- More menu uses the Goals reservation summary and opens the Goals screen.
+- Goals quick access uses a balanced three-column layout and a dedicated target icon.
+- Goal sheets have safe horizontal padding.
+- Goal copy consistently describes account reservations rather than saved transactions.
+- Visible fork sharing/open-source copy points to Jvy Wallet and `joravarsinghing/ivy-wallet`.
+
+Build command: `:app:assembleDemo --offline --no-daemon --no-configuration-cache --max-workers=2 -x :app:uploadCrashlyticsMappingFileDemo`
+
+Build result: `BUILD SUCCESSFUL` on 2026-10-14. Device validation is still pending because the connected Samsung test device was not available to the build environment.

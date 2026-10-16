@@ -14,6 +14,7 @@ import com.ivy.base.time.TimeConverter
 import com.ivy.base.time.TimeProvider
 import com.ivy.data.model.primitive.AssetCode
 import com.ivy.data.repository.CategoryRepository
+import com.ivy.data.repository.GoalRepository
 import com.ivy.data.repository.mapper.TransactionMapper
 import com.ivy.domain.features.Features
 import com.ivy.domain.usecase.exchange.SyncExchangeRatesUseCase
@@ -78,6 +79,7 @@ class HomeViewModel @Inject constructor(
     private val settingsAct: SettingsAct,
     private val accountsAct: AccountsAct,
     private val categoryRepository: CategoryRepository,
+    private val goalRepository: GoalRepository,
     private val calcBufferDiffAct: CalcBufferDiffAct,
     private val upcomingAct: UpcomingAct,
     private val overdueAct: OverdueAct,
@@ -343,12 +345,20 @@ class HomeViewModel @Inject constructor(
     ): Pair<String, ClosedTimeRange> {
         val (settings, timeRange, balance) = input
 
+        // The old global bufferAmount was a target, not money that actually existed.
+        // Safe-to-spend now subtracts only real account reservations made in Goals.
+        // This keeps a target such as AED 50,000 from becoming fictitious cash or
+        // producing the old "155 months covered" result.
+        val reservedForGoals = goalRepository.findActiveGoals()
+            .flatMap { goalRepository.findAllocations(it.id) }
+            .sumOf { allocation -> BigDecimal.valueOf(allocation.reservedAmount) }
+
         buffer = BufferInfo(
-            amount = settings.bufferAmount,
+            amount = reservedForGoals,
             bufferDiff = calcBufferDiffAct(
                 CalcBufferDiffAct.Input(
                     balance = balance,
-                    buffer = settings.bufferAmount
+                    buffer = reservedForGoals
                 )
             )
         )

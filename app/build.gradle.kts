@@ -131,6 +131,7 @@ dependencies {
     implementation(projects.feature.editTransaction)
     implementation(projects.feature.exchangeRates)
     implementation(projects.feature.features)
+    implementation(projects.feature.goals)
     implementation(projects.feature.home)
     implementation(projects.feature.importData)
     implementation(projects.feature.loans)

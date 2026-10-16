@@ -6,6 +6,8 @@ import com.ivy.data.db.dao.read.AccountDao
 import com.ivy.data.db.dao.read.BudgetDao
 import com.ivy.data.db.dao.read.CategoryDao
 import com.ivy.data.db.dao.read.ExchangeRatesDao
+import com.ivy.data.db.dao.read.GoalAllocationDao
+import com.ivy.data.db.dao.read.GoalDao
 import com.ivy.data.db.dao.read.LoanDao
 import com.ivy.data.db.dao.read.LoanRecordDao
 import com.ivy.data.db.dao.read.PlannedPaymentRuleDao
@@ -18,6 +20,8 @@ import com.ivy.data.db.dao.write.WriteAccountDao
 import com.ivy.data.db.dao.write.WriteBudgetDao
 import com.ivy.data.db.dao.write.WriteCategoryDao
 import com.ivy.data.db.dao.write.WriteExchangeRatesDao
+import com.ivy.data.db.dao.write.WriteGoalAllocationDao
+import com.ivy.data.db.dao.write.WriteGoalDao
 import com.ivy.data.db.dao.write.WriteLoanDao
 import com.ivy.data.db.dao.write.WriteLoanRecordDao
 import com.ivy.data.db.dao.write.WritePlannedPaymentRuleDao
@@ -102,6 +106,12 @@ object RoomDbModule {
     }
 
     @Provides
+    fun provideGoalDao(db: IvyRoomDatabase): GoalDao = db.goalDao
+
+    @Provides
+    fun provideGoalAllocationDao(db: IvyRoomDatabase): GoalAllocationDao = db.goalAllocationDao
+
+    @Provides
     fun provideExchangeRatesDao(
         roomDatabase: IvyRoomDatabase
     ): ExchangeRatesDao {
@@ -162,4 +172,12 @@ object RoomDbModule {
     fun provideWriteTagAssociationDao(db: IvyRoomDatabase): WriteTagAssociationDao {
         return db.writeTagAssociationDao
     }
+
+    @Provides
+    fun provideWriteGoalDao(db: IvyRoomDatabase): WriteGoalDao = db.writeGoalDao
+
+    @Provides
+    fun provideWriteGoalAllocationDao(db: IvyRoomDatabase): WriteGoalAllocationDao =
+        db.writeGoalAllocationDao
+
 }

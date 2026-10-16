@@ -67,6 +67,7 @@ import com.ivy.legacy.utils.verticalSwipeListener
 import com.ivy.navigation.BudgetScreen
 import com.ivy.navigation.CategoriesScreen
 import com.ivy.navigation.IvyPreview
+import com.ivy.navigation.GoalsScreen
 import com.ivy.navigation.LoansScreen
 import com.ivy.navigation.PlannedPaymentsScreen
 import com.ivy.navigation.ReportScreen
@@ -535,6 +536,28 @@ private fun QuickAccess(
                 nav.navigateTo(LoansScreen)
             }
 
+            Spacer(Modifier.weight(1f))
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.Top
+        ) {
+            Spacer(Modifier.weight(1f))
+
+            MoreMenuButton(
+                icon = R.drawable.home_more_menu_budgets,
+                label = "Goals",
+            ) {
+                nav.navigateTo(GoalsScreen)
+            }
+
+            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.weight(1f))
             Spacer(Modifier.weight(1f))
         }
     }

@@ -4,9 +4,11 @@ Last updated: 2026-10-14 (Asia/Dubai)
 
 ## Current gate
 
-**Wave 0 — Reconnaissance: COMPLETE / Wave 1 product packets: COMPLETE**
+**Wave 0 — Reconnaissance: COMPLETE / Wave 1 product packets: COMPLETE / Wave 2 product packets: IN PROGRESS**
 
 The first low-risk product packets are complete: Jvy Wallet identity, monthly savings, safe-to-spend, and emergency-fund coverage. The inherited Hilt unit-test aggregation stall remains a verification limitation; all four packets preserve import, database, package, and legacy data contracts.
+
+The first Wave 2 packet is now implemented: Goals/Saving Pools with account-level reservations. The packet preserves Ivy import compatibility and keeps reservations separate from transactions, balances, and net-worth history.
 
 ## Wave 1 packet status
 
@@ -44,6 +46,22 @@ The first low-risk product packets are complete: Jvy Wallet identity, monthly sa
 - Verification: `assembleDemo --offline --no-daemon --no-configuration-cache --max-workers=2 -x :app:uploadCrashlyticsMappingFileDemo` passed on 2026-10-14.
 - APK: `E:\AI\joravar-ivy-wallet\app\build\outputs\apk\demo\app-demo.apk`.
 - APK metadata label verified as `Jvy Wallet`; application ID remains `com.ivy.wallet.debug` for Ivy-compatible upgrades.
+
+**W2-GOALS — Goals and account reservations: IMPLEMENTED / VERIFICATION PENDING**
+
+- Added persisted goals for emergency funds, purchases, sinking funds, and custom targets.
+- Added multi-account allocations so a laptop, phone, or emergency fund can be funded from one or more named accounts without creating fake transactions.
+- Added exact reservation, remaining-target, per-account-available, safe-to-spend, goal-progress, and emergency-month calculations in the domain layer.
+- Added Room schema version 131 with an import-safe migration from version 130; existing Ivy tables and import identifiers are unchanged.
+- Added a Goals destination, goal cards, create-goal flow, goal details, and reserve-money flow to the Jvy Wallet UI.
+- Reserve-money UI shows the amount still available after other goals have blocked money in the same account; allocations are clamped to available account capacity.
+- Home safe-to-spend now subtracts actual active goal reservations. The legacy global buffer target is no longer treated as already-saved money, preventing false results such as `155 months covered` from a target alone.
+- UI implementation follows the mobile taste review: one clear primary action, generous spacing, high-contrast dark surfaces, cyan/green progress for healthy progress, amber for due-soon, and red only for blocked or invalid states.
+- Verification: `:app:assembleDemo --offline --no-daemon --no-configuration-cache --max-workers=2 -x :app:uploadCrashlyticsMappingFileDemo` passed on 2026-10-14.
+- Focused domain tests were started but reached the existing Hilt aggregation stall at `:shared:domain:hiltAggregateDepsDebugUnitTest`; they did not produce a pass/fail result.
+- No connected Android device/emulator was available for an APK screenshot or interaction pass.
+- APK: `E:\AI\joravar-ivy-wallet\app\build\outputs\apk\demo\app-demo.apk`.
+- ADR: `docs/adr/0013-goals-and-account-reservations.md`.
 
 ## Workspace
 
@@ -98,6 +116,7 @@ Recon agents must not edit production files, shared contracts, or control-plane 
 - [x] Wave 1 branding packet completed under the documented low-risk exception.
 - [x] Wave 1 monthly savings insight completed with import-safe integration.
 - [x] Wave 1 safe-to-spend and emergency-fund insights completed with import-safe integration.
+- [x] Wave 2 Goals/Saving Pools domain, persistence, navigation, and initial UI packet implemented.
 
 ## Gate failures / blockers
 
@@ -105,6 +124,7 @@ Recon agents must not edit production files, shared contracts, or control-plane 
 - The focused compatibility run reaches `:feature:import-data:hiltAggregateDepsDebugUnitTest` and reproduces the same stall, so Ivy import tests have not completed.
 - The first unfiltered `assembleDemo` run completed local build/shrink/package work but failed at the external `:app:uploadCrashlyticsMappingFileDemo` task because DNS could not resolve `firebasecrashlyticssymbols.googleapis.com`.
 - No emulator/device baseline was established, so connected instrumentation remains unrun.
+- The Goals/Saving Pools focused unit-test run reaches `:shared:domain:hiltAggregateDepsDebugUnitTest` and stalls like the existing repository-wide test runs.
 
 ## Reconnaissance records
 
@@ -115,9 +135,10 @@ Recon agents must not edit production files, shared contracts, or control-plane 
 - `docs/recon/R0-VERIFICATION.md`
 - `docs/adr/0001` through `docs/adr/0011`
 - `docs/adr/0012-jvy-wallet-branding.md`
+- `docs/adr/0013-goals-and-account-reservations.md`
 
 ## Next orchestrator actions
 
-1. Diagnose the Hilt unit-test aggregation stall, beginning with Gradle/Hilt worker diagnostics rather than application edits.
-2. Establish an emulator/device baseline for connected data/domain tests.
-3. Prepare the next packet only after the baseline gate is resolved or explicitly accepted.
+1. Install the demo APK on a connected emulator/device and validate create-goal, multi-account allocation, edit, and delete flows visually.
+2. Diagnose the Hilt unit-test aggregation stall, beginning with Gradle/Hilt worker diagnostics rather than application edits.
+3. Add category-scoped savings rules and recurring contribution suggestions after the account-reservation behavior is validated.

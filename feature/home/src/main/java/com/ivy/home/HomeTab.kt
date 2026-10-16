@@ -385,16 +385,6 @@ fun HomeLazyColumn(
         }
 
         item {
-            Spacer(Modifier.height(16.dp))
-
-            EmergencyFundCoverageCard(
-                protectedBuffer = protectedBuffer,
-                monthlyExpenses = stats.expense,
-                currency = baseData.baseCurrency,
-            )
-        }
-
-        item {
             CustomerJourney(
                 customerJourneyCards = customerJourneyCards,
                 onDismiss = onDismiss

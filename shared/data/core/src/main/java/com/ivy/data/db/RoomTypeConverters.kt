@@ -8,6 +8,7 @@ import com.ivy.base.model.LoanRecordType
 import com.ivy.base.model.TransactionType
 import com.ivy.data.model.IntervalType
 import com.ivy.data.model.LoanType
+import com.ivy.data.db.entity.GoalKind
 import java.time.Instant
 import java.time.LocalDateTime
 import java.util.*
@@ -63,4 +64,10 @@ class RoomTypeConverters {
     @TypeConverter
     fun parseLoanRecordType(value: String?): LoanRecordType? =
         value?.let { LoanRecordType.valueOf(it) }
+
+    @TypeConverter
+    fun saveGoalKind(value: GoalKind?): String? = value?.name
+
+    @TypeConverter
+    fun parseGoalKind(value: String?): GoalKind? = value?.let { GoalKind.valueOf(it) }
 }

@@ -23,6 +23,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -99,6 +101,11 @@ class RootActivity : AppCompatActivity(), RootScreen {
         setContent {
             val viewModel: RootViewModel = viewModel()
             val isSystemInDarkTheme = isSystemInDarkTheme()
+            // Read the mutable legacy theme once at the root so the entire app observes the
+            // same value. Recreating the design wrapper at each call site can otherwise leave
+            // parts of the navigation tree with colors from the previous theme.
+            val activeTheme = ivyContext.theme
+            val ivyDesign = remember(ivyContext) { appDesign(ivyContext) }
 
             LaunchedEffect(isSystemInDarkTheme) {
                 viewModel.start(isSystemInDarkTheme, intent)
@@ -109,35 +116,41 @@ class RootActivity : AppCompatActivity(), RootScreen {
                 null -> { // display nothing
                 }
                 true -> {
-                    IvyUI(
-                        design = appDesign(ivyContext),
-                        timeConverter = timeConverter,
-                        timeProvider = timeProvider,
-                        timeFormatter = timeFormatter,
-                    ) {
-                        AppLockedScreen(
-                            onShowOSBiometricsModal = {
-                                authenticateWithOSBiometricsModal(
-                                    biometricPromptCallback = viewModel.handleBiometricAuthResult()
-                                )
-                            },
-                            onContinueWithoutAuthentication = {
-                                viewModel.unlockApp()
-                            }
-                        )
-                    }
-                }
-
-                false -> {
-                    NavigationRoot(navigation = navigation) { screen ->
+                    key(activeTheme) {
                         IvyUI(
-                            design = appDesign(ivyContext),
-                            includeSurface = screen?.isLegacy ?: true,
+                            design = ivyDesign,
                             timeConverter = timeConverter,
                             timeProvider = timeProvider,
                             timeFormatter = timeFormatter,
                         ) {
-                            IvyNavGraph(screen)
+                            AppLockedScreen(
+                                onShowOSBiometricsModal = {
+                                    authenticateWithOSBiometricsModal(
+                                        biometricPromptCallback = viewModel.handleBiometricAuthResult()
+                                    )
+                                },
+                                onContinueWithoutAuthentication = {
+                                    viewModel.unlockApp()
+                                }
+                            )
+                        }
+                    }
+                }
+
+                false -> {
+                    // Keep NavigationRoot alive so the current route survives a theme switch,
+                    // but recreate the themed screen subtree to discard stale colors.
+                    NavigationRoot(navigation = navigation) { screen ->
+                        key(activeTheme) {
+                            IvyUI(
+                                design = ivyDesign,
+                                includeSurface = screen?.isLegacy ?: true,
+                                timeConverter = timeConverter,
+                                timeProvider = timeProvider,
+                                timeFormatter = timeFormatter,
+                            ) {
+                                IvyNavGraph(screen)
+                            }
                         }
                     }
                 }
@@ -145,10 +158,10 @@ class RootActivity : AppCompatActivity(), RootScreen {
 
             IvyMaterial3Theme(
                 dark = isDarkThemeEnabled(
-                    ivyDesign = appDesign(ivyContext),
+                    ivyDesign = ivyDesign,
                     systemDarkTheme = isSystemInDarkTheme
                 ),
-                isTrueBlack = appDesign(ivyContext).context().theme == Theme.AMOLED_DARK
+                isTrueBlack = activeTheme == Theme.AMOLED_DARK
             ) {
                 dateTimePicker.Content()
             }

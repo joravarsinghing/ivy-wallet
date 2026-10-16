@@ -85,7 +85,7 @@ fun OnboardingSetName(
                 ),
             painter = painterResource(id = R.drawable.jvy_wallet_logo),
             contentScale = ContentScale.FillBounds,
-            contentDescription = "Ivy Wallet logo"
+            contentDescription = "Jvy Wallet logo"
         )
 
         Spacer(Modifier.height(40.dp))

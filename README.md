@@ -119,6 +119,31 @@ flowchart LR
 
 ---
 
+## 🔄 Bring your history with you
+
+Jvy Wallet keeps the import path local and explicit. Choose the source format, select its exported CSV, review the result, and import only what you recognize. Full Jvy/Ivy backup JSON and ZIP restores are also supported, including UTF-8 and UTF-16 files.
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/assets/importers/ivy-wallet.png" alt="Ivy Wallet" width="56" /><br/><sub>Ivy Wallet</sub></td>
+    <td align="center"><img src="docs/assets/importers/money-manager.png" alt="Money Manager" width="56" /><br/><sub>Money Manager</sub></td>
+    <td align="center"><img src="docs/assets/importers/budgetbakers-wallet.png" alt="Wallet by BudgetBakers" width="56" /><br/><sub>Wallet</sub></td>
+    <td align="center"><img src="docs/assets/importers/spendee.png" alt="Spendee" width="56" /><br/><sub>Spendee</sub></td>
+    <td align="center"><img src="docs/assets/importers/monefy.png" alt="Monefy" width="56" /><br/><sub>Monefy</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/assets/importers/one-money.png" alt="1Money" width="56" /><br/><sub>1Money</sub></td>
+    <td align="center"><img src="docs/assets/importers/bluecoins.png" alt="Bluecoins" width="56" /><br/><sub>Bluecoins</sub></td>
+    <td align="center"><img src="docs/assets/importers/ktw-money-manager.png" alt="Money Manager by KTW" width="56" /><br/><sub>KTW Money Manager</sub></td>
+    <td align="center"><img src="docs/assets/importers/fortune-city.png" alt="Fortune City" width="56" /><br/><sub>Fortune City</sub></td>
+    <td align="center"><img src="docs/assets/importers/financisto.png" alt="Financisto" width="56" /><br/><sub>Financisto</sub></td>
+  </tr>
+</table>
+
+Manual CSV import remains available for files from other apps. Source-app logos in this section identify import formats only; they are not Jvy branding. See the [import compatibility notes](docs/import-compatibility/README.md) for the evidence and current verification status of each format.
+
+---
+
 ## 📸 Screenshots
 
 > *All screenshots use an illustrative "John Doe" dataset. No real finances are shown.*

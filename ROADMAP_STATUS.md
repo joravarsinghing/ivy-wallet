@@ -136,9 +136,13 @@ Recon agents must not edit production files, shared contracts, or control-plane 
 - `docs/adr/0001` through `docs/adr/0011`
 - `docs/adr/0012-jvy-wallet-branding.md`
 - `docs/adr/0013-goals-and-account-reservations.md`
+- `docs/recon/W2-GOALS-SCREENSHOT-REVIEW-2026-10-14.md`
 
 ## Next orchestrator actions
 
-1. Install the demo APK on a connected emulator/device and validate create-goal, multi-account allocation, edit, and delete flows visually.
-2. Diagnose the Hilt unit-test aggregation stall, beginning with Gradle/Hilt worker diagnostics rather than application edits.
-3. Add category-scoped savings rules and recurring contribution suggestions after the account-reservation behavior is validated.
+1. Replace the legacy More-menu Savings goal editor with a Goals-aware summary and navigation; keep the old buffer value only as an import/migration compatibility field.
+2. Fix goal-sheet horizontal clipping, add a distinct Goals icon, and rebalance the Quick access grid.
+3. Correct remaining Jvy branding and attribution links in the More menu.
+4. Install the demo APK on a connected emulator/device and validate create-goal, multi-account allocation, edit, and delete flows visually.
+5. Diagnose the Hilt unit-test aggregation stall, beginning with Gradle/Hilt worker diagnostics rather than application edits.
+6. Add category-scoped savings rules only after contribution semantics are specified.

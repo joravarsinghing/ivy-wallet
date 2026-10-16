@@ -379,7 +379,9 @@ class HomeViewModel @Inject constructor(
                 year = monthDate.year,
             )
             val monthRange = monthPeriod.toRange(
-                startDateOfMonth = ivyContext.startDayOfMonth,
+                // Trends are calendar-month views. The user's custom budgeting period must not
+                // relabel an October 1 transaction as a September trend point.
+                startDateOfMonth = 1,
                 timeConverter = timeConverter,
                 timeProvider = timeProvider,
             ).toUTCCloseTimeRange()

@@ -126,12 +126,20 @@ Wave 2 now contains the three practical planning features from the current sprin
 - Focused verification passed: Home Kotlin compilation, Home unit tests, and Home Paparazzi recording.
 - Official numbered demo APK: `Jvy_wallet_v0.2.2.apk` / Android version code `208`; packaging completed successfully after the sparse-data fix.
 
+**W2-HOME-TRENDS-DATE-AND-LOADING — Calendar boundaries and stable refresh: IMPLEMENTED / VERIFIED**
+
+- Trend periods now use true calendar-month boundaries (`1st` through the end of the month), independent of a user's custom budgeting-period start day. This prevents an October 1 transaction from appearing under a September-labeled trend period.
+- Range changes retain the previous chart while the new range is calculated and show a compact `Updating` overlay instead of replacing the chart with a short loading message and collapsing the card.
+- Added a Paparazzi fixture for the range-change loading state; focused compile, unit tests, and snapshot recording passed.
+- Official numbered demo APK: `Jvy_wallet_v0.2.3.apk` / Android version code `209`.
+- SHA-256: `0CE0BBA8B8D85F94FEB9175627D3F223CC9D3B885A9840B1362AC099242207A9`.
+
 **RELEASE-STANDARD — Numbered APK generation: COMPLETE**
 
 - Added `version.properties` as the authoritative semantic version and Android version-code source.
 - Added `scripts/build-jvy-apk.ps1` as the only official workflow for APKs intended for installation, QA, sharing, or release.
 - Numbered artifacts use `Jvy_wallet_v<major>.<minor>.<patch>.apk`; the Android `versionCode` increases by one after each successful official build.
-- The current release is `0.2.1` / version code `207`; the next official patch build will be `0.2.2` / version code `208`.
+- The current release is `0.2.3` / version code `209`; the next official patch build will be `0.2.4` / version code `210`.
 - Failed builds do not consume numbers. Test and compile-only Gradle tasks do not consume numbers.
 - Documentation is in `README.md`, `AGENTS.md`, and `docs/standards/APK-GENERATION.md`.
 - Validation: APK script syntax passed; Home compile/unit/Paparazzi verification passed; and the official demo APK packaging completed successfully on 2026-10-15.

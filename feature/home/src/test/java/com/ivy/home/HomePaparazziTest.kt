@@ -46,4 +46,29 @@ class HomePaparazziTest(
             }
         }
     }
+
+    @Test
+    fun `snapshot Money trends while changing range`() {
+        snapshot(theme) {
+            IvyWalletPreview(if (theme == PaparazziTheme.Dark) Theme.DARK else Theme.LIGHT) {
+                HomeTrendCard(
+                    state = HomeTrendState(
+                        range = HomeTrendRange.SIX_MONTHS,
+                        points = persistentListOf(
+                            HomeTrendPoint("Aug", BigDecimal.ZERO, BigDecimal.ZERO, isObserved = false),
+                            HomeTrendPoint("Sep", BigDecimal("3850.00"), BigDecimal("335.40")),
+                            HomeTrendPoint("Oct", BigDecimal("4200.00"), BigDecimal("510.00")),
+                        ),
+                        loading = true,
+                    ),
+                    currency = "AED",
+                    hideBalance = false,
+                    onRangeSelected = {},
+                    onMetricToggle = {},
+                    onOpenEditor = {},
+                    onCloseEditor = {},
+                )
+            }
+        }
+    }
 }

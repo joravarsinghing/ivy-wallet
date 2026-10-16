@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -120,46 +121,67 @@ fun HomeTrendCard(
 
         Spacer(Modifier.height(18.dp))
 
-        if (state.loading) {
-            TrendMessage("Loading your trend…")
-        } else if (state.visibleMetrics.isEmpty()) {
-            TrendMessage("Choose at least one measure in Edit to see your trend.")
-        } else if (!state.hasData) {
-            TrendMessage("Your trend will appear after your first month of activity.")
-        } else {
-            TrendLegend(
-                visibleMetrics = state.visibleMetrics,
-                modifier = Modifier.padding(horizontal = 24.dp),
-            )
-            Spacer(Modifier.height(10.dp))
-            TrendChart(
-                state = state,
-                currency = currency,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-            )
-            Spacer(Modifier.height(8.dp))
-            TrendPeriodLabels(
-                points = state.points,
-                modifier = Modifier.padding(horizontal = 24.dp),
-            )
-            Spacer(Modifier.height(14.dp))
-            state.points.lastOrNull { it.isObserved }?.let { latestPoint ->
-                TrendLatestValues(
-                    point = latestPoint,
-                    visibleMetrics = state.visibleMetrics,
-                    currency = currency,
-                    hideBalance = hideBalance,
-                    modifier = Modifier.padding(horizontal = 24.dp),
-                )
+        Box(modifier = Modifier.fillMaxWidth()) {
+            when {
+                state.visibleMetrics.isEmpty() -> {
+                    TrendMessage("Choose at least one measure in Edit to see your trend.")
+                }
+
+                state.hasData -> {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        TrendLegend(
+                            visibleMetrics = state.visibleMetrics,
+                            modifier = Modifier.padding(horizontal = 24.dp),
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        TrendChart(
+                            state = state,
+                            currency = currency,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp),
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        TrendPeriodLabels(
+                            points = state.points,
+                            modifier = Modifier.padding(horizontal = 24.dp),
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        state.points.lastOrNull { it.isObserved }?.let { latestPoint ->
+                            TrendLatestValues(
+                                point = latestPoint,
+                                visibleMetrics = state.visibleMetrics,
+                                currency = currency,
+                                hideBalance = hideBalance,
+                                modifier = Modifier.padding(horizontal = 24.dp),
+                            )
+                        }
+                        when (state.points.count { it.isObserved }) {
+                            1 -> {
+                                Spacer(Modifier.height(8.dp))
+                                TrendMessage(
+                                    "One month recorded. A second month will show the first direction of change."
+                                )
+                            }
+                            2 -> {
+                                Spacer(Modifier.height(8.dp))
+                                TrendMessage("Two months recorded. More months will make the trend clearer.")
+                            }
+                        }
+                    }
+                }
+
+                state.loading -> {
+                    TrendLoadingPlaceholder()
+                }
+
+                else -> {
+                    TrendMessage("Your trend will appear after your first month of activity.")
+                }
             }
-            if (state.points.count { it.isObserved } <= 1) {
-                Spacer(Modifier.height(8.dp))
-                TrendMessage("One month recorded. A second month will show the first direction of change.")
-            } else if (state.points.count { it.isObserved } == 2) {
-                Spacer(Modifier.height(8.dp))
-                TrendMessage("Two months recorded. More months will make the trend clearer.")
+
+            if (state.loading && state.hasData) {
+                TrendLoadingOverlay()
             }
         }
 
@@ -411,6 +433,58 @@ private fun TrendMessage(text: String) {
         text = text,
         style = UI.typo.c.style(color = UI.colors.gray, fontWeight = FontWeight.Medium),
     )
+}
+
+@Composable
+private fun TrendLoadingPlaceholder() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(176.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        TrendLoadingPill()
+    }
+}
+
+@Composable
+private fun TrendLoadingOverlay() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(176.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        TrendLoadingPill()
+    }
+}
+
+@Composable
+private fun TrendLoadingPill() {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(UI.colors.pure.copy(alpha = 0.92f))
+            .padding(horizontal = 14.dp, vertical = 10.dp)
+            .semantics {
+                contentDescription = "Updating money trends"
+            },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(18.dp),
+            color = UI.colors.primary,
+            strokeWidth = 2.dp,
+        )
+        Text(
+            text = "Updating",
+            style = UI.typo.c.style(
+                color = UI.colors.pureInverse,
+                fontWeight = FontWeight.Bold,
+            ),
+        )
+    }
 }
 
 private fun HomeTrendMetric.value(point: HomeTrendPoint): BigDecimal = when (this) {

@@ -78,25 +78,31 @@ class ImportViewModel @Inject constructor(
         ivyContext.openFile { fileUri ->
             viewModelScope.launch {
                 TestIdlingResource.increment()
+                try {
+                    _importStep.value = ImportStep.LOADING
+                    _importProgressPercent.value = 0
 
-                _importStep.value = ImportStep.LOADING
-
-                _importResult.value = if (hasCSVExtension(context, fileUri)) {
-                    restoreCSVFile(fileUri = fileUri, importType = importType)
-                } else {
-                    backupDataUseCase.importBackupFile(
-                        backupFileUri = fileUri
-                    ) { progressPercent ->
-                        com.ivy.legacy.utils.uiThread {
-                            _importProgressPercent.value =
-                                (progressPercent * 100).roundToInt()
+                    _importResult.value = if (hasCSVExtension(context, fileUri)) {
+                        restoreCSVFile(fileUri = fileUri, importType = importType)
+                    } else {
+                        backupDataUseCase.importBackupFile(
+                            backupFileUri = fileUri
+                        ) { progressPercent ->
+                            com.ivy.legacy.utils.uiThread {
+                                _importProgressPercent.value =
+                                    (progressPercent * 100).roundToInt()
+                            }
                         }
                     }
+
+                    _importStep.value = ImportStep.RESULT
+                } catch (e: Exception) {
+                    Timber.e(e, "Import error")
+                    _importResult.value = failureResult(e)
+                    _importStep.value = ImportStep.RESULT
+                } finally {
+                    TestIdlingResource.decrement()
                 }
-
-                _importStep.value = ImportStep.RESULT
-
-                TestIdlingResource.decrement()
             }
         }
     }
@@ -104,20 +110,15 @@ class ImportViewModel @Inject constructor(
     @ExperimentalStdlibApi
     private suspend fun restoreCSVFile(fileUri: Uri, importType: ImportType): ImportResult {
         return com.ivy.legacy.utils.ioThread {
-            val rawCSV = fileReader.read(
-                uri = fileUri,
-                charset = when (importType) {
-                    ImportType.IVY -> Charsets.UTF_16
-                    else -> Charsets.UTF_8
-                }
-            ).getOrNull()
+            val rawCSV = fileReader.readAuto(fileUri).getOrNull()
             if (rawCSV.isNullOrBlank()) {
                 return@ioThread ImportResult(
                     rowsFound = 0,
                     transactionsImported = 0,
                     accountsImported = 0,
                     categoriesImported = 0,
-                    failedRows = persistentListOf()
+                    failedRows = persistentListOf(),
+                    errorMessage = "The selected CSV file is empty or unreadable."
                 )
             }
 
@@ -128,7 +129,7 @@ class ImportViewModel @Inject constructor(
 
             val mapping = csvMapper.mapping(
                 type = importType,
-                headerRow = normalizedCSV.split("\n").getOrNull(0)
+                headerRow = normalizedCSV.lineSequence().firstOrNull()
             )
 
             return@ioThread try {
@@ -149,13 +150,14 @@ class ImportViewModel @Inject constructor(
 
                 result
             } catch (e: Exception) {
-                e.printStackTrace()
+                Timber.e(e, "CSV import error")
                 ImportResult(
                     rowsFound = 0,
                     transactionsImported = 0,
                     accountsImported = 0,
                     categoriesImported = 0,
-                    failedRows = persistentListOf()
+                    failedRows = persistentListOf(),
+                    errorMessage = e.userFacingImportMessage()
                 )
             }
         }
@@ -183,7 +185,10 @@ class ImportViewModel @Inject constructor(
         onboardingViewModel: OnboardingViewModel
     ) {
         if (screen.launchedFromOnboarding) {
-            val importSuccess = importResult.value?.transactionsImported?.let { it > 0 } ?: false
+            val result = importResult.value
+            val importSuccess = result != null &&
+                result.errorMessage == null &&
+                (result.transactionsImported > 0 || result.duplicatesSkipped > 0)
             onboardingViewModel.importFinished(
                 success = importSuccess
             )
@@ -204,4 +209,17 @@ class ImportViewModel @Inject constructor(
         val fileName = context.getFileName(fileUri)
         fileName?.endsWith(suffix = ".csv", ignoreCase = true) ?: false
     }
+
+    private fun failureResult(error: Throwable): ImportResult = ImportResult(
+        rowsFound = 0,
+        transactionsImported = 0,
+        accountsImported = 0,
+        categoriesImported = 0,
+        failedRows = persistentListOf(),
+        errorMessage = error.userFacingImportMessage()
+    )
+
+    private fun Throwable.userFacingImportMessage(): String =
+        message?.takeIf { it.isNotBlank() }
+            ?: "The import could not be completed. Check the result before retrying."
 }

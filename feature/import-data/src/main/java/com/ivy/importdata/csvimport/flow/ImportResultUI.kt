@@ -60,8 +60,11 @@ fun ImportResultUI(
 
         Spacer(Modifier.height(24.dp))
 
-        val importSuccess = result.transactionsImported > 0 &&
-                result.transactionsImported > result.rowsFound / 2
+        val importSuccess = result.errorMessage == null &&
+            (result.transactionsImported > 0 ||
+                result.accountsImported > 0 ||
+                result.categoriesImported > 0 ||
+                result.duplicatesSkipped > 0)
         Text(
             modifier = Modifier.padding(horizontal = 32.dp),
             text = if (importSuccess) stringResource(R.string.success) else stringResource(R.string.failure),
@@ -79,19 +82,32 @@ fun ImportResultUI(
             0.0
         }
 
-        SuccessSectionUI(
-            result = result,
-            successPercent = successPercent,
-        )
+        val errorMessage = result.errorMessage
+        if (errorMessage != null) {
+            Text(
+                modifier = Modifier.padding(horizontal = 32.dp),
+                text = stringResource(
+                    R.string.import_error_details,
+                    errorMessage
+                ),
+                color = Red,
+                style = UI.typo.b2.style(fontWeight = FontWeight.Bold)
+            )
+        } else {
+            SuccessSectionUI(
+                result = result,
+                successPercent = successPercent,
+            )
 
-        IvyDividerLine(
-            modifier = Modifier.padding(horizontal = 24.dp)
-        )
+            IvyDividerLine(
+                modifier = Modifier.padding(horizontal = 24.dp)
+            )
 
-        FailedSectionUI(
-            result = result,
-            successPercent = successPercent,
-        )
+            FailedSectionUI(
+                result = result,
+                successPercent = successPercent,
+            )
+        }
 
         // TODO: Implement "See failed imports"
 
@@ -217,6 +233,22 @@ private fun SuccessSectionUI(
                 color = Gray
             )
         )
+
+        if (result.duplicatesSkipped > 0) {
+            Spacer(Modifier.height(4.dp))
+
+            Text(
+                modifier = Modifier.padding(horizontal = 32.dp),
+                text = stringResource(
+                    R.string.duplicate_transactions_skipped,
+                    result.duplicatesSkipped
+                ),
+                style = UI.typo.nB2.style(
+                    fontWeight = FontWeight.Bold,
+                    color = Gray
+                )
+            )
+        }
 
         Spacer(Modifier.height(32.dp))
     }

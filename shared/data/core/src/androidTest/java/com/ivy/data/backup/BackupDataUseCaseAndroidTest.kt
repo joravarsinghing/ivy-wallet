@@ -74,6 +74,9 @@ class BackupDataUseCaseAndroidTest {
             dispatchersProvider = TestDispatchersProvider,
             fileSystem = FileSystem(appContext),
             dataObserver = DataObserver(),
+            backupTransactionRunner = object : BackupTransactionRunner {
+                override suspend fun <T> run(block: suspend () -> T): T = block()
+            },
             tagsReader = db.tagDao,
             tagAssociationReader = db.tagAssociationDao,
             tagsWriter = db.writeTagDao,

@@ -75,6 +75,9 @@ class BackupDataUseCaseTest {
             dispatchersProvider = TestDispatchersProvider,
             fileSystem = mockk(relaxed = true),
             dataObserver = DataObserver(),
+            backupTransactionRunner = object : BackupTransactionRunner {
+                override suspend fun <T> run(block: suspend () -> T): T = block()
+            },
             tagsReader = tagDao,
             tagsWriter = tagDao,
             tagAssociationReader = tagAssociationDao,

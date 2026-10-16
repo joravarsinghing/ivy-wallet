@@ -69,6 +69,7 @@ class BackupDataUseCase @Inject constructor(
     private val dispatchersProvider: DispatchersProvider,
     private val fileSystem: FileSystem,
     private val dataObserver: DataObserver,
+    private val backupTransactionRunner: BackupTransactionRunner,
     private val tagsReader: TagDao,
     private val tagAssociationReader: TagAssociationDao,
     private val tagsWriter: WriteTagDao,
@@ -79,8 +80,11 @@ class BackupDataUseCase @Inject constructor(
     ) {
         val jsonString = generateJsonBackup()
         val file = createJsonDataFile(jsonString)
-        zip(context = context, zipFileUri, listOf(file))
-        clearCacheDir()
+        try {
+            zip(context = context, zipFileUri, listOf(file))
+        } finally {
+            file.delete()
+        }
     }
 
     private fun createJsonDataFile(jsonString: String): File {
@@ -151,26 +155,41 @@ class BackupDataUseCase @Inject constructor(
         backupFileUri: Uri,
         onProgress: suspend (progressPercent: Double) -> Unit
     ): ImportResult = withContext(dispatchersProvider.io) {
+        var imported = false
         return@withContext try {
-            val jsonString = try {
-                extractAndReadBackupZip(backupFileUri, onProgress)
-            } catch (e: Exception) {
-                fileSystem.read(backupFileUri, Charsets.UTF_16).getOrNull()
-            } ?: ""
+            val jsonString = readBackupPayload(backupFileUri, onProgress)
+                ?: error("The selected file is not a readable Ivy Wallet backup.")
 
-            importJson(jsonString, onProgress, clearCacheDir = true)
+            importJson(jsonString, onProgress).also {
+                imported = it.errorMessage == null
+            }
         } catch (e: Exception) {
-            Timber.e("Import error: $e")
+            Timber.e(e, "Import error")
             ImportResult(
                 rowsFound = 0,
                 transactionsImported = 0,
                 accountsImported = 0,
                 categoriesImported = 0,
-                failedRows = persistentListOf()
+                failedRows = persistentListOf(),
+                errorMessage = e.userFacingImportMessage()
             )
         } finally {
-            dataObserver.post(DataWriteEvent.AllDataChange)
+            if (imported) {
+                dataObserver.post(DataWriteEvent.AllDataChange)
+            }
         }
+    }
+
+    private suspend fun readBackupPayload(
+        backupFileUri: Uri,
+        onProgress: suspend (progressPercent: Double) -> Unit,
+    ): String? {
+        val zipped = runCatching {
+            extractAndReadBackupZip(backupFileUri, onProgress)
+        }.getOrNull()
+        if (!zipped.isNullOrBlank()) return zipped
+
+        return fileSystem.readAuto(backupFileUri).getOrNull()?.takeIf { it.isNotBlank() }
     }
 
     private suspend fun extractAndReadBackupZip(
@@ -180,27 +199,24 @@ class BackupDataUseCase @Inject constructor(
         val folderName = "backup" + System.currentTimeMillis()
         val cacheFolderPath = File(context.cacheDir, folderName)
 
-        unzip(context, backupFileUri, cacheFolderPath)
+        return try {
+            unzip(context, backupFileUri, cacheFolderPath)
 
-        val filesArray = cacheFolderPath.listFiles()
+            onProgress(0.05)
 
-        onProgress(0.05)
+            val filesList = cacheFolderPath.walkTopDown()
+                .filter { it.isFile && hasJsonExtension(it) }
+                .toList()
 
-        if (filesArray == null || filesArray.isEmpty()) {
-            error("Couldn't unzip")
+            onProgress(0.1)
+
+            val jsonFile = filesList.singleOrNull()
+                ?: error("The backup archive must contain exactly one JSON data file.")
+
+            fileSystem.readAuto(jsonFile.toUri()).getOrNull()
+        } finally {
+            cacheFolderPath.deleteRecursively()
         }
-
-        val filesList = filesArray.toList().filter {
-            hasJsonExtension(it)
-        }
-
-        onProgress(0.1)
-
-        if (filesList.size != 1) {
-            error("Didn't unzip exactly one file.")
-        }
-
-        return fileSystem.read(filesList[0].toUri(), Charsets.UTF_16).getOrNull()
     }
 
     suspend fun importJson(
@@ -208,18 +224,22 @@ class BackupDataUseCase @Inject constructor(
         onProgress: suspend (Double) -> Unit = {},
         clearCacheDir: Boolean = false,
     ): ImportResult {
+        require(jsonString.isNotBlank()) { "The backup file is empty." }
         val modifiedJsonString = accommodateExistingAccountsAndCategories(jsonString)
         val ivyWalletCompleteData = modifiedJsonString?.let {
             json.decodeFromString<IvyWalletCompleteData>(it)
         } ?: error("Failed to parse backup JSON.")
 
-        onProgress(0.4)
-        insertDataToDb(completeData = ivyWalletCompleteData, onProgress = onProgress)
-        onProgress(1.0)
-
-        if (clearCacheDir) {
-            clearCacheDir()
+        require(ivyWalletCompleteData.hasImportableData()) {
+            "The backup contains no accounts, transactions, or settings to import."
         }
+
+        onProgress(0.4)
+        backupTransactionRunner.run {
+            insertDataToDb(completeData = ivyWalletCompleteData, onProgress = onProgress)
+        }
+        applySharedPrefs(ivyWalletCompleteData.sharedPrefs)
+        onProgress(1.0)
 
         return ImportResult(
             rowsFound = ivyWalletCompleteData.transactions.size,
@@ -229,6 +249,15 @@ class BackupDataUseCase @Inject constructor(
             failedRows = persistentListOf()
         )
     }
+
+    private fun IvyWalletCompleteData.hasImportableData(): Boolean =
+        accounts.isNotEmpty() ||
+            transactions.isNotEmpty() ||
+            categories.isNotEmpty() ||
+            settings.isNotEmpty() ||
+            budgets.isNotEmpty() ||
+            loans.isNotEmpty() ||
+            plannedPaymentRules.isNotEmpty()
 
     private suspend fun accommodateExistingAccountsAndCategories(jsonString: String?): String? {
         if (jsonString == null) return null
@@ -288,34 +317,6 @@ class BackupDataUseCase @Inject constructor(
                 settingsWriter.saveMany(completeData.settings)
             }
 
-            sharedPrefs.putBoolean(
-                SharedPrefs.SHOW_NOTIFICATIONS,
-                (completeData.sharedPrefs[SharedPrefs.SHOW_NOTIFICATIONS] ?: "true").toBoolean()
-            )
-
-            sharedPrefs.putBoolean(
-                SharedPrefs.APP_LOCK_ENABLED,
-                (completeData.sharedPrefs[SharedPrefs.APP_LOCK_ENABLED] ?: "false").toBoolean()
-            )
-
-            sharedPrefs.putBoolean(
-                SharedPrefs.HIDE_CURRENT_BALANCE,
-                (completeData.sharedPrefs[SharedPrefs.HIDE_CURRENT_BALANCE] ?: "false").toBoolean()
-            )
-
-            sharedPrefs.putBoolean(
-                SharedPrefs.HIDE_INCOME,
-                (completeData.sharedPrefs[SharedPrefs.HIDE_INCOME] ?: "false").toBoolean()
-            )
-
-            sharedPrefs.putBoolean(
-                SharedPrefs.TRANSFERS_AS_INCOME_EXPENSE,
-                (
-                        completeData.sharedPrefs[SharedPrefs.TRANSFERS_AS_INCOME_EXPENSE]
-                            ?: "false"
-                        ).toBoolean()
-            )
-
             plannedPayments.await()
             settings.await()
             tags.await()
@@ -323,6 +324,29 @@ class BackupDataUseCase @Inject constructor(
 
             onProgress(0.9)
         }
+    }
+
+    private fun applySharedPrefs(values: HashMap<String, String>) {
+        sharedPrefs.putBoolean(
+            SharedPrefs.SHOW_NOTIFICATIONS,
+            (values[SharedPrefs.SHOW_NOTIFICATIONS] ?: "true").toBoolean()
+        )
+        sharedPrefs.putBoolean(
+            SharedPrefs.APP_LOCK_ENABLED,
+            (values[SharedPrefs.APP_LOCK_ENABLED] ?: "false").toBoolean()
+        )
+        sharedPrefs.putBoolean(
+            SharedPrefs.HIDE_CURRENT_BALANCE,
+            (values[SharedPrefs.HIDE_CURRENT_BALANCE] ?: "false").toBoolean()
+        )
+        sharedPrefs.putBoolean(
+            SharedPrefs.HIDE_INCOME,
+            (values[SharedPrefs.HIDE_INCOME] ?: "false").toBoolean()
+        )
+        sharedPrefs.putBoolean(
+            SharedPrefs.TRANSFERS_AS_INCOME_EXPENSE,
+            (values[SharedPrefs.TRANSFERS_AS_INCOME_EXPENSE] ?: "false").toBoolean()
+        )
     }
 
     /** This is used to replace account & category Ids in backup data with existing Ids
@@ -387,7 +411,12 @@ class BackupDataUseCase @Inject constructor(
         return (name.substring(lastIndexOf).equals(".json", true))
     }
 
-    private fun clearCacheDir() {
-        context.cacheDir.deleteRecursively()
+
+    private fun Throwable.userFacingImportMessage(): String = when (this) {
+        is kotlinx.serialization.SerializationException ->
+            "This file is not a supported Ivy Wallet backup, or it is damaged."
+
+        else -> message?.takeIf { it.isNotBlank() }
+            ?: "The import could not be completed. Check the result before retrying."
     }
 }

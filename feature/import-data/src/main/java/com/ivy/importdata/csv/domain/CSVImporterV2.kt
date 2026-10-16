@@ -7,8 +7,10 @@ import com.ivy.base.model.TransactionType
 import com.ivy.base.time.TimeConverter
 import com.ivy.data.backup.CSVRow
 import com.ivy.data.backup.ImportResult
+import com.ivy.data.backup.importFingerprint
 import com.ivy.data.db.dao.read.AccountDao
 import com.ivy.data.db.dao.read.SettingsDao
+import com.ivy.data.db.dao.read.TransactionDao
 import com.ivy.data.model.Category
 import com.ivy.data.model.CategoryId
 import com.ivy.data.model.primitive.ColorInt
@@ -42,6 +44,7 @@ class CSVImporterV2 @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val transactionMapper: TransactionMapper,
     private val accountDao: AccountDao,
+    private val transactionDao: TransactionDao,
     private val categoryRepository: CategoryRepository,
     private val currencyRepository: CurrencyRepository,
     private val accountRepository: AccountRepository,
@@ -74,6 +77,9 @@ class CSVImporterV2 @Inject constructor(
         val initialCategoriesCount = categories.size
 
         val baseCurrency = settingsDao.findFirst().currency
+        val importedFingerprints = transactionDao.findAll()
+            .map { it.importFingerprint() }
+            .toMutableSet()
 
         val failedRows = mutableListOf<CSVRow>()
 
@@ -104,6 +110,8 @@ class CSVImporterV2 @Inject constructor(
             transaction
         }
 
+        var importedCount = 0
+        var duplicatesSkipped = 0
         for ((index, transaction) in transactions.withIndex()) {
             val progressPercent = if (rowsCount > 0) {
                 index / transactions.size.toDouble()
@@ -112,18 +120,25 @@ class CSVImporterV2 @Inject constructor(
             }
             onProgress(0.5 + progressPercent / 2)
             with(transactionMapper) {
-                transaction.toEntity().toDomain().getOrNull()?.let {
-                    transactionRepository.save(it)
+                val entity = transaction.toEntity()
+                if (!importedFingerprints.add(entity.importFingerprint())) {
+                    duplicatesSkipped++
+                } else {
+                    entity.toDomain().getOrNull()?.let {
+                        transactionRepository.save(it)
+                        importedCount++
+                    } ?: importedFingerprints.remove(entity.importFingerprint())
                 }
             }
         }
 
         return ImportResult(
             rowsFound = rowsCount,
-            transactionsImported = transactions.size,
+            transactionsImported = importedCount,
             accountsImported = accounts.size - initialAccountsCount,
             categoriesImported = categories.size - initialCategoriesCount,
-            failedRows = failedRows.toImmutableList()
+            failedRows = failedRows.toImmutableList(),
+            duplicatesSkipped = duplicatesSkipped
         )
     }
 

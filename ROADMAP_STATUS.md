@@ -1,12 +1,12 @@
 # Joravar Agentic Roadmap Status
 
-Last updated: 2026-10-13 (Asia/Dubai)
+Last updated: 2026-10-14 (Asia/Dubai)
 
 ## Current gate
 
-**Wave 0 — Reconnaissance: COMPLETE / Wave 1 branding packet: IN PROGRESS**
+**Wave 0 — Reconnaissance: COMPLETE / Wave 1 product packets: COMPLETE**
 
-The user has authorized the first low-risk product packet: Jvy Wallet identity and launcher branding. The inherited Hilt unit-test aggregation stall remains a gate for deeper financial-domain implementation; this packet deliberately leaves import, database, package, and calculation code unchanged.
+The first low-risk product packets are complete: Jvy Wallet identity, monthly savings, safe-to-spend, and emergency-fund coverage. The inherited Hilt unit-test aggregation stall remains a verification limitation; all four packets preserve import, database, package, and legacy data contracts.
 
 ## Wave 1 packet status
 
@@ -31,6 +31,19 @@ The user has authorized the first low-risk product packet: Jvy Wallet identity a
 - The card is presentation-only and reads existing Home statistics; it adds no database, import, backup, or package migration.
 - QA/compatibility record: `docs/recon/R1-SPRINT-1-VERIFICATION.md`.
 - Full demo APK build passed after Home integration.
+
+**W1-SAFETY — Safe-to-spend and emergency-fund coverage: COMPLETE**
+
+- The Home screen now shows `Safe to spend`, calculated as current balance minus the configured protected buffer.
+- The Home screen now shows `Safety cushion`, calculated as protected buffer divided by current-period expenses and displayed in months covered.
+- Both cards explain the result for beginners, including zero, below-buffer, below-one-month, and three-plus-month states.
+- The calculations use `BigDecimal`; non-terminating coverage ratios use a deterministic `DECIMAL128` context rather than binary floating point.
+- The domain and UI calculations are presentation-only and read existing Home balance, buffer, and expense state. No database, import, backup, package, or schema changes were made.
+- Multiple agents worked in parallel with disjoint ownership: safe-to-spend domain, emergency-fund domain, safe-to-spend UI, and emergency-fund UI. Home integration remained orchestrator-owned.
+- Focused domain/UI test coverage was added for exact subtraction, buffer overrun, zero expenses, fractional coverage, and coverage boundaries.
+- Verification: `assembleDemo --offline --no-daemon --no-configuration-cache --max-workers=2 -x :app:uploadCrashlyticsMappingFileDemo` passed on 2026-10-14.
+- APK: `E:\AI\joravar-ivy-wallet\app\build\outputs\apk\demo\app-demo.apk`.
+- APK metadata label verified as `Jvy Wallet`; application ID remains `com.ivy.wallet.debug` for Ivy-compatible upgrades.
 
 ## Workspace
 
@@ -82,6 +95,7 @@ Recon agents must not edit production files, shared contracts, or control-plane 
 - [x] Branch/worktree conventions and initial ADRs recorded.
 - [x] Wave 1 branding packet completed under the documented low-risk exception.
 - [x] Wave 1 monthly savings insight completed with import-safe integration.
+- [x] Wave 1 safe-to-spend and emergency-fund insights completed with import-safe integration.
 
 ## Gate failures / blockers
 
@@ -102,7 +116,6 @@ Recon agents must not edit production files, shared contracts, or control-plane 
 
 ## Next orchestrator actions
 
-1. Build and inspect the Jvy Wallet branding packet.
-2. Diagnose the Hilt unit-test aggregation stall, beginning with Gradle/Hilt worker diagnostics rather than application edits.
-3. Establish an emulator/device baseline for connected data/domain tests.
-4. Prepare the next Wave 1 packet only after the baseline gate is resolved or explicitly accepted.
+1. Diagnose the Hilt unit-test aggregation stall, beginning with Gradle/Hilt worker diagnostics rather than application edits.
+2. Establish an emulator/device baseline for connected data/domain tests.
+3. Prepare the next packet only after the baseline gate is resolved or explicitly accepted.

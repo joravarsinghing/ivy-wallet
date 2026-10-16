@@ -164,6 +164,7 @@ fun BoxWithConstraintsScope.HomeUi(
                 onEvent(HomeEvent.SetExpanded(it))
             },
             balance = uiState.balance,
+            protectedBuffer = uiState.buffer.amount,
             onOpenMoreMenu = {
                 setMoreMenuExpanded(true)
             },
@@ -295,6 +296,7 @@ fun HomeLazyColumn(
     upcoming: LegacyDueSection,
     overdue: LegacyDueSection,
     balance: BigDecimal,
+    protectedBuffer: BigDecimal,
     stats: IncomeExpensePair,
     history: ImmutableList<TransactionHistoryItem>,
 
@@ -370,6 +372,26 @@ fun HomeLazyColumn(
             Spacer(Modifier.height(16.dp))
 
             TransactionsDividerLine()
+        }
+
+        item {
+            Spacer(Modifier.height(16.dp))
+
+            SafeToSpendCard(
+                balance = balance,
+                protectedBuffer = protectedBuffer,
+                currency = baseData.baseCurrency,
+            )
+        }
+
+        item {
+            Spacer(Modifier.height(16.dp))
+
+            EmergencyFundCoverageCard(
+                protectedBuffer = protectedBuffer,
+                monthlyExpenses = stats.expense,
+                currency = baseData.baseCurrency,
+            )
         }
 
         item {

@@ -73,6 +73,7 @@ internal fun BoxScope.GoalsModalHost(
             is GoalsModal.Detail -> GoalDetailContent(
                 goal = current.goal,
                 accounts = state.accounts,
+                asOfDate = state.asOfDate,
                 onReserve = { onReserve(current.goal) }
             )
             is GoalsModal.Reserve -> ReserveMoneyContent(
@@ -209,8 +210,10 @@ private fun androidx.compose.foundation.layout.RowScope.TypeChoice(
 private fun GoalDetailContent(
     goal: Goal,
     accounts: List<GoalAccount>,
+    asOfDate: java.time.LocalDate,
     onReserve: () -> Unit
 ) {
+    val guidance = goal.fundingGuidance ?: goal.toFundingGuidance(asOfDate)
     Column(modifier = Modifier.padding(horizontal = 24.dp)) {
         Spacer(Modifier.height(8.dp))
         GoalModalTitle(text = goal.name)
@@ -221,7 +224,7 @@ private fun GoalDetailContent(
         )
         Spacer(Modifier.height(20.dp))
         Text(
-            text = "${money(goal.savedAmount, goal.currency)} reserved",
+            text = "${money(guidance.reservedAmount.toDouble(), goal.currency)} reserved",
             style = UI.typo.h2.style(
                 color = UI.colors.pureInverse,
                 fontWeight = FontWeight.ExtraBold
@@ -229,11 +232,19 @@ private fun GoalDetailContent(
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "${money(goal.remainingAmount, goal.currency)} remaining of ${money(goal.targetAmount, goal.currency)}",
+            text = "${money(guidance.remainingAmount.toDouble(), goal.currency)} remaining of ${money(guidance.targetAmount.toDouble(), goal.currency)}",
             style = UI.typo.b2.style(color = UI.colors.gray)
         )
         Spacer(Modifier.height(16.dp))
         ProgressTrack(progress = goal.progress, color = UI.colors.primary)
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = guidance.displayLabel(goal.currency),
+            style = UI.typo.b2.style(
+                color = UI.colors.primary,
+                fontWeight = FontWeight.Bold
+            )
+        )
         Spacer(Modifier.height(24.dp))
         Text(
             text = "Reserved from",

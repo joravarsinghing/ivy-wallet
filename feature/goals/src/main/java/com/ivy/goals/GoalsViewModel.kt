@@ -52,6 +52,7 @@ class GoalsViewModel @Inject constructor(
     private fun refresh() {
         viewModelScope.launch {
             val currency = baseCurrencyAct(Unit)
+            val asOfDate = timeProvider.localDateNow()
             val accounts = loadAccounts()
             val goals = goalRepository.findActiveGoals()
             val allocations = goals.flatMap { goal ->
@@ -61,10 +62,12 @@ class GoalsViewModel @Inject constructor(
             _uiState.value = GoalScreenState(
                 baseCurrency = currency,
                 accounts = accounts,
+                asOfDate = asOfDate,
                 goals = goals.map { goal ->
                     goal.toUiGoal(
                         allocations = allocations.filter { it.goalId == goal.id },
                         baseCurrency = currency,
+                        asOfDate = asOfDate,
                     )
                 }
             )
@@ -123,39 +126,11 @@ class GoalsViewModel @Inject constructor(
     }
 }
 
-private fun GoalEntity.toUiGoal(
-    allocations: List<GoalAllocationEntity>,
-    baseCurrency: String,
-): Goal = Goal(
-    id = id.toString(),
-    name = name,
-    type = kind.toUiType(),
-    targetAmount = targetAmount,
-    currency = baseCurrency,
-    deadlineLabel = deadline?.atZone(ZoneOffset.UTC)?.let {
-        DateTimeFormatter.ofPattern("MMMM yyyy", Locale.US).format(it)
-    },
-    status = if (isActive) GoalStatus.ACTIVE else GoalStatus.PAUSED,
-    allocations = allocations.map {
-        GoalAllocation(
-            accountId = it.accountId.toString(),
-            amount = it.reservedAmount,
-        )
-    },
-)
-
 private fun GoalType.toEntityKind(): GoalKind = when (this) {
     GoalType.EMERGENCY_FUND -> GoalKind.EMERGENCY_FUND
     GoalType.PURCHASE -> GoalKind.PURCHASE
     GoalType.SINKING_FUND -> GoalKind.SINKING_FUND
     GoalType.CUSTOM -> GoalKind.CUSTOM
-}
-
-private fun GoalKind.toUiType(): GoalType = when (this) {
-    GoalKind.EMERGENCY_FUND -> GoalType.EMERGENCY_FUND
-    GoalKind.PURCHASE -> GoalType.PURCHASE
-    GoalKind.SINKING_FUND -> GoalType.SINKING_FUND
-    GoalKind.CUSTOM -> GoalType.CUSTOM
 }
 
 private fun String?.toDeadlineInstantOrNull(): Instant? {

@@ -31,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
@@ -133,6 +134,7 @@ fun BoxWithConstraintsScope.GoalsScreenContent(
                     GoalCard(
                         goal = goal,
                         accounts = state.accounts,
+                        asOfDate = state.asOfDate,
                         onClick = { modal = GoalsModal.Detail(goal) }
                     )
                     Spacer(Modifier.height(12.dp))
@@ -173,13 +175,19 @@ fun BoxWithConstraintsScope.GoalsScreenContent(
             state = state.copy(goals = goals),
             onDismiss = { modal = null },
             onCreated = { goal ->
-                goals = goals + goal
-                onEvent(GoalsScreenEvent.GoalCreated(goal))
+                val goalWithGuidance = goal.copy(
+                    fundingGuidance = goal.toFundingGuidance(state.asOfDate)
+                )
+                goals = goals + goalWithGuidance
+                onEvent(GoalsScreenEvent.GoalCreated(goalWithGuidance))
                 modal = null
             },
             onUpdated = { goal ->
-                goals = goals.map { if (it.id == goal.id) goal else it }
-                onEvent(GoalsScreenEvent.GoalUpdated(goal))
+                val goalWithGuidance = goal.copy(
+                    fundingGuidance = goal.toFundingGuidance(state.asOfDate)
+                )
+                goals = goals.map { if (it.id == goal.id) goalWithGuidance else it }
+                onEvent(GoalsScreenEvent.GoalUpdated(goalWithGuidance))
                 modal = null
             },
             onReserve = { goal -> modal = GoalsModal.Reserve(goal) }
@@ -236,8 +244,10 @@ private fun ReservedSummary(
 private fun GoalCard(
     goal: Goal,
     accounts: List<GoalAccount>,
+    asOfDate: java.time.LocalDate,
     onClick: () -> Unit
 ) {
+    val guidance = goal.fundingGuidance ?: goal.toFundingGuidance(asOfDate)
     val accent = when (goal.type) {
         GoalType.EMERGENCY_FUND -> UI.colors.green
         GoalType.PURCHASE -> UI.colors.primary
@@ -269,6 +279,8 @@ private fun GoalCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = goal.name,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                     style = UI.typo.b1.style(
                         color = UI.colors.pureInverse,
                         fontWeight = FontWeight.ExtraBold
@@ -280,7 +292,7 @@ private fun GoalCard(
                 )
             }
             Text(
-                text = money(goal.savedAmount, goal.currency),
+                text = money(guidance.reservedAmount.toDouble(), goal.currency),
                 style = UI.typo.b2.style(
                     color = UI.colors.pureInverse,
                     fontWeight = FontWeight.ExtraBold
@@ -293,22 +305,30 @@ private fun GoalCard(
         Spacer(Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "${(goal.progress * 100).toInt()}% reserved",
+                text = "Reserved ${money(guidance.reservedAmount.toDouble(), goal.currency)}",
                 style = UI.typo.c.style(color = accent, fontWeight = FontWeight.Bold)
             )
             Spacer(Modifier.weight(1f))
             Text(
-                text = "${money(goal.remainingAmount, goal.currency)} left",
+                text = "Remaining ${money(guidance.remainingAmount.toDouble(), goal.currency)}",
                 style = UI.typo.c.style(color = UI.colors.gray)
             )
         }
         Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = goal.deadlineLabel ?: "No deadline",
-                style = UI.typo.c.style(color = UI.colors.gray)
+                text = guidance.displayLabel(goal.currency),
+                style = UI.typo.c.style(color = accent, fontWeight = FontWeight.Bold)
             )
             Spacer(Modifier.weight(1f))
+            Text(
+                text = goal.deadlineLabel ?: "No deadline",
+                style = UI.typo.c.style(color = UI.colors.gray),
+                textAlign = TextAlign.End
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
             val accountNames = goal.allocations.mapNotNull { allocation ->
                 accounts.firstOrNull { it.id == allocation.accountId }?.name
             }

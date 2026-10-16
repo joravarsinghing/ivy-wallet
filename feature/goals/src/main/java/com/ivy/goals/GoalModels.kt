@@ -1,7 +1,9 @@
 package com.ivy.goals
 
 import androidx.compose.runtime.Immutable
+import com.ivy.domain.usecase.goal.GoalFundingGuidance
 import com.ivy.navigation.GoalsScreen
+import java.time.LocalDate
 import java.util.UUID
 
 enum class GoalType(val label: String) {
@@ -41,7 +43,8 @@ data class Goal(
     val deadlineLabel: String? = null,
     val status: GoalStatus = GoalStatus.ACTIVE,
     val allocations: List<GoalAllocation> = emptyList(),
-    val categoryLabel: String? = null
+    val categoryLabel: String? = null,
+    val fundingGuidance: GoalFundingGuidance? = null,
 ) {
     val savedAmount: Double
         get() = allocations.sumOf { it.amount.coerceAtLeast(0.0) }
@@ -57,13 +60,36 @@ data class Goal(
 data class GoalScreenState(
     val baseCurrency: String,
     val goals: List<Goal>,
-    val accounts: List<GoalAccount>
+    val accounts: List<GoalAccount>,
+    val asOfDate: LocalDate = LocalDate.now(),
 ) {
     val reservedAmount: Double
         get() = goals.sumOf { it.savedAmount }
 
     companion object {
         fun preview(): GoalScreenState {
+            val asOfDate = LocalDate.of(2026, 10, 14)
+            val goals = listOf(
+                Goal(
+                    name = "New laptop",
+                    type = GoalType.PURCHASE,
+                    targetAmount = 5000.0,
+                    currency = "AED",
+                    deadlineLabel = "April 2027",
+                    allocations = listOf(GoalAllocation("adcb", 1250.0))
+                ),
+                Goal(
+                    name = "Emergency fund",
+                    type = GoalType.EMERGENCY_FUND,
+                    targetAmount = 15000.0,
+                    currency = "AED",
+                    deadlineLabel = "No deadline",
+                    allocations = listOf(
+                        GoalAllocation("emergency", 3500.0),
+                        GoalAllocation("adcb", 500.0)
+                    )
+                )
+            )
             return GoalScreenState(
                 baseCurrency = "AED",
                 accounts = listOf(
@@ -71,27 +97,8 @@ data class GoalScreenState(
                     GoalAccount("cash", "Cash wallet", 420.00, "AED"),
                     GoalAccount("emergency", "Emergency fund", 3500.00, "AED")
                 ),
-                goals = listOf(
-                    Goal(
-                        name = "New laptop",
-                        type = GoalType.PURCHASE,
-                        targetAmount = 5000.0,
-                        currency = "AED",
-                        deadlineLabel = "April 2027",
-                        allocations = listOf(GoalAllocation("adcb", 1250.0))
-                    ),
-                    Goal(
-                        name = "Emergency fund",
-                        type = GoalType.EMERGENCY_FUND,
-                        targetAmount = 15000.0,
-                        currency = "AED",
-                        deadlineLabel = "No deadline",
-                        allocations = listOf(
-                            GoalAllocation("emergency", 3500.0),
-                            GoalAllocation("adcb", 500.0)
-                        )
-                    )
-                )
+                goals = goals.map { it.copy(fundingGuidance = it.toFundingGuidance(asOfDate)) },
+                asOfDate = asOfDate,
             )
         }
 

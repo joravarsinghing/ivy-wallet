@@ -8,18 +8,20 @@ import org.junit.Test
 
 class HomeTrendCalculationTest {
     @Test
-    fun `keeps populated periods in chronological order and trims to requested range`() {
+    fun `keeps calendar periods in chronological order and trims to requested range`() {
         val points = listOf(
             point("2026-04", income = "100", expenses = "20"),
             point("2026-01", income = "90", expenses = "10"),
-            point("2026-03", income = "0", expenses = "0"),
+            point("2026-03", income = "0", expenses = "0", isObserved = false),
             point("2026-02", income = "80", expenses = "15"),
             point("2026-05", income = "120", expenses = "30"),
         )
 
         val result = buildHomeTrendPoints(points, HomeTrendRange.THREE_MONTHS)
 
-        assertEquals(listOf("2026-02", "2026-04", "2026-05"), result.map { it.periodLabel })
+        assertEquals(listOf("2026-03", "2026-04", "2026-05"), result.map { it.periodLabel })
+        assertFalse(result[0].isObserved)
+        assertTrue(result[1].isObserved)
     }
 
     @Test
@@ -40,13 +42,15 @@ class HomeTrendCalculationTest {
     @Test
     fun `empty periods are treated as no history`() {
         val points = listOf(
-            point("2026-09", income = "0.00", expenses = "0.00"),
-            point("2026-10", income = "0", expenses = "0"),
+            point("2026-09", income = "0.00", expenses = "0.00", isObserved = false),
+            point("2026-10", income = "0", expenses = "0", isObserved = false),
         )
 
         assertTrue(isHomeTrendNoHistory(points))
         assertFalse(isSingleMonthHomeTrend(points))
-        assertTrue(buildHomeTrendPoints(points, HomeTrendRange.SIX_MONTHS).isEmpty())
+        val result = buildHomeTrendPoints(points, HomeTrendRange.SIX_MONTHS)
+        assertEquals(2, result.size)
+        assertTrue(result.none { it.isObserved })
     }
 
     @Test
@@ -80,9 +84,11 @@ class HomeTrendCalculationTest {
         periodLabel: String,
         income: String,
         expenses: String,
+        isObserved: Boolean = true,
     ) = HomeTrendPoint(
         periodLabel = periodLabel,
         income = BigDecimal(income),
         expenses = BigDecimal(expenses),
+        isObserved = isObserved,
     )
 }

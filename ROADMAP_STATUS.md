@@ -107,14 +107,24 @@ Wave 2 now contains the three practical planning features from the current sprin
 **W2-HOME-TRENDS — Adjustable Home trend and editor: IMPLEMENTED / VERIFIED**
 
 - Replaced the duplicate current-month savings summary with `Money trends`, a monthly Income / Spent / Saved line graph.
-- Added 3m, 6m, and 12m range controls with no minimum-history requirement; empty months are omitted rather than rendered as invented zero activity.
+- Added 3m, 6m, and 12m range controls with no minimum-history requirement; unobserved months remain calendar slots and render as honest gaps rather than invented zero activity.
 - Added a local Home editor so users can hide or restore individual trend series while the app preserves at least one visible measure.
 - Added a single-month explanation, grouped currency values, hidden-balance masking, accessibility descriptions, and dark/light Paparazzi coverage.
 - Persisted the selected range and visible series in the existing DataStore. No database, ledger, import, or backup schema changes were made.
 - Focused verification passed after serializing Gradle runs: Home compile, Home unit tests, and `verifyPaparazziDebug`.
-- Official numbered demo APK built after verification: `Jvy_wallet_v0.2.1.apk` / Android version code `207`.
-- Artifact: `E:\AI\joravar-ivy-wallet\artifacts\apk\Jvy_wallet_v0.2.1.apk`.
-- SHA-256: `7FDB62A48829585069059C30E21E0FCFAC7304E23035FAFFD14B9A890EE5FF32`.
+- Official numbered demo APK built after verification: `Jvy_wallet_v0.2.2.apk` / Android version code `208`.
+- Artifact: `E:\AI\joravar-ivy-wallet\artifacts\apk\Jvy_wallet_v0.2.2.apk`.
+- SHA-256: `01A654143DE2B7113E05216B4FAEEE6C4AC789DC1BDEE5EF6ADCB0BCE38AC9A9`.
+
+**W2-HOME-TRENDS-SPARSE-DATA — Honest chart semantics: IMPLEMENTED / VERIFIED**
+
+- Fixed sparse-history rendering so missing months are represented as null/unobserved points and are never joined by a line.
+- Added an explicit y-axis scale with compact grouped labels. Non-negative financial series use a zero baseline; negative values are allowed to extend below zero only when observed.
+- Single-period data renders as points without a fabricated line and explains that a second month is needed before direction can be inferred. Empty history keeps the existing first-activity empty state.
+- Latest summary values now use the latest observed period instead of a trailing empty calendar slot.
+- Added a populated Paparazzi fixture covering a missing month between the selected range and observed data.
+- Focused verification passed: Home Kotlin compilation, Home unit tests, and Home Paparazzi recording.
+- Official numbered demo APK: `Jvy_wallet_v0.2.2.apk` / Android version code `208`; packaging completed successfully after the sparse-data fix.
 
 **RELEASE-STANDARD — Numbered APK generation: COMPLETE**
 

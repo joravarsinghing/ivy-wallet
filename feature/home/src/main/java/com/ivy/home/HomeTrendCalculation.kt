@@ -9,9 +9,9 @@ import java.util.Locale
 /**
  * Builds the populated monthly points that should be displayed for a Home trend.
  *
- * A point is considered populated when it contains income or expenses. Empty
- * calendar periods are intentionally omitted so a newly installed app can show
- * a useful single-month trend without inventing zero-value history.
+ * Empty calendar periods are retained as unobserved points. The renderer uses
+ * those points to create honest gaps instead of connecting two observations
+ * across a period for which there is no source data.
  */
 fun buildHomeTrendPoints(
     points: List<HomeTrendPoint>,
@@ -19,7 +19,6 @@ fun buildHomeTrendPoints(
 ): List<HomeTrendPoint> {
     return points
         .withIndex()
-        .filter { (_, point) -> point.hasActivity() }
         .sortedWith(
             compareBy<IndexedValue<HomeTrendPoint>> { (_, point) -> monthSortKey(point.periodLabel) }
                 .thenBy { it.index },
@@ -42,7 +41,7 @@ fun isSingleMonthHomeTrend(points: List<HomeTrendPoint>): Boolean =
     points.count { it.hasActivity() } == 1
 
 private fun HomeTrendPoint.hasActivity(): Boolean =
-    income.signum() != 0 || expenses.signum() != 0
+    isObserved
 
 /**
  * Month labels are normally generated in ISO form, but the fallback keeps the

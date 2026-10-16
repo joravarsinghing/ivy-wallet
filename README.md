@@ -47,7 +47,7 @@ From the repository root:
 .\scripts\build-jvy-apk.ps1
 ```
 
-This is the official APK workflow. It generates a successive artifact such as `Jvy_wallet_v0.2.1.apk` under `artifacts/apk/`, records the Android `versionCode`, and writes a checksum manifest beside it. Use `-Bump minor` for a feature release or `-Bump major` for an intentional compatibility-breaking release.
+This is the official APK workflow. It generates a successive artifact such as `Jvy_wallet_v0.2.2.apk` under `artifacts/apk/`, records the Android `versionCode`, and writes a checksum manifest beside it. Use `-Bump minor` for a feature release or `-Bump major` for an intentional compatibility-breaking release.
 
 Raw Gradle commands remain available for compilation and tests, but they do not allocate APK release numbers. See the [APK generation standard](docs/standards/APK-GENERATION.md) and [agent instructions](AGENTS.md).
 

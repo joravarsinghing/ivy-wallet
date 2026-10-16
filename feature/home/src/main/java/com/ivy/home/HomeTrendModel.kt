@@ -22,6 +22,8 @@ data class HomeTrendPoint(
     val periodLabel: String,
     val income: BigDecimal,
     val expenses: BigDecimal,
+    /** True when this period had source transactions; false means no data was recorded. */
+    val isObserved: Boolean = true,
 ) {
     val savings: BigDecimal
         get() = income.subtract(expenses)
@@ -40,5 +42,5 @@ data class HomeTrendState(
     val loading: Boolean = false,
 ) {
     val hasData: Boolean
-        get() = points.any { it.income.signum() != 0 || it.expenses.signum() != 0 }
+        get() = points.any { it.isObserved }
 }

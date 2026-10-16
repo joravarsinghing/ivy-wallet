@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -22,9 +23,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -79,7 +77,7 @@ fun HomeTrendCard(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "Income, spending and savings over time",
+                    text = "Monthly cash flow over time",
                     style = UI.typo.c.style(
                         color = UI.colors.gray,
                         fontWeight = FontWeight.Medium,
@@ -136,6 +134,7 @@ fun HomeTrendCard(
             Spacer(Modifier.height(10.dp))
             TrendChart(
                 state = state,
+                currency = currency,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp),
@@ -146,16 +145,21 @@ fun HomeTrendCard(
                 modifier = Modifier.padding(horizontal = 24.dp),
             )
             Spacer(Modifier.height(14.dp))
-            TrendLatestValues(
-                point = state.points.last(),
-                visibleMetrics = state.visibleMetrics,
-                currency = currency,
-                hideBalance = hideBalance,
-                modifier = Modifier.padding(horizontal = 24.dp),
-            )
-            if (state.points.size == 1) {
+            state.points.lastOrNull { it.isObserved }?.let { latestPoint ->
+                TrendLatestValues(
+                    point = latestPoint,
+                    visibleMetrics = state.visibleMetrics,
+                    currency = currency,
+                    hideBalance = hideBalance,
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                )
+            }
+            if (state.points.count { it.isObserved } <= 1) {
                 Spacer(Modifier.height(8.dp))
-                TrendMessage("Tracking started this month. More months will make the trend clearer.")
+                TrendMessage("One month recorded. A second month will show the first direction of change.")
+            } else if (state.points.count { it.isObserved } == 2) {
+                Spacer(Modifier.height(8.dp))
+                TrendMessage("Two months recorded. More months will make the trend clearer.")
             }
         }
 
@@ -233,65 +237,115 @@ private fun TrendLegend(
 @Composable
 private fun TrendChart(
     state: HomeTrendState,
+    currency: String,
     modifier: Modifier = Modifier,
 ) {
     val values = state.points.flatMap { point ->
+        if (!point.isObserved) return@flatMap emptyList()
         buildList {
             if (HomeTrendMetric.INCOME in state.visibleMetrics) add(point.income)
             if (HomeTrendMetric.EXPENSES in state.visibleMetrics) add(point.expenses)
             if (HomeTrendMetric.SAVINGS in state.visibleMetrics) add(point.savings)
         }
     }
-    val minimum = values.minOrNull() ?: BigDecimal.ZERO
-    val maximum = values.maxOrNull() ?: BigDecimal.ONE
-    val spread = maximum.subtract(minimum).abs().takeIf { it.signum() != 0 } ?: BigDecimal.ONE
+    val rawMinimum = values.minOrNull() ?: BigDecimal.ZERO
+    val rawMaximum = values.maxOrNull() ?: BigDecimal.ONE
+    val rawSpread = rawMaximum.subtract(rawMinimum).abs()
+    val padding = if (rawSpread.signum() == 0) {
+        rawMaximum.abs().max(BigDecimal.ONE).multiply(BigDecimal("0.10"))
+    } else {
+        rawSpread.multiply(BigDecimal("0.10"))
+    }
+    // Financial amounts that are all non-negative should keep a meaningful zero baseline.
+    // Only pad below zero when the observed data actually contains a negative value.
+    val minimum = if (rawMinimum.signum() >= 0) {
+        BigDecimal.ZERO
+    } else {
+        rawMinimum.subtract(padding)
+    }
+    val maximum = rawMaximum.add(padding)
+    val middle = minimum.add(maximum).divide(BigDecimal("2"))
+    val spread = maximum.subtract(minimum)
     val chartColor = UI.colors.gray.copy(alpha = 0.22f)
     val metricColors = state.visibleMetrics.associateWith { it.color() }
 
-    Canvas(
-        modifier = modifier
-            .height(136.dp)
-            .semantics {
-                contentDescription = "Trend chart for ${state.points.size} months"
-            },
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.Top,
     ) {
-        repeat(3) { index ->
-            val y = size.height * index / 2f
-            drawLine(
-                color = chartColor,
-                start = androidx.compose.ui.geometry.Offset(0f, y),
-                end = androidx.compose.ui.geometry.Offset(size.width, y),
-                strokeWidth = 1.dp.toPx(),
-            )
+        Column(
+            modifier = Modifier
+                .width(68.dp)
+                .height(136.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+        ) {
+            listOf(maximum, middle, minimum).forEach { amount ->
+                Text(
+                    text = "${compactAxisAmount(amount)} $currency",
+                    style = UI.typo.c.style(color = UI.colors.gray, fontWeight = FontWeight.Medium),
+                )
+            }
         }
 
-        HomeTrendMetric.values()
-            .filter { it in state.visibleMetrics }
-            .forEach { metric ->
-                val points = state.points.mapIndexed { index, point ->
-                    val value = metric.value(point)
-                    val x = if (state.points.size == 1) {
-                        size.width / 2f
-                    } else {
-                        size.width * index / (state.points.lastIndex.toFloat())
-                    }
-                    val normalized = value.subtract(minimum).toFloat() / spread.toFloat()
-                    androidx.compose.ui.geometry.Offset(x, size.height - (normalized * size.height))
-                }
-                val path = Path().apply {
-                    points.forEachIndexed { index, point ->
-                        if (index == 0) moveTo(point.x, point.y) else lineTo(point.x, point.y)
-                    }
-                }
-                drawPath(
-                    path = path,
-                    color = metricColors.getValue(metric),
-                    style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round),
+        Canvas(
+            modifier = Modifier
+                .weight(1f)
+                .height(136.dp)
+                .semantics {
+                    contentDescription = "Trend chart for ${state.points.size} months. Missing months are shown as gaps."
+                },
+        ) {
+            repeat(3) { index ->
+                val y = size.height * index / 2f
+                drawLine(
+                    color = chartColor,
+                    start = androidx.compose.ui.geometry.Offset(0f, y),
+                    end = androidx.compose.ui.geometry.Offset(size.width, y),
+                    strokeWidth = 1.dp.toPx(),
                 )
-                points.forEach { point ->
-                    drawCircle(color = metricColors.getValue(metric), radius = 3.5.dp.toPx(), center = point)
-                }
             }
+
+            HomeTrendMetric.values()
+                .filter { it in state.visibleMetrics }
+                .forEach { metric ->
+                    val points = state.points.mapIndexed { index, point ->
+                        if (!point.isObserved) {
+                            null
+                        } else {
+                            val x = if (state.points.size == 1) {
+                                size.width / 2f
+                            } else {
+                                size.width * index / (state.points.lastIndex.toFloat())
+                            }
+                            val normalized = metric.value(point)
+                                .subtract(minimum)
+                                .toFloat() / spread.toFloat()
+                            androidx.compose.ui.geometry.Offset(
+                                x,
+                                size.height - (normalized * size.height),
+                            )
+                        }
+                    }
+                    points.zipWithNext().forEach { (start, end) ->
+                        if (start != null && end != null) {
+                            drawLine(
+                                color = metricColors.getValue(metric),
+                                start = start,
+                                end = end,
+                                strokeWidth = 2.5.dp.toPx(),
+                                cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                            )
+                        }
+                    }
+                    points.filterNotNull().forEach { point ->
+                        drawCircle(
+                            color = metricColors.getValue(metric),
+                            radius = 4.dp.toPx(),
+                            center = point,
+                        )
+                    }
+                }
+        }
     }
 }
 
@@ -374,3 +428,12 @@ private fun HomeTrendMetric.color(): Color = when (this) {
 
 private fun groupedAmount(amount: BigDecimal): String =
     String.format(Locale.US, "%,.2f", amount.toDouble())
+
+private fun compactAxisAmount(amount: BigDecimal): String {
+    val value = amount.toDouble()
+    return when {
+        kotlin.math.abs(value) >= 1_000_000 -> String.format(Locale.US, "%.1fm", value / 1_000_000)
+        kotlin.math.abs(value) >= 1_000 -> String.format(Locale.US, "%.1fk", value / 1_000)
+        else -> String.format(Locale.US, "%.0f", value)
+    }
+}

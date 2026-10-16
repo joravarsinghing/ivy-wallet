@@ -372,7 +372,7 @@ class HomeViewModel @Inject constructor(
         trend = trend.copy(loading = true)
 
         val anchor = trendAnchorDate()
-        val points = (trend.range.months - 1 downTo 0).mapNotNull { offset ->
+        val points = (trend.range.months - 1 downTo 0).map { offset ->
             val monthDate = anchor.minusMonths(offset.toLong())
             val monthPeriod = TimePeriod(
                 month = Month.fromMonthValue(monthDate.monthValue),
@@ -389,17 +389,18 @@ class HomeViewModel @Inject constructor(
                     baseCurrency = baseCurrency,
                 )
             )
-            if (historyItems.none { it is Transaction }) {
-                return@mapNotNull null
-            }
-
-            val monthStats = calcIncomeExpenseAct(
-                CalcIncomeExpenseAct.Input(
-                    baseCurrency = baseCurrency,
-                    accounts = accounts,
-                    range = monthRange,
+            val hasSourceData = historyItems.any { it is Transaction }
+            val monthStats = if (hasSourceData) {
+                calcIncomeExpenseAct(
+                    CalcIncomeExpenseAct.Input(
+                        baseCurrency = baseCurrency,
+                        accounts = accounts,
+                        range = monthRange,
+                    )
                 )
-            )
+            } else {
+                null
+            }
             val shortMonth = monthDate.month.getDisplayName(TextStyle.SHORT, Locale.US)
             HomeTrendPoint(
                 periodLabel = if (trend.range == HomeTrendRange.TWELVE_MONTHS ||
@@ -409,8 +410,9 @@ class HomeViewModel @Inject constructor(
                 } else {
                     shortMonth
                 },
-                income = monthStats.income,
-                expenses = monthStats.expense,
+                income = monthStats?.income ?: BigDecimal.ZERO,
+                expenses = monthStats?.expense ?: BigDecimal.ZERO,
+                isObserved = hasSourceData,
             )
         }.toImmutableList()
 

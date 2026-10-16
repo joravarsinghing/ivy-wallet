@@ -38,11 +38,14 @@ These standards apply to new and modified Android screens, sheets, dialogs, and 
 ## Home insight cards and trends
 
 - A Home insight card must answer a different question from the balance and cash-flow header. Do not repeat the same current-period total as a second “insight.” Use a trend, explanation, or next action instead.
-- Trend cards must work with one populated month. Never fabricate zero-value history just to fill a selected range; show the available period and explain that more months will make the trend clearer.
+- Trend cards must work with one populated month. Never fabricate zero-value history just to fill a selected range; retain calendar periods as unobserved gaps, show the available period, and explain that more months will make the trend clearer.
 - Range controls should use compact, horizontally scrollable chips with a clear selected state. The default range is short enough to scan, while longer ranges remain one tap away.
 - A chart must expose its series in a visible legend and provide an in-context editor when users may not want every series. Do not bury chart visibility settings in global Settings.
 - Chart editing must preserve at least one visible series, use plain labels (`Income`, `Spent`, `Saved`), and keep the editor aligned to the same 24dp content gutter as other dialogs.
 - Use the existing UI palette for chart series: green for income, red for spending, and the primary accent for savings. Keep the card surface neutral so the lines carry the emphasis.
+- Missing or null periods must remain gaps. Never connect two real observations across an unobserved period, and never convert missing activity into a zero-value data point.
+- A single observed period renders as points without a connecting line and uses explanatory copy; it must not imply a trend that the data cannot support.
+- Financial charts must show a readable value scale. When all observed values are non-negative, use a visible zero baseline; only extend below zero when a real observed value is negative. Scale bounds are calculated from observed values only.
 - Sparse history, loading, empty, and hidden-balance states are first-class designs. They must not collapse into a blank card or reveal values that the user has chosen to hide.
 
 ## Screenshot review checklist

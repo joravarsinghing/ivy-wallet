@@ -894,6 +894,10 @@ class TransactionsViewModel @Inject constructor(
                 sharedPrefs.getBoolean(SharedPrefs.TRANSFERS_AS_INCOME_EXPENSE, false)
 
             when {
+                screen.allTransactions -> {
+                    initForAllTransactions()
+                }
+
                 screen.accountId != null -> {
                     initForAccount(screen.accountId!!)
                 }

@@ -169,17 +169,23 @@ Wave 2 now contains the three practical planning features from the current sprin
 - Focused verification passed: Home, Transactions, and Accounts Kotlin compilation; Home unit tests; and Home Paparazzi verification. Official numbered demo APK built as `Jvy_wallet_v0.2.7.apk` / Android version code `213`.
 - Device QA remains pending because a Samsung Galaxy S22 Ultra / Android 16 / One UI 8 device was not connected to the build environment.
 
+**W2-HISTORY-CRASH-FIX — View all startup path: VERIFIED**
+
+- Fixed the remaining Home `Recent activity → View all` crash. The navigation flag was present, but the Transactions ViewModel startup dispatcher did not handle `allTransactions` and fell through to the legacy `no id provided` error.
+- The all-history route now initializes the complete ledger before rendering, while preserving month navigation and tap-to-edit behavior.
+- Focused Home/Transactions compilation and Home tests pass; the official numbered demo APK is `Jvy_wallet_v0.2.8.apk` / Android version code `214`.
+
 **RELEASE-STANDARD — Numbered APK generation: COMPLETE**
 
 - Added `version.properties` as the authoritative semantic version and Android version-code source.
 - Added `scripts/build-jvy-apk.ps1` as the only official workflow for APKs intended for installation, QA, sharing, or release.
 - Numbered artifacts use `Jvy_wallet_v<major>.<minor>.<patch>.apk`; the Android `versionCode` increases by one after each successful official build.
-- The current release is `0.2.7` / version code `213`; the next official patch build will be `0.2.8` / version code `214`.
+- The current release is `0.2.8` / version code `214`; the next official patch build will be `0.2.9` / version code `215`.
 - Failed builds do not consume numbers. Test and compile-only Gradle tasks do not consume numbers.
 - Documentation is in `README.md`, `AGENTS.md`, and `docs/standards/APK-GENERATION.md`.
 - Validation: APK script syntax passed; Home compile/unit/Paparazzi verification passed; and the official demo APK packaging completed successfully on 2026-10-15.
-- Current artifact: `artifacts/apk/Jvy_wallet_v0.2.7.apk`.
-- Current artifact SHA-256: `805F76098FC80C65887FB5C085E984FC59805E1555C960B00038459563F3EE65`.
+- Current artifact: `artifacts/apk/Jvy_wallet_v0.2.8.apk`.
+- Current artifact SHA-256: `FF7FB47D5380A069F9518599E03710E22EC033A5AC97BA21FCEA850DFEF1AC26`.
 
 ## Workspace
 

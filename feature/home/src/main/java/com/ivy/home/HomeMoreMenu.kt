@@ -358,6 +358,7 @@ private fun ColumnScope.GoalsSummary(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 16.dp)
             .clip(UI.shapes.r4)
             .background(UI.colors.pure)
             .clickable(onClick = onOpenGoals)

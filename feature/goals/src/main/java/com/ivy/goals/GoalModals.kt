@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -20,14 +21,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
 import com.ivy.wallet.ui.theme.Gradient
 import com.ivy.wallet.ui.theme.components.IvyButton
 import com.ivy.wallet.ui.theme.modal.IvyModal
-import com.ivy.wallet.ui.theme.modal.ModalTitle
+import java.util.Locale
 import java.util.UUID
 
 internal sealed interface GoalsModal {
@@ -95,7 +101,7 @@ private fun AddGoalContent(onCreated: (Goal) -> Unit) {
 
     Column(modifier = Modifier.padding(horizontal = 24.dp)) {
         Spacer(Modifier.height(8.dp))
-        ModalTitle(text = "Create a goal")
+        GoalModalTitle(text = "Create a goal")
         Spacer(Modifier.height(20.dp))
         Text(
             text = "What are you saving for?",
@@ -128,10 +134,12 @@ private fun AddGoalContent(onCreated: (Goal) -> Unit) {
         Spacer(Modifier.height(16.dp))
         OutlinedTextField(
             value = target,
-            onValueChange = { target = it },
+            onValueChange = { target = normalizeNumberInput(it) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            label = { Text("Target amount (AED)") }
+            label = { Text("Target amount (AED)") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            visualTransformation = GroupedNumberVisualTransformation
         )
         Spacer(Modifier.height(16.dp))
         OutlinedTextField(
@@ -205,7 +213,7 @@ private fun GoalDetailContent(
 ) {
     Column(modifier = Modifier.padding(horizontal = 24.dp)) {
         Spacer(Modifier.height(8.dp))
-        ModalTitle(text = goal.name)
+        GoalModalTitle(text = goal.name)
         Spacer(Modifier.height(6.dp))
         Text(
             text = "${goal.type.label} · ${goal.deadlineLabel ?: "No deadline"}",
@@ -275,7 +283,7 @@ private fun ReserveMoneyContent(
 
     Column(modifier = Modifier.padding(horizontal = 24.dp)) {
         Spacer(Modifier.height(8.dp))
-        ModalTitle(text = "Reserve for ${goal.name}")
+        GoalModalTitle(text = "Reserve for ${goal.name}")
         Spacer(Modifier.height(6.dp))
         Text(
             text = "Reserved money stays in its account, but is excluded from safe-to-spend.",
@@ -308,10 +316,14 @@ private fun ReserveMoneyContent(
                     }
                     OutlinedTextField(
                         value = current,
-                        onValueChange = { updated -> amounts = amounts + (account.id to updated) },
+                        onValueChange = { updated ->
+                            amounts = amounts + (account.id to normalizeNumberInput(updated))
+                        },
                         modifier = Modifier.width(132.dp),
                         singleLine = true,
-                        label = { Text(account.currency) }
+                        label = { Text(account.currency) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        visualTransformation = GroupedNumberVisualTransformation
                     )
                 }
             }
@@ -369,6 +381,73 @@ private fun AllocationRow(label: String, amount: String) {
     }
 }
 
+@Composable
+private fun GoalModalTitle(text: String) {
+    Text(
+        text = text,
+        style = UI.typo.b1.style(
+            color = UI.colors.pureInverse,
+            fontWeight = FontWeight.ExtraBold
+        )
+    )
+}
+
+private fun normalizeNumberInput(value: String): String {
+    val cleaned = value.replace(",", "")
+    if (cleaned.isEmpty()) return ""
+
+    val hasDecimal = cleaned.contains('.')
+    val parts = cleaned.split('.', limit = 2)
+    val integer = parts[0].filter(Char::isDigit)
+    val fraction = parts.getOrNull(1).orEmpty().filter(Char::isDigit).take(2)
+
+    return buildString {
+        append(integer.ifEmpty { if (hasDecimal) "0" else "" })
+        if (hasDecimal) {
+            append('.')
+            append(fraction)
+        }
+    }
+}
+
+private object GroupedNumberVisualTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val raw = text.text
+        if (raw.isEmpty()) return TransformedText(text, OffsetMapping.Identity)
+
+        val transformed = formatNumberInput(raw)
+        val mapping = object : OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int {
+                return formatNumberInput(raw.take(offset.coerceIn(0, raw.length))).length
+            }
+
+            override fun transformedToOriginal(offset: Int): Int {
+                return (0..raw.length)
+                    .minWithOrNull(
+                        compareBy<Int> {
+                            kotlin.math.abs(
+                                formatNumberInput(raw.take(it)).length - offset
+                            )
+                        }.thenBy { it }
+                    ) ?: raw.length
+            }
+        }
+
+        return TransformedText(AnnotatedString(transformed), mapping)
+    }
+}
+
+private fun formatNumberInput(value: String): String {
+    val parts = value.split('.', limit = 2)
+    val grouped = parts[0]
+        .reversed()
+        .chunked(3)
+        .joinToString(",")
+        .reversed()
+
+    return if (parts.size == 1) grouped else "$grouped.${parts[1]}"
+}
+
 private fun money(amount: Double, currency: String): String {
-    return "%,.2f %s".format(java.util.Locale.US, amount, currency)
+    return "%,.2f %s".format(Locale.US, amount, currency)
 }

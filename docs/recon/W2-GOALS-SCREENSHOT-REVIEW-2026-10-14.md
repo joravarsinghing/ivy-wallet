@@ -126,6 +126,16 @@ The demo APK build completed successfully after these changes. Runtime visual va
 3. Add category-linked goal semantics only after contribution rules are specified.
 4. Add lifecycle actions and historical progress snapshots.
 
+## Follow-up screenshot review: spacing and numeric formatting
+
+The next device screenshots identified three spacing rules that are now encoded in `docs/guidelines/Mobile-UI-Standards.md`:
+
+- The More-menu reservation card was wider than the search and open-source cards. It now uses the shared 16dp page gutter.
+- The goal-detail title inherited an additional 32dp from the legacy `ModalTitle`, while the rest of the sheet used 24dp. Goal sheets now use an unpadded local title so every content row shares one inset.
+- The transaction sheet's `Account` heading used 32dp while the horizontally scrolling account row used 24dp. The heading now aligns with the row.
+
+Goal target and reservation inputs now display grouped digits while preserving canonical numeric parsing, so values such as `7000.00` render as `7,000.00` consistently during entry.
+
 ## Source references inspected
 
 - `feature/home/src/main/java/com/ivy/home/HomeMoreMenu.kt`

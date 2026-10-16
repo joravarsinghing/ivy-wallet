@@ -285,7 +285,7 @@ fun BoxWithConstraintsScope.EditBottomSheet(
             Spacer(Modifier.height(24.dp))
 
             Text(
-                modifier = Modifier.padding(start = 32.dp),
+                modifier = Modifier.padding(start = 24.dp),
                 text = stringResource(R.string.account),
                 style = UI.typo.b1.style(
                     color = UI.colors.pureInverse,
@@ -503,7 +503,7 @@ private fun SheetHeader(
                 Spacer(Modifier.height(24.dp))
 
                 Text(
-                    modifier = Modifier.padding(start = 32.dp),
+                    modifier = Modifier.padding(start = 24.dp),
                     text = stringResource(R.string.to),
                     style = UI.typo.b1.style(
                         color = UI.colors.pureInverse,

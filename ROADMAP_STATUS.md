@@ -92,6 +92,18 @@ Wave 2 now contains the three practical planning features from the current sprin
 - The full unfiltered/Hilt aggregation and Ivy import test suites remain inherited environment blockers; targeted feature tests and packaging pass.
 - No connected Samsung Galaxy S22 Ultra was available in this build environment, so Android 16 / One UI 8 interaction and screenshot QA remains pending.
 
+**W2-UI — Home dashboard hierarchy pass: COMPLETE / RENDER VERIFIED**
+
+- Reframed Home around one primary decision: `Safe to spend` appears immediately after the balance and is no longer duplicated inside the forecast card.
+- Replaced the oversized monthly savings gradient with a compact neutral `This month` summary showing Income, Spent, and Saved using grouped numbers.
+- Reduced green gradient usage to positive emphasis instead of using it for every insight surface; supporting cards now use the existing neutral surface palette.
+- Reordered the dashboard to `Balance → Safe to spend → Money coming up → This month → Recent transactions`.
+- Made the no-events forecast state actionable in plain language: users are told to add a planned bill or income to improve the forecast.
+- Added `112dp` bottom content padding to the Home lazy list so the floating bottom bar cannot obscure the final transaction.
+- Paparazzi dark/light renders were inspected after the change; Home tests and Kotlin compilation passed.
+- Updated demo APK built on 2026-10-15: `E:\AI\joravar-ivy-wallet\app\build\outputs\apk\demo\app-demo.apk`.
+- Updated APK SHA-256: `6C6B37F9B01EE723B9554FA4B20A724C3AB44E9258B7E93D1F24DE418215014B`.
+
 ## Workspace
 
 - Working copy: `E:\AI\joravar-ivy-wallet`
@@ -170,7 +182,7 @@ Recon agents must not edit production files, shared contracts, or control-plane 
 
 ## Next orchestrator actions
 
-1. Install the new demo APK on the Samsung Galaxy S22 Ultra test device and validate the More menu, goal sheets, create-goal, multi-account allocation, edit, and delete flows visually across Android 16 / One UI 8.
+1. Install the redesigned demo APK on the Samsung Galaxy S22 Ultra test device and validate Home hierarchy, bottom-bar clearance, forecast expansion, goal sheets, and transaction entry visually across Android 16 / One UI 8.
 2. Diagnose the Hilt unit-test aggregation stall, beginning with Gradle/Hilt worker diagnostics rather than application edits.
 3. Add goal monthly contribution and on-track calculations.
 4. Add category-scoped savings rules only after contribution semantics are specified.

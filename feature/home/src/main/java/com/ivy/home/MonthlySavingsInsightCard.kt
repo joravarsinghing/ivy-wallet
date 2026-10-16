@@ -1,6 +1,7 @@
 package com.ivy.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,12 +18,9 @@ import androidx.compose.ui.unit.dp
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
 import com.ivy.domain.usecase.savings.calculateSavingsRate
-import com.ivy.legacy.utils.drawColoredShadow
-import com.ivy.wallet.ui.theme.Gradient
-import com.ivy.wallet.ui.theme.GradientGreen
-import com.ivy.wallet.ui.theme.White
-import com.ivy.wallet.ui.theme.wallet.AmountCurrencyB1
+import com.ivy.wallet.ui.theme.Green
 import java.math.BigDecimal
+import java.util.Locale
 
 internal enum class MonthlySavingsStatus {
     SAVING,
@@ -70,88 +68,112 @@ fun MonthlySavingsInsightCard(
     modifier: Modifier = Modifier,
 ) {
     val insight = calculateMonthlySavingsInsight(income, expenses)
-    val visualStyle = insight.visualStyle()
 
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .drawColoredShadow(visualStyle.shadowColor)
-            .background(visualStyle.background.asHorizontalBrush(), UI.shapes.r3)
+            .background(UI.colors.medium, UI.shapes.r3)
             .testTag("monthly_savings_insight_card"),
     ) {
-        Spacer(Modifier.height(16.dp))
-
-        Text(
-            modifier = Modifier.padding(horizontal = 24.dp),
-            text = "Monthly savings",
-            style = UI.typo.b1.style(
-                color = visualStyle.textColor,
-                fontWeight = FontWeight.ExtraBold,
-            ),
-        )
-
-        Spacer(Modifier.height(4.dp))
-
         Row(
-            modifier = Modifier.padding(horizontal = 24.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 24.dp, end = 24.dp, top = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            AmountCurrencyB1(
-                amount = insight.savings.toDouble(),
-                currency = currency,
-                textColor = visualStyle.textColor,
-                amountFontWeight = FontWeight.Bold,
+            Text(
+                text = "This month",
+                style = UI.typo.b1.style(
+                    color = UI.colors.pureInverse,
+                    fontWeight = FontWeight.ExtraBold,
+                ),
+            )
+            Text(
+                text = currency,
+                style = UI.typo.c.style(
+                    color = UI.colors.gray,
+                    fontWeight = FontWeight.Bold,
+                ),
+            )
+        }
+
+        Spacer(Modifier.height(14.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        )
+        {
+            MonthlyMetric(
+                modifier = Modifier.weight(1f),
+                label = "Income",
+                amount = income,
+                color = UI.colors.pureInverse,
+            )
+            MonthlyMetric(
+                modifier = Modifier.weight(1f),
+                label = "Spent",
+                amount = expenses,
+                color = UI.colors.pureInverse,
+            )
+            MonthlyMetric(
+                modifier = Modifier.weight(1f),
+                label = "Saved",
+                amount = insight.savings,
+                color = if (insight.status == MonthlySavingsStatus.SAVING) Green else UI.colors.pureInverse,
             )
         }
 
         Spacer(Modifier.height(12.dp))
 
         Text(
-            modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 20.dp),
-            text = insight.educationalMessage(),
-            style = UI.typo.b2.style(
-                color = visualStyle.textColor,
+            modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 18.dp),
+            text = insight.shortMessage(),
+            style = UI.typo.c.style(
+                color = UI.colors.gray,
                 fontWeight = FontWeight.Medium,
             ),
         )
     }
 }
 
-private data class MonthlySavingsVisualStyle(
-    val background: Gradient,
-    val textColor: androidx.compose.ui.graphics.Color,
-    val shadowColor: androidx.compose.ui.graphics.Color,
-)
-
 @Composable
-private fun MonthlySavingsInsight.visualStyle(): MonthlySavingsVisualStyle = when (status) {
-    MonthlySavingsStatus.SAVING -> MonthlySavingsVisualStyle(
-        background = GradientGreen,
-        textColor = White,
-        shadowColor = GradientGreen.startColor,
-    )
-
-    MonthlySavingsStatus.BREAK_EVEN -> MonthlySavingsVisualStyle(
-        background = Gradient(UI.colors.pureInverse, UI.colors.gray),
-        textColor = UI.colors.pure,
-        shadowColor = UI.colors.pureInverse,
-    )
-
-    MonthlySavingsStatus.SPENDING_EXCEEDS_INCOME -> MonthlySavingsVisualStyle(
-        background = Gradient.solid(UI.colors.red),
-        textColor = White,
-        shadowColor = UI.colors.red,
-    )
+private fun MonthlyMetric(
+    modifier: Modifier,
+    label: String,
+    amount: BigDecimal,
+    color: androidx.compose.ui.graphics.Color,
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = label,
+            style = UI.typo.c.style(
+                color = UI.colors.gray,
+                fontWeight = FontWeight.Medium,
+            ),
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = String.format(Locale.US, "%,.2f", amount.toDouble()),
+            style = UI.typo.b2.style(
+                color = color,
+                fontWeight = FontWeight.Bold,
+            ),
+        )
+    }
 }
 
-private fun MonthlySavingsInsight.educationalMessage(): String = when (status) {
+private fun MonthlySavingsInsight.shortMessage(): String = when (status) {
     MonthlySavingsStatus.SAVING ->
-        "You spent less than you earned. Saving this difference builds room for surprises and future goals."
+        "You spent less than you earned this month."
 
     MonthlySavingsStatus.BREAK_EVEN ->
-        "You covered your spending, but there is no cushion yet. Try setting aside a small amount next month."
+        "You covered your spending, but have no cushion yet."
 
     MonthlySavingsStatus.SPENDING_EXCEEDS_INCOME ->
-        "Your spending was higher than your income. Review one flexible expense before next month to get back on track."
+        "Spending was higher than income. Review one flexible expense."
 }

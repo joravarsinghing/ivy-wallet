@@ -16,9 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
-import com.ivy.legacy.utils.drawColoredShadow
-import com.ivy.wallet.ui.theme.Gradient
-import com.ivy.wallet.ui.theme.GradientGreen
+import com.ivy.wallet.ui.theme.Green
 import com.ivy.wallet.ui.theme.White
 import com.ivy.wallet.ui.theme.wallet.AmountCurrencyB1
 import java.math.BigDecimal
@@ -77,8 +75,7 @@ fun SafeToSpendCard(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .drawColoredShadow(visualStyle.shadowColor)
-            .background(visualStyle.background.asHorizontalBrush(), UI.shapes.r3)
+            .background(visualStyle.background, UI.shapes.r3)
             .testTag("safe_to_spend_card"),
     ) {
         Spacer(Modifier.height(16.dp))
@@ -101,7 +98,7 @@ fun SafeToSpendCard(
             AmountCurrencyB1(
                 amount = result.amount.toDouble(),
                 currency = currency,
-                textColor = visualStyle.textColor,
+                textColor = visualStyle.amountColor,
                 amountFontWeight = FontWeight.Bold,
             )
         }
@@ -112,7 +109,7 @@ fun SafeToSpendCard(
             modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 20.dp),
             text = result.beginnerMessage(),
             style = UI.typo.b2.style(
-                color = visualStyle.textColor,
+                color = visualStyle.messageColor,
                 fontWeight = FontWeight.Medium,
             ),
         )
@@ -120,29 +117,33 @@ fun SafeToSpendCard(
 }
 
 private data class SafeToSpendVisualStyle(
-    val background: Gradient,
+    val background: androidx.compose.ui.graphics.Color,
     val textColor: androidx.compose.ui.graphics.Color,
-    val shadowColor: androidx.compose.ui.graphics.Color,
+    val amountColor: androidx.compose.ui.graphics.Color,
+    val messageColor: androidx.compose.ui.graphics.Color,
 )
 
 @Composable
 private fun SafeToSpendResult.visualStyle(): SafeToSpendVisualStyle = when (status) {
     SafeToSpendStatus.SAFE -> SafeToSpendVisualStyle(
-        background = GradientGreen,
-        textColor = White,
-        shadowColor = GradientGreen.startColor,
+        background = UI.colors.medium,
+        textColor = UI.colors.pureInverse,
+        amountColor = Green,
+        messageColor = UI.colors.gray,
     )
 
     SafeToSpendStatus.ZERO -> SafeToSpendVisualStyle(
-        background = Gradient(UI.colors.pureInverse, UI.colors.gray),
-        textColor = UI.colors.pure,
-        shadowColor = UI.colors.pureInverse,
+        background = UI.colors.medium,
+        textColor = UI.colors.pureInverse,
+        amountColor = UI.colors.gray,
+        messageColor = UI.colors.gray,
     )
 
     SafeToSpendStatus.BUFFER_EXCEEDED -> SafeToSpendVisualStyle(
-        background = Gradient.solid(UI.colors.red),
+        background = UI.colors.red,
         textColor = White,
-        shadowColor = UI.colors.red,
+        amountColor = White,
+        messageColor = White,
     )
 }
 

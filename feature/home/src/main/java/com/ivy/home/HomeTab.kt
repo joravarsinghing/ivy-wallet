@@ -4,6 +4,7 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -342,7 +343,8 @@ fun HomeLazyColumn(
             .fillMaxSize()
             .nestedScroll(nestedScrollConnection)
             .testTag("home_lazy_column"),
-        state = listState
+        state = listState,
+        contentPadding = PaddingValues(bottom = 112.dp),
     ) {
         item {
             CashFlowInfo(
@@ -365,21 +367,6 @@ fun HomeLazyColumn(
         item {
             Spacer(Modifier.height(16.dp))
 
-            MonthlySavingsInsightCard(
-                income = stats.income,
-                expenses = stats.expense,
-                currency = baseData.baseCurrency,
-            )
-        }
-        item {
-            Spacer(Modifier.height(16.dp))
-
-            TransactionsDividerLine()
-        }
-
-        item {
-            Spacer(Modifier.height(16.dp))
-
             SafeToSpendCard(
                 balance = balance,
                 protectedBuffer = protectedBuffer,
@@ -395,6 +382,22 @@ fun HomeLazyColumn(
                 currency = baseData.baseCurrency,
                 hideBalance = hideBalance,
             )
+        }
+
+        item {
+            Spacer(Modifier.height(16.dp))
+
+            MonthlySavingsInsightCard(
+                income = stats.income,
+                expenses = stats.expense,
+                currency = baseData.baseCurrency,
+            )
+        }
+
+        item {
+            Spacer(Modifier.height(24.dp))
+
+            TransactionsDividerLine()
         }
 
         item {

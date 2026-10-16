@@ -87,7 +87,7 @@ internal fun MoneyComingUpCard(
                     currency = currency,
                     hideBalance = hideBalance,
                 )
-                Message("No planned income or expenses in the next 30 days.")
+                Message("Nothing is scheduled yet. Add a planned bill or income to improve this forecast.")
             }
             MoneyComingUpStatus.CONTENT -> {
                 SummaryRow(
@@ -105,18 +105,20 @@ internal fun MoneyComingUpCard(
                     amountColor = Red,
                 )
                 SummaryRow(
-                    label = "Lowest available",
+                    label = "Lowest balance",
                     amount = state.lowestProjectedAvailable,
                     currency = currency,
                     hideBalance = hideBalance,
                 )
-                SummaryRow(
-                    label = if (state.shortfall.signum() > 0) "Shortfall" else "Safe to spend",
-                    amount = if (state.shortfall.signum() > 0) state.shortfall else state.safeToSpend,
-                    currency = currency,
-                    hideBalance = hideBalance,
-                    amountColor = if (state.shortfall.signum() > 0) Red else Green,
-                )
+                if (state.shortfall.signum() > 0) {
+                    SummaryRow(
+                        label = "Projected shortfall",
+                        amount = state.shortfall,
+                        currency = currency,
+                        hideBalance = hideBalance,
+                        amountColor = Red,
+                    )
+                }
                 if (expanded) {
                     Spacer(Modifier.height(4.dp))
                     Text(

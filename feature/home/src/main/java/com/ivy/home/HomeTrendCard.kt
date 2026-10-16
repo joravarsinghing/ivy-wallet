@@ -338,12 +338,19 @@ private fun TrendChart(
                     contentDescription = "Trend chart for ${state.points.size} ${if (state.range.isDaily) "days" else "months"}. Pre-activity periods are shown as gaps."
                 },
         ) {
+            // All ranges use the same anchor domain: the first and last visible
+            // calendar bucket. Monthly points represent the month anchor, not
+            // the last day of that month; using month-end here made the final
+            // monthly point look artificially inset while daily points reached
+            // the right edge.
+            val plotInset = 4.dp.toPx()
+            val plotWidth = (size.width - (plotInset * 2)).coerceAtLeast(1f)
             repeat(3) { index ->
                 val y = size.height * index / 2f
                 drawLine(
                     color = chartColor,
-                    start = androidx.compose.ui.geometry.Offset(0f, y),
-                    end = androidx.compose.ui.geometry.Offset(size.width, y),
+                    start = androidx.compose.ui.geometry.Offset(plotInset, y),
+                    end = androidx.compose.ui.geometry.Offset(size.width - plotInset, y),
                     strokeWidth = 1.dp.toPx(),
                 )
             }
@@ -352,17 +359,20 @@ private fun TrendChart(
                 .filter { it in state.visibleMetrics }
                 .forEach { metric ->
                     val axisStart = state.points.firstOrNull()?.periodIdentity?.startDate
-                    val axisEnd = state.points.lastOrNull()?.periodIdentity?.startDate?.let {
-                        if (state.range.isDaily) it else it.plusMonths(1).minusDays(1)
-                    }
+                    val axisEnd = state.points.lastOrNull()?.periodIdentity?.startDate
                     val span = if (axisStart != null && axisEnd != null) {
                         java.time.temporal.ChronoUnit.DAYS.between(axisStart, axisEnd).coerceAtLeast(1)
                     } else 1
                     val points = plotPoints.map { point ->
                         val x = if (axisStart == null || axisEnd == null || axisStart == axisEnd) {
-                            size.width / 2f
+                            plotInset + (plotWidth / 2f)
                         } else {
-                            size.width * java.time.temporal.ChronoUnit.DAYS.between(axisStart, point.date) / span.toFloat()
+                            val position = java.time.temporal.ChronoUnit.DAYS
+                                .between(axisStart, point.date)
+                                .toFloat()
+                                .div(span.toFloat())
+                                .coerceIn(0f, 1f)
+                            plotInset + (plotWidth * position)
                         }
                         val normalized = metric.value(point)
                             .subtract(minimum)

@@ -53,6 +53,7 @@ These standards apply to new and modified Android screens, sheets, dialogs, and 
 - Trends support `7D` and `30D` daily buckets plus `3M`, `6M`, and `12M` monthly buckets. Use explicit date/YearMonth identities for ordering; never sort by display labels.
 - Before the first observed activity, periods are gaps. After activity starts, quiet periods are real zero-activity points. A single activity period is rendered as a point without a connecting line.
 - Keep chart height fixed while changing ranges. Preserve the previous plot under a small updating overlay instead of collapsing the card.
+- Use one explicit horizontal plot domain for every trend range. Daily and monthly anchors share the same left/right plot insets; monthly points use the first day of each month as their anchor and must not be positioned against month-end padding.
 
 ## Home density and activity
 

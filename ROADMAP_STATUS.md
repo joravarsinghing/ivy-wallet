@@ -315,3 +315,9 @@ Build result: `BUILD SUCCESSFUL` on 2026-10-14. Device validation is still pendi
 - Invalid amount ranges remain rejected, while valid filters with no matching records keep the report summary visible and show the existing no-results transaction state.
 - Added `ReportFilterTest` coverage for default period/type normalization, single-type filters, and invalid amount ranges.
 - Verification: `:feature:reports:testDebugUnitTest` passed after the change. No APK was generated for this source-only fix.
+
+## W2-TREND-GEOMETRY — Cohesive daily/monthly chart domain
+
+- Monthly chart points now use the same first-to-last bucket anchor domain as daily charts. The previous month-end axis extension left the final monthly point visibly inset from the right edge.
+- Grid lines and plotted points use the same small, consistent horizontal inset across all ranges, with clamped positions for sparse or single-point data.
+- No financial values or bucket semantics changed; this is a presentation geometry correction only.

@@ -22,6 +22,16 @@ The user has authorized the first low-risk product packet: Jvy Wallet identity a
 - APK SHA-256: `861A34E6447A946CE837456D842D1A6DC6E1D8CC0A74E7350727D0043DD53670`.
 - APK metadata label verified as `Jvy Wallet`.
 
+**W1-SAVINGS — Monthly savings insight: COMPLETE**
+
+- The Home screen now shows a `Monthly savings` card beneath the existing cash-flow summary.
+- It calculates `income - expenses` with `BigDecimal`, then explains one of three beginner-friendly states: saving, break-even, or spending exceeds income.
+- The domain calculator also exposes a savings-rate percentage plus zero-income and negative-income explanations for later surfaces.
+- Focused coverage includes positive savings, fractional exact arithmetic, overspending, break-even, zero income, and negative income.
+- The card is presentation-only and reads existing Home statistics; it adds no database, import, backup, or package migration.
+- QA/compatibility record: `docs/recon/R1-SPRINT-1-VERIFICATION.md`.
+- Full demo APK build passed after Home integration.
+
 ## Workspace
 
 - Working copy: `E:\AI\joravar-ivy-wallet`
@@ -71,6 +81,7 @@ Recon agents must not edit production files, shared contracts, or control-plane 
 - [x] Source PRD and roadmap copied into a non-synced project-controlled location with matching hashes.
 - [x] Branch/worktree conventions and initial ADRs recorded.
 - [x] Wave 1 branding packet completed under the documented low-risk exception.
+- [x] Wave 1 monthly savings insight completed with import-safe integration.
 
 ## Gate failures / blockers
 

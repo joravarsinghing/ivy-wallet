@@ -360,6 +360,15 @@ fun HomeLazyColumn(
         item {
             Spacer(Modifier.height(16.dp))
 
+            MonthlySavingsInsightCard(
+                income = stats.income,
+                expenses = stats.expense,
+                currency = baseData.baseCurrency,
+            )
+        }
+        item {
+            Spacer(Modifier.height(16.dp))
+
             TransactionsDividerLine()
         }
 

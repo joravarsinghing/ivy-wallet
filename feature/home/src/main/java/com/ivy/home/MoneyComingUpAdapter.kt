@@ -26,7 +26,7 @@ import javax.inject.Inject
  * It deliberately reads existing rules and goal allocations only. It never generates,
  * settles, deletes, or saves transactions.
  */
-internal class MoneyComingUpAdapter @Inject constructor(
+class MoneyComingUpAdapter @Inject constructor(
     private val plannedPaymentsLogic: PlannedPaymentsLogic,
     private val goalRepository: GoalRepository,
     private val exchangeRatesLogic: ExchangeRatesLogic,

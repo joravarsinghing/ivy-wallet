@@ -104,22 +104,34 @@ Wave 2 now contains the three practical planning features from the current sprin
 - Updated demo APK built on 2026-10-15: `E:\AI\joravar-ivy-wallet\app\build\outputs\apk\demo\app-demo.apk`.
 - Updated APK SHA-256: `6C6B37F9B01EE723B9554FA4B20A724C3AB44E9258B7E93D1F24DE418215014B`.
 
+**W2-HOME-TRENDS — Adjustable Home trend and editor: IMPLEMENTED / VERIFIED**
+
+- Replaced the duplicate current-month savings summary with `Money trends`, a monthly Income / Spent / Saved line graph.
+- Added 3m, 6m, and 12m range controls with no minimum-history requirement; empty months are omitted rather than rendered as invented zero activity.
+- Added a local Home editor so users can hide or restore individual trend series while the app preserves at least one visible measure.
+- Added a single-month explanation, grouped currency values, hidden-balance masking, accessibility descriptions, and dark/light Paparazzi coverage.
+- Persisted the selected range and visible series in the existing DataStore. No database, ledger, import, or backup schema changes were made.
+- Focused verification passed after serializing Gradle runs: Home compile, Home unit tests, and `verifyPaparazziDebug`.
+- Official numbered demo APK built after verification: `Jvy_wallet_v0.2.1.apk` / Android version code `207`.
+- Artifact: `E:\AI\joravar-ivy-wallet\artifacts\apk\Jvy_wallet_v0.2.1.apk`.
+- SHA-256: `7FDB62A48829585069059C30E21E0FCFAC7304E23035FAFFD14B9A890EE5FF32`.
+
 **RELEASE-STANDARD — Numbered APK generation: COMPLETE**
 
 - Added `version.properties` as the authoritative semantic version and Android version-code source.
 - Added `scripts/build-jvy-apk.ps1` as the only official workflow for APKs intended for installation, QA, sharing, or release.
 - Numbered artifacts use `Jvy_wallet_v<major>.<minor>.<patch>.apk`; the Android `versionCode` increases by one after each successful official build.
-- The current baseline is `0.2.0` / version code `206`; the next patch artifact is `Jvy_wallet_v0.2.1.apk` / version code `207`.
+- The current release is `0.2.1` / version code `207`; the next official patch build will be `0.2.2` / version code `208`.
 - Failed builds do not consume numbers. Test and compile-only Gradle tasks do not consume numbers.
 - Documentation is in `README.md`, `AGENTS.md`, and `docs/standards/APK-GENERATION.md`.
-- Validation: APK script syntax passed and `:app:compileDemoKotlin` passed on 2026-10-15 without changing the baseline.
+- Validation: APK script syntax passed; Home compile/unit/Paparazzi verification passed; and the official demo APK packaging completed successfully on 2026-10-15.
 
 ## Workspace
 
 - Working copy: `E:\AI\joravar-ivy-wallet`
 - Upstream remote: `https://github.com/Ivy-Apps/ivy-wallet.git`
 - GitHub fork: `https://github.com/joravarsinghing/ivy-wallet` (forked from `Ivy-Apps/ivy-wallet`)
-- Published branch: `joravar/wave-0-control-plane` at commit `a61d81849`.
+- Published branch: `joravar/wave-0-control-plane` (current changes pending commit/push).
 - Initial branch: `main` tracking `upstream/main`
 - Fork control branch: `joravar/wave-0-control-plane`
 - Integration base before control-plane docs: `710733dbe4729a437d573cdfb8429c50e617ded1`

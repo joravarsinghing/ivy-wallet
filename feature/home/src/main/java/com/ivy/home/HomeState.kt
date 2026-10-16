@@ -36,4 +36,5 @@ data class HomeState(
     val expanded: Boolean,
     val shouldShowAccountSpecificColorInTransactions: Boolean,
     val moneyComingUp: MoneyComingUpState = MoneyComingUpState(),
+    val trend: HomeTrendState = HomeTrendState(),
 )

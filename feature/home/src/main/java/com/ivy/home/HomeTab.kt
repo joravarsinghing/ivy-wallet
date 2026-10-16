@@ -168,6 +168,11 @@ fun BoxWithConstraintsScope.HomeUi(
             balance = uiState.balance,
             protectedBuffer = uiState.buffer.amount,
             moneyComingUp = uiState.moneyComingUp,
+            trend = uiState.trend,
+            onTrendRangeSelected = { onEvent(HomeEvent.SetTrendRange(it)) },
+            onTrendMetricToggle = { onEvent(HomeEvent.ToggleTrendMetric(it)) },
+            onOpenTrendEditor = { onEvent(HomeEvent.OpenTrendEditor) },
+            onCloseTrendEditor = { onEvent(HomeEvent.CloseTrendEditor) },
             onOpenMoreMenu = {
                 setMoreMenuExpanded(true)
             },
@@ -301,6 +306,11 @@ fun HomeLazyColumn(
     balance: BigDecimal,
     protectedBuffer: BigDecimal,
     moneyComingUp: MoneyComingUpState,
+    trend: HomeTrendState,
+    onTrendRangeSelected: (HomeTrendRange) -> Unit,
+    onTrendMetricToggle: (HomeTrendMetric) -> Unit,
+    onOpenTrendEditor: () -> Unit,
+    onCloseTrendEditor: () -> Unit,
     stats: IncomeExpensePair,
     history: ImmutableList<TransactionHistoryItem>,
 
@@ -387,10 +397,14 @@ fun HomeLazyColumn(
         item {
             Spacer(Modifier.height(16.dp))
 
-            MonthlySavingsInsightCard(
-                income = stats.income,
-                expenses = stats.expense,
+            HomeTrendCard(
+                state = trend,
                 currency = baseData.baseCurrency,
+                hideBalance = hideBalance,
+                onRangeSelected = onTrendRangeSelected,
+                onMetricToggle = onTrendMetricToggle,
+                onOpenEditor = onOpenTrendEditor,
+                onCloseEditor = onCloseTrendEditor,
             )
         }
 

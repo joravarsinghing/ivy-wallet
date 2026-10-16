@@ -1,5 +1,9 @@
 package com.ivy.home
 
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
+import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -12,6 +16,7 @@ import com.ivy.base.legacy.Transaction
 import com.ivy.base.legacy.TransactionHistoryItem
 import com.ivy.base.time.TimeConverter
 import com.ivy.base.time.TimeProvider
+import com.ivy.data.datastore.IvyDataStore
 import com.ivy.data.model.primitive.AssetCode
 import com.ivy.data.repository.CategoryRepository
 import com.ivy.data.repository.GoalRepository
@@ -28,6 +33,7 @@ import com.ivy.legacy.data.AppBaseData
 import com.ivy.legacy.data.BufferInfo
 import com.ivy.legacy.data.LegacyDueSection
 import com.ivy.legacy.data.model.MainTab
+import com.ivy.legacy.data.model.Month
 import com.ivy.legacy.data.model.TimePeriod
 import com.ivy.legacy.data.model.toUTCCloseTimeRange
 import com.ivy.legacy.datamodel.Account
@@ -64,7 +70,13 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
+import java.time.LocalDate
+import java.time.format.TextStyle
+import java.util.Locale
 import javax.inject.Inject
+
+private val HOME_TREND_RANGE_KEY = stringPreferencesKey("home_trend_range")
+private val HOME_TREND_METRICS_KEY = stringSetPreferencesKey("home_trend_metrics")
 
 @Stable
 @HiltViewModel
@@ -95,7 +107,8 @@ class HomeViewModel @Inject constructor(
     private val moneyComingUpAdapter: MoneyComingUpAdapter,
     private val timeProvider: TimeProvider,
     private val timeConverter: TimeConverter,
-    private val features: Features
+    private val features: Features,
+    private val dataStore: IvyDataStore,
 ) : ComposeViewModel<HomeState, HomeEvent>() {
     private var currentTheme by mutableStateOf(Theme.AUTO)
     private var name by mutableStateOf("")
@@ -136,6 +149,7 @@ class HomeViewModel @Inject constructor(
     private var hideIncome by mutableStateOf(false)
     private var expanded by mutableStateOf(true)
     private var moneyComingUp by mutableStateOf(MoneyComingUpState())
+    private var trend by mutableStateOf(HomeTrendState())
 
     @Composable
     override fun uiState(): HomeState {
@@ -160,6 +174,7 @@ class HomeViewModel @Inject constructor(
             hideIncome = getHideIncome(),
             shouldShowAccountSpecificColorInTransactions = getShouldShowAccountSpecificColorInTransactions(),
             moneyComingUp = moneyComingUp,
+            trend = trend,
         )
     }
 
@@ -257,11 +272,16 @@ class HomeViewModel @Inject constructor(
                 HomeEvent.SwitchTheme -> switchTheme()
                 is HomeEvent.DismissCustomerJourneyCard -> dismissCustomerJourneyCard(event.card)
                 is HomeEvent.SetExpanded -> setExpanded(event.expanded)
+                is HomeEvent.SetTrendRange -> setTrendRange(event.range)
+                is HomeEvent.ToggleTrendMetric -> toggleTrendMetric(event.metric)
+                HomeEvent.OpenTrendEditor -> trend = trend.copy(editorVisible = true)
+                HomeEvent.CloseTrendEditor -> trend = trend.copy(editorVisible = false)
             }
         }
     }
 
     private suspend fun start() {
+        loadTrendPreferences()
         suspend {
             val startDay = startDayOfMonthAct(Unit)
             ivyContext.initSelectedPeriodInMemory(
@@ -340,7 +360,108 @@ class HomeViewModel @Inject constructor(
         balance = balanceAmount
         stats = incomeExpense
 
+        loadTrend(settings.baseCurrency, accounts)
+
         return Triple(settings, timeRange, balanceAmount)
+    }
+
+    private suspend fun loadTrend(
+        baseCurrency: String,
+        accounts: List<Account>,
+    ) {
+        trend = trend.copy(loading = true)
+
+        val anchor = trendAnchorDate()
+        val points = (trend.range.months - 1 downTo 0).mapNotNull { offset ->
+            val monthDate = anchor.minusMonths(offset.toLong())
+            val monthPeriod = TimePeriod(
+                month = Month.fromMonthValue(monthDate.monthValue),
+                year = monthDate.year,
+            )
+            val monthRange = monthPeriod.toRange(
+                startDateOfMonth = ivyContext.startDayOfMonth,
+                timeConverter = timeConverter,
+                timeProvider = timeProvider,
+            ).toUTCCloseTimeRange()
+            val historyItems = historyWithDateDivsAct(
+                HistoryWithDateDivsAct.Input(
+                    range = monthRange,
+                    baseCurrency = baseCurrency,
+                )
+            )
+            if (historyItems.none { it is Transaction }) {
+                return@mapNotNull null
+            }
+
+            val monthStats = calcIncomeExpenseAct(
+                CalcIncomeExpenseAct.Input(
+                    baseCurrency = baseCurrency,
+                    accounts = accounts,
+                    range = monthRange,
+                )
+            )
+            val shortMonth = monthDate.month.getDisplayName(TextStyle.SHORT, Locale.US)
+            HomeTrendPoint(
+                periodLabel = if (trend.range == HomeTrendRange.TWELVE_MONTHS ||
+                    monthDate.year != anchor.year
+                ) {
+                    "$shortMonth ${monthDate.year}"
+                } else {
+                    shortMonth
+                },
+                income = monthStats.income,
+                expenses = monthStats.expense,
+            )
+        }.toImmutableList()
+
+        trend = trend.copy(
+            points = points,
+            loading = false,
+        )
+    }
+
+    private fun trendAnchorDate(): LocalDate {
+        val selectedMonth = period.month
+        return if (selectedMonth != null) {
+            LocalDate.of(
+                period.year ?: timeProvider.localDateNow().year,
+                selectedMonth.monthValue,
+                1,
+            )
+        } else {
+            timeProvider.localDateNow().withDayOfMonth(1)
+        }
+    }
+
+    private suspend fun loadTrendPreferences() {
+        val preferences = dataStore.data.first()
+        val storedRange = preferences[HOME_TREND_RANGE_KEY]
+            ?.let { value -> HomeTrendRange.values().firstOrNull { it.name == value } }
+            ?: HomeTrendRange.THREE_MONTHS
+        val storedMetrics = preferences[HOME_TREND_METRICS_KEY]
+            ?.mapNotNull { value -> HomeTrendMetric.values().firstOrNull { it.name == value } }
+            ?.toSet()
+            ?.takeIf { it.isNotEmpty() }
+            ?: HomeTrendState().visibleMetrics
+
+        trend = trend.copy(
+            range = storedRange,
+            visibleMetrics = storedMetrics,
+        )
+    }
+
+    private suspend fun setTrendRange(range: HomeTrendRange) {
+        trend = trend.copy(range = range)
+        dataStore.edit { it[HOME_TREND_RANGE_KEY] = range.name }
+        loadTrend(baseData.baseCurrency, baseData.accounts.toList())
+    }
+
+    private suspend fun toggleTrendMetric(metric: HomeTrendMetric) {
+        val updated = trend.visibleMetrics.toMutableSet().apply {
+            if (contains(metric) && size > 1) remove(metric) else add(metric)
+        }.toSet()
+        trend = trend.copy(visibleMetrics = updated)
+        dataStore.edit { it[HOME_TREND_METRICS_KEY] = updated.map(HomeTrendMetric::name).toSet() }
     }
 
     private suspend fun loadBuffer(

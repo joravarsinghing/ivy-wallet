@@ -35,6 +35,16 @@ These standards apply to new and modified Android screens, sheets, dialogs, and 
 - Labels, helper text, and buttons must remain readable at normal device scale.
 - Use copy that describes the accounting truth. Goal allocations are **reserved**, not **saved** or transferred, unless a real transaction occurred.
 
+## Home insight cards and trends
+
+- A Home insight card must answer a different question from the balance and cash-flow header. Do not repeat the same current-period total as a second “insight.” Use a trend, explanation, or next action instead.
+- Trend cards must work with one populated month. Never fabricate zero-value history just to fill a selected range; show the available period and explain that more months will make the trend clearer.
+- Range controls should use compact, horizontally scrollable chips with a clear selected state. The default range is short enough to scan, while longer ranges remain one tap away.
+- A chart must expose its series in a visible legend and provide an in-context editor when users may not want every series. Do not bury chart visibility settings in global Settings.
+- Chart editing must preserve at least one visible series, use plain labels (`Income`, `Spent`, `Saved`), and keep the editor aligned to the same 24dp content gutter as other dialogs.
+- Use the existing UI palette for chart series: green for income, red for spending, and the primary accent for savings. Keep the card surface neutral so the lines carry the emphasis.
+- Sparse history, loading, empty, and hidden-balance states are first-class designs. They must not collapse into a blank card or reveal values that the user has chosen to hide.
+
 ## Screenshot review checklist
 
 Before merging a UI change, inspect a current-device screenshot for:
@@ -46,4 +56,6 @@ Before merging a UI change, inspect a current-device screenshot for:
 5. Grouped money formatting in every state, including zero, large values, and decimal input.
 6. Safe-area and bottom-navigation clearance.
 7. A clear visual hierarchy without nested-card or spacer hacks.
+8. Trend cards still make sense with one month, no history, and a selected metric hidden.
+9. Chart editors have a visible close action, preserve one visible series, and do not clip on the S22 Ultra.
 

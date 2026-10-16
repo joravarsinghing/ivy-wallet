@@ -29,4 +29,9 @@ sealed interface HomeEvent {
 
     data object SelectNextMonth : HomeEvent
     data object SelectPreviousMonth : HomeEvent
+
+    data class SetTrendRange(val range: HomeTrendRange) : HomeEvent
+    data class ToggleTrendMetric(val metric: HomeTrendMetric) : HomeEvent
+    data object OpenTrendEditor : HomeEvent
+    data object CloseTrendEditor : HomeEvent
 }

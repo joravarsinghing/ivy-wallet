@@ -408,40 +408,16 @@ class HomeViewModel @Inject constructor(
             ).filterIsInstance<Transaction>().filter(::isTrendTransaction)
             TrendBucket(start, endOfBucket, transactions)
         }
-        val firstObservedDate = buckets
-            .flatMap { it.transactions }
-            .mapNotNull { transaction ->
-                transaction.dateTime?.let { timeConverter.run { it.toLocalDate() } }
-            }
-            .minOrNull()
-
         val rawPoints = buckets.map { bucket ->
             val stats = calculateTrendStats(bucket.transactions, accounts, baseCurrency)
-            val dailySamples = if (!trend.range.isDaily && firstObservedDate != null) {
-                val sampleStart = maxOf(bucket.start, firstObservedDate)
-                if (sampleStart <= bucket.end) {
-                    buildList {
-                        var date = sampleStart
-                        while (true) {
-                        val dayTransactions = bucket.transactions.filter { transaction ->
-                            transaction.dateTime?.let { timeConverter.run { it.toLocalDate() } } == date
-                        }
-                        val dayStats = calculateTrendStats(dayTransactions, accounts, baseCurrency)
-                        add(HomeTrendSample(
-                            date = date,
-                            income = dayStats?.income ?: BigDecimal.ZERO,
-                            expenses = dayStats?.expense ?: BigDecimal.ZERO,
-                        ))
-                        if (date == bucket.end) break
-                        date = date.plusDays(1)
-                        }
-                    }.toImmutableList()
-                } else {
-                    persistentListOf()
-                }
-            } else {
-                persistentListOf()
-            }
+            val balanceAtEnd = calcWalletBalanceAct(
+                CalcWalletBalanceAct.Input(
+                    baseCurrency = baseCurrency,
+                    range = ClosedTimeRange.to(
+                        timeConverter.run { bucket.end.plusDays(1).atStartOfDay().toUTC() }
+                    ),
+                )
+            )
             val pointDate = bucket.start
             HomeTrendPoint(
                 periodLabel = if (trend.range.isDaily) {
@@ -451,13 +427,13 @@ class HomeViewModel @Inject constructor(
                 },
                 income = stats?.income ?: BigDecimal.ZERO,
                 expenses = stats?.expense ?: BigDecimal.ZERO,
+                balance = balanceAtEnd,
                 isObserved = bucket.transactions.isNotEmpty(),
                 periodIdentity = if (trend.range.isDaily) {
                     HomeTrendPeriodIdentity.Day(pointDate)
                 } else {
                     HomeTrendPeriodIdentity.Month(java.time.YearMonth.from(pointDate))
                 },
-                dailySamples = dailySamples,
             )
         }
         val points = buildHomeTrendPoints(rawPoints, trend.range, anchorDate = end)
@@ -528,7 +504,7 @@ class HomeViewModel @Inject constructor(
             ?.let { value -> HomeTrendRange.values().firstOrNull { it.name == value } }
             ?: HomeTrendRange.THIRTY_DAYS
         val storedMetrics = preferences[HOME_TREND_METRICS_KEY]
-            ?.mapNotNull { value -> HomeTrendMetric.values().firstOrNull { it.name == value } }
+            ?.mapNotNull(HomeTrendMetric::fromStoredName)
             ?.toSet()
             ?.takeIf { it.isNotEmpty() }
             ?: HomeTrendState().visibleMetrics

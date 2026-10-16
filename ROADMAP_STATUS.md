@@ -187,17 +187,27 @@ Wave 2 now contains the three practical planning features from the current sprin
 - Updated `docs/guidelines/Mobile-UI-Standards.md` with cross-screen density and trend-semantics rules for future UI work.
 - Targeted compilation, Home tests, and official APK packaging passed. Device screenshot QA remains pending.
 
+**W2-BALANCE-TREND-DENSITY-FOLLOWUP — Balance semantics and legacy-card reduction: IMPLEMENTED / SOURCE VERIFIED**
+
+- Replaced the misleading purple `Net change` series with `Balance`, calculated as the end-of-period wallet balance from the existing ledger-aware balance action. The old persisted `SAVINGS` preference key maps to `Balance` so existing users keep their chart selection safely.
+- Monthly points no longer use daily income-minus-expense samples that created artificial salary spikes. Pre-activity periods remain gaps; later quiet periods retain real period-end balance values.
+- Reduced the full Transactions income/expense header to a compact summary row with lightweight add actions.
+- Reworked Accounts cards into compact neutral rows with a colored account accent, balance, reserved amount, available amount, and monthly flows without a large colored header panel.
+- Reduced Balance trend chart height and internal padding to match the newer normal-density Home language.
+- Added balance aggregation regression coverage and updated the mobile UI standards with balance-versus-net-worth rules.
+- Targeted Home, Accounts, and Transactions compilation plus Home unit/Paparazzi tests pass. No APK was generated because APK creation requires an explicit build command; device QA remains pending.
+
 **RELEASE-STANDARD — Numbered APK generation: COMPLETE**
 
 - Added `version.properties` as the authoritative semantic version and Android version-code source.
 - Added `scripts/build-jvy-apk.ps1` as the only official workflow for APKs intended for installation, QA, sharing, or release.
 - Numbered artifacts use `Jvy_wallet_v<major>.<minor>.<patch>.apk`; the Android `versionCode` increases by one after each successful official build.
-- The current release is `0.2.10` / version code `216`; the next official patch build will be `0.2.11` / version code `217`.
+- The current release is `0.2.11` / version code `217`; the next official patch build will be `0.2.12` / version code `218`.
 - Failed builds do not consume numbers. Test and compile-only Gradle tasks do not consume numbers.
 - Documentation is in `README.md`, `AGENTS.md`, and `docs/standards/APK-GENERATION.md`.
 - Validation: APK script syntax passed; Accounts, Goals, Home, and Transactions debug compilation passed; Home unit/Paparazzi verification passed; and the official demo APK packaging completed successfully on 2026-10-15.
-- Current artifact: `artifacts/apk/Jvy_wallet_v0.2.10.apk`.
-- Current artifact SHA-256: `3D6802135EF1F567376322F7552AC76A0F216423B357D17FE7D2C50FEB5B230D`.
+- Current artifact: `artifacts/apk/Jvy_wallet_v0.2.11.apk`.
+- Current artifact SHA-256: `0C55852B61B0FAD19F7EB8B0091BF5FDDC1EDAC1F8EAA1DE00371D4ECB158BB9`.
 
 ## Workspace
 

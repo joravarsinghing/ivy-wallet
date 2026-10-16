@@ -20,8 +20,8 @@ enum class HomeDashboardCardId(
     ),
     MONEY_TRENDS(
         stableId = "money_trends",
-        label = "Money trends",
-        description = "Income, spending, and savings over time.",
+        label = "Balance trend",
+        description = "Period-end balance with income and spending over time.",
     ),
     SPENDING_BREAKDOWN(
         stableId = "spending_breakdown",

@@ -163,6 +163,21 @@ class HomeTrendCalculationTest {
     }
 
     @Test
+    fun `monthly aggregation keeps the ending balance instead of summing balances`() {
+        val result = buildHomeTrendPoints(
+            points = listOf(
+                explicitDay("Jan 1", "2027-01-01", income = "100", balance = "100"),
+                explicitDay("Jan 20", "2027-01-20", expenses = "20", balance = "80"),
+            ),
+            range = HomeTrendRange.THREE_MONTHS,
+            anchorDate = LocalDate.parse("2027-02-15"),
+        )
+
+        assertEquals(BigDecimal("80"), result[1].balance)
+        assertEquals(BigDecimal.ZERO, result[2].balance)
+    }
+
+    @Test
     fun `single explicit point is retained without inventing a trend`() {
         val result = buildHomeTrendPoints(
             points = listOf(explicitDay("only", "2026-10-01", income = "50")),
@@ -191,10 +206,12 @@ class HomeTrendCalculationTest {
         date: String,
         income: String = "0",
         expenses: String = "0",
+        balance: String = "0",
     ) = HomeTrendPoint(
         periodLabel = label,
         income = BigDecimal(income),
         expenses = BigDecimal(expenses),
+        balance = BigDecimal(balance),
         periodIdentity = HomeTrendPeriodIdentity.Day(LocalDate.parse(date)),
     )
 

@@ -74,9 +74,18 @@ sealed interface HomeTrendPeriodIdentity {
 enum class HomeTrendMetric(val label: String) {
     INCOME("Income"),
     EXPENSES("Spent"),
-    // Kept as SAVINGS for DataStore compatibility. This is income minus spending,
-    // not money moved into a savings account.
-    SAVINGS("Net change"),
+    BALANCE("Balance");
+
+    companion object {
+        /**
+         * `SAVINGS` was the old persisted key for income minus expenses. Map it to Balance
+         * rather than dropping a user's visibility preference during the semantic correction.
+         */
+        fun fromStoredName(value: String): HomeTrendMetric? = when (value) {
+            "SAVINGS" -> BALANCE
+            else -> entries.firstOrNull { it.name == value }
+        }
+    }
 }
 
 @Immutable
@@ -84,16 +93,15 @@ data class HomeTrendPoint(
     val periodLabel: String,
     val income: BigDecimal,
     val expenses: BigDecimal,
+    /** Wallet balance at the end of this calendar period in the base currency. */
+    val balance: BigDecimal = BigDecimal.ZERO,
     /** True when this period is inside observed coverage; false means it predates activity. */
     val isObserved: Boolean = true,
     /** Stable period identity used for ordering and bucketing. */
     val periodIdentity: HomeTrendPeriodIdentity = HomeTrendPeriodIdentity.legacy(periodLabel),
-    /** Intra-month samples used to give monthly ranges a truthful daily shape. */
+    /** Optional intra-month samples for future detail views; balance remains the primary series. */
     val dailySamples: ImmutableList<HomeTrendSample> = persistentListOf(),
 ) {
-    val savings: BigDecimal
-        get() = income.subtract(expenses)
-
     /** A stable key suitable for persistence or chart selection callbacks. */
     val periodKey: String
         get() = when (val identity = periodIdentity) {
@@ -108,9 +116,8 @@ data class HomeTrendSample(
     val date: LocalDate,
     val income: BigDecimal,
     val expenses: BigDecimal,
+    val balance: BigDecimal = BigDecimal.ZERO,
 ) {
-    val savings: BigDecimal
-        get() = income.subtract(expenses)
 }
 
 @Immutable
@@ -120,7 +127,7 @@ data class HomeTrendState(
     val visibleMetrics: Set<HomeTrendMetric> = setOf(
         HomeTrendMetric.INCOME,
         HomeTrendMetric.EXPENSES,
-        HomeTrendMetric.SAVINGS,
+        HomeTrendMetric.BALANCE,
     ),
     val editorVisible: Boolean = false,
     val loading: Boolean = false,

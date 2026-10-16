@@ -66,12 +66,12 @@ fun HomeTrendCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 24.dp, end = 16.dp, top = 18.dp),
+                .padding(start = 16.dp, end = 12.dp, top = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Money trends",
+                    text = "Balance trend",
                     style = UI.typo.b1.style(
                         color = UI.colors.pureInverse,
                         fontWeight = FontWeight.ExtraBold,
@@ -79,7 +79,7 @@ fun HomeTrendCard(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = if (state.range.isDaily) "Daily cash flow over time" else "Monthly cash flow over time",
+                    text = if (state.range.isDaily) "Daily balance and cash flow" else "Period-end balance and cash flow",
                     style = UI.typo.c.style(
                         color = UI.colors.gray,
                         fontWeight = FontWeight.Medium,
@@ -103,12 +103,12 @@ fun HomeTrendCard(
             )
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(12.dp))
 
         Row(
             modifier = Modifier
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             HomeTrendRange.values().forEach { range ->
@@ -120,7 +120,7 @@ fun HomeTrendCard(
             }
         }
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(14.dp))
 
         Box(modifier = Modifier.fillMaxWidth()) {
             when {
@@ -132,7 +132,7 @@ fun HomeTrendCard(
                     Column(modifier = Modifier.fillMaxWidth()) {
                         TrendLegend(
                             visibleMetrics = state.visibleMetrics,
-                            modifier = Modifier.padding(horizontal = 24.dp),
+                            modifier = Modifier.padding(horizontal = 16.dp),
                         )
                         Spacer(Modifier.height(10.dp))
                         TrendChart(
@@ -140,12 +140,12 @@ fun HomeTrendCard(
                             currency = currency,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 24.dp),
+                                .padding(horizontal = 16.dp),
                         )
                         Spacer(Modifier.height(8.dp))
                         TrendPeriodLabels(
                             points = state.points,
-                            modifier = Modifier.padding(horizontal = 24.dp),
+                            modifier = Modifier.padding(horizontal = 16.dp),
                         )
                         Spacer(Modifier.height(14.dp))
                         state.points
@@ -160,13 +160,14 @@ fun HomeTrendCard(
                                 expenses = observedPoints.fold(BigDecimal.ZERO) { total, point ->
                                     total + point.expenses
                                 },
+                                balance = observedPoints.last().balance,
                             )
                             TrendLatestValues(
                                 point = rangeTotals,
                                 visibleMetrics = state.visibleMetrics,
                                 currency = currency,
                                 hideBalance = hideBalance,
-                                modifier = Modifier.padding(horizontal = 24.dp),
+                                modifier = Modifier.padding(horizontal = 16.dp),
                             )
                         }
                         when (state.points.count { it.hasActivity() }) {
@@ -178,7 +179,13 @@ fun HomeTrendCard(
                             }
                             2 -> {
                                 Spacer(Modifier.height(8.dp))
-                                TrendMessage(if (state.range.isDaily) "Two days recorded. More days will make the trend clearer." else "Two months recorded. More months will make the trend clearer.")
+                                TrendMessage(
+                                    if (state.range.isDaily) {
+                                        "Two days with activity. More history will make the pattern clearer."
+                                    } else {
+                                        "Two periods with activity. More history will make the pattern clearer."
+                                    }
+                                )
                             }
                         }
                     }
@@ -281,7 +288,7 @@ private fun TrendChart(
         buildList {
             if (HomeTrendMetric.INCOME in state.visibleMetrics) add(point.income)
             if (HomeTrendMetric.EXPENSES in state.visibleMetrics) add(point.expenses)
-            if (HomeTrendMetric.SAVINGS in state.visibleMetrics) add(point.savings)
+            if (HomeTrendMetric.BALANCE in state.visibleMetrics) add(point.balance)
         }
     }
     val rawMinimum = values.minOrNull() ?: BigDecimal.ZERO
@@ -312,7 +319,7 @@ private fun TrendChart(
         Column(
             modifier = Modifier
                 .width(68.dp)
-                .height(136.dp),
+                .height(112.dp),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
             listOf(maximum, middle, minimum).forEach { amount ->
@@ -326,7 +333,7 @@ private fun TrendChart(
         Canvas(
             modifier = Modifier
                 .weight(1f)
-                .height(136.dp)
+                .height(112.dp)
                 .semantics {
                     contentDescription = "Trend chart for ${state.points.size} ${if (state.range.isDaily) "days" else "months"}. Pre-activity periods are shown as gaps."
                 },
@@ -392,9 +399,8 @@ private data class TrendPlotPoint(
     val date: LocalDate,
     val income: BigDecimal,
     val expenses: BigDecimal,
+    val balance: BigDecimal,
 ) {
-    val savings: BigDecimal
-        get() = income.subtract(expenses)
 }
 
 private fun trendPlotPoints(state: HomeTrendState): List<TrendPlotPoint> {
@@ -403,14 +409,14 @@ private fun trendPlotPoints(state: HomeTrendState): List<TrendPlotPoint> {
         .sortedBy { it.date }
     if (!state.range.isDaily && dailySamples.isNotEmpty()) {
         return dailySamples.map {
-            TrendPlotPoint(it.date, it.income, it.expenses)
+            TrendPlotPoint(it.date, it.income, it.expenses, it.balance)
         }
     }
     return state.points
         .filter { it.isObserved }
         .mapNotNull { point ->
             point.periodIdentity.startDate?.let {
-                TrendPlotPoint(it, point.income, point.expenses)
+                TrendPlotPoint(it, point.income, point.expenses, point.balance)
             }
         }
 }
@@ -476,7 +482,7 @@ private fun TrendLatestValues(
 @Composable
 private fun TrendMessage(text: String) {
     Text(
-        modifier = Modifier.padding(horizontal = 24.dp),
+        modifier = Modifier.padding(horizontal = 16.dp),
         text = text,
         style = UI.typo.c.style(color = UI.colors.gray, fontWeight = FontWeight.Medium),
     )
@@ -487,7 +493,7 @@ private fun TrendLoadingPlaceholder() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(176.dp),
+            .height(144.dp),
         contentAlignment = Alignment.Center,
     ) {
         TrendLoadingPill()
@@ -499,7 +505,7 @@ private fun TrendLoadingOverlay() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(176.dp),
+            .height(144.dp),
         contentAlignment = Alignment.Center,
     ) {
         TrendLoadingPill()
@@ -537,20 +543,20 @@ private fun TrendLoadingPill() {
 private fun HomeTrendMetric.value(point: HomeTrendPoint): BigDecimal = when (this) {
     HomeTrendMetric.INCOME -> point.income
     HomeTrendMetric.EXPENSES -> point.expenses
-    HomeTrendMetric.SAVINGS -> point.savings
+    HomeTrendMetric.BALANCE -> point.balance
 }
 
 private fun HomeTrendMetric.value(point: TrendPlotPoint): BigDecimal = when (this) {
     HomeTrendMetric.INCOME -> point.income
     HomeTrendMetric.EXPENSES -> point.expenses
-    HomeTrendMetric.SAVINGS -> point.savings
+    HomeTrendMetric.BALANCE -> point.balance
 }
 
 @Composable
 private fun HomeTrendMetric.color(): Color = when (this) {
     HomeTrendMetric.INCOME -> Green
     HomeTrendMetric.EXPENSES -> Red
-    HomeTrendMetric.SAVINGS -> UI.colors.primary
+    HomeTrendMetric.BALANCE -> UI.colors.primary
 }
 
 private fun groupedAmount(amount: BigDecimal): String =

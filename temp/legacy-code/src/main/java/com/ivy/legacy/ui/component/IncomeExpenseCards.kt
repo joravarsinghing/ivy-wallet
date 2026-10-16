@@ -1,13 +1,11 @@
 package com.ivy.legacy.ui.component
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
@@ -18,24 +16,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.ivy.base.legacy.Transaction
 import com.ivy.base.legacy.TransactionHistoryItem
 import com.ivy.base.legacy.stringRes
 import com.ivy.base.model.TransactionType
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
-import com.ivy.legacy.utils.drawColoredShadow
 import com.ivy.legacy.utils.format
 import com.ivy.ui.R
-import com.ivy.wallet.domain.data.IvyCurrency
-import com.ivy.wallet.ui.theme.Gradient
 import com.ivy.wallet.ui.theme.Green
-import com.ivy.wallet.ui.theme.MediumBlack
-import com.ivy.wallet.ui.theme.MediumWhite
-import com.ivy.wallet.ui.theme.components.IvyButton
 import com.ivy.wallet.ui.theme.findContrastTextColor
-import com.ivy.wallet.ui.theme.isDarkColor
 
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
 @Suppress("ParameterNaming")
@@ -113,95 +103,57 @@ private fun RowScope.HeaderCard(
     onHeaderCardClicked: () -> Unit = {},
     onAddClick: () -> Unit
 ) {
-    val backgroundColor = if (isDarkColor(itemColor)) {
-        MediumBlack.copy(alpha = 0.9f)
-    } else {
-        MediumWhite.copy(alpha = 0.9f)
-    }
-
-    val contrastColor = findContrastTextColor(backgroundColor)
+    val contrastColor = findContrastTextColor(itemColor)
 
     Column(
         modifier = Modifier
             .weight(1f)
-            .drawColoredShadow(
-                color = backgroundColor,
-                alpha = 0.1f
-            )
-            .background(backgroundColor, UI.shapes.r2)
-            .clickable { onHeaderCardClicked() },
+            .padding(horizontal = 4.dp),
     ) {
-        Spacer(Modifier.height(24.dp))
-
-        Text(
-            modifier = Modifier.padding(horizontal = 24.dp),
-            text = title,
-            style = UI.typo.c.style(
-                color = contrastColor,
-                fontWeight = FontWeight.ExtraBold
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onHeaderCardClicked() }
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = UI.typo.c.style(
+                        color = contrastColor,
+                        fontWeight = FontWeight.Bold,
+                    ),
+                )
+                Text(
+                    text = amount.format(currencyCode),
+                    style = UI.typo.b1.style(
+                        color = contrastColor,
+                        fontWeight = FontWeight.ExtraBold,
+                    ),
+                )
+            }
+            Text(
+                text = "$transactionCount ${stringRes(R.string.transactions)}",
+                style = UI.typo.c.style(
+                    color = contrastColor.copy(alpha = 0.72f),
+                    fontWeight = FontWeight.Medium,
+                ),
             )
-        )
-
-        Spacer(Modifier.height(12.dp))
-
-        Text(
-            modifier = Modifier.padding(horizontal = 24.dp),
-            text = amount.format(currencyCode),
-            style = UI.typo.nB1.style(
-                color = contrastColor,
-                fontWeight = FontWeight.ExtraBold
-            )
-        )
-        Text(
-            modifier = Modifier.padding(horizontal = 24.dp),
-            text = IvyCurrency.fromCode(currencyCode)?.name ?: "",
-            style = UI.typo.b2.style(
-                color = contrastColor,
-                fontWeight = FontWeight.Normal
-            )
-        )
-
-        Spacer(Modifier.height(12.dp))
-
-        Text(
-            modifier = Modifier.padding(horizontal = 24.dp),
-            text = transactionCount.toString(),
-            style = UI.typo.nB1.style(
-                color = contrastColor,
-                fontWeight = FontWeight.ExtraBold
-            )
-        )
-        Text(
-            modifier = Modifier.padding(horizontal = 24.dp),
-            text = stringRes(R.string.transactions),
-            style = UI.typo.b2.style(
-                color = contrastColor,
-                fontWeight = FontWeight.Normal
-            )
-        )
-
-        Spacer(Modifier.height(24.dp))
+        }
 
         if (addButtonText != null) {
-            val addButtonBackground = if (isIncome) Green else contrastColor
-            IvyButton(
+            Text(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp)
-                    .align(Alignment.CenterHorizontally),
+                    .align(Alignment.End)
+                    .clickable { onAddClick() }
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
                 text = addButtonText,
-                shadowAlpha = 0.1f,
-                backgroundGradient = Gradient.solid(addButtonBackground),
-                textStyle = UI.typo.b2.style(
-                    color = findContrastTextColor(addButtonBackground),
-                    fontWeight = FontWeight.Bold
-                ).copy(fontSize = 12.sp),
-                wrapContentMode = false
-            ) {
-                onAddClick()
-            }
-
-            Spacer(Modifier.height(12.dp))
+                style = UI.typo.c.style(
+                    color = if (isIncome) Green else contrastColor,
+                    fontWeight = FontWeight.Bold,
+                ),
+            )
         }
     }
 }

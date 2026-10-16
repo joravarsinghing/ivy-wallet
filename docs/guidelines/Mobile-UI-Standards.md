@@ -42,8 +42,8 @@ These standards apply to new and modified Android screens, sheets, dialogs, and 
 - A calendar-month trend must use calendar-month boundaries, independent of the user's custom budgeting-period start day. Never label a shifted fiscal period as if it were a calendar month.
 - Range controls should use compact, horizontally scrollable chips with a clear selected state. The default range is short enough to scan, while longer ranges remain one tap away.
 - A chart must expose its series in a visible legend and provide an in-context editor when users may not want every series. Do not bury chart visibility settings in global Settings.
-- Chart editing must preserve at least one visible series, use plain labels (`Income`, `Spent`, `Saved`), and keep the editor aligned to the same 24dp content gutter as other dialogs.
-- Use the existing UI palette for chart series: green for income, red for spending, and the primary accent for savings. Keep the card surface neutral so the lines carry the emphasis.
+- Chart editing must preserve at least one visible series, use plain labels (`Income`, `Spent`, `Balance`), and keep the editor aligned to the same 24dp content gutter as other dialogs.
+- Use the existing UI palette for chart series: green for income, red for spending, and the primary accent for balance. Keep the card surface neutral so the lines carry the emphasis.
 - Missing or null periods must remain gaps. Never connect two real observations across an unobserved period, and never convert missing activity into a zero-value data point.
 - A single observed period renders as points without a connecting line and uses explanatory copy; it must not imply a trend that the data cannot support.
 - Financial charts must show a readable value scale. When all observed values are non-negative, use a visible zero baseline; only extend below zero when a real observed value is negative. Scale bounds are calculated from observed values only.
@@ -75,8 +75,11 @@ These standards apply to new and modified Android screens, sheets, dialogs, and 
 
 ## Trend metric semantics
 
-- `Net change` means income minus spending for the selected period. It must not be labeled `Saved`, because it does not prove that money was moved into a savings account.
-- A true balance trend must use end-of-period account balances; do not substitute net change or duplicate the current balance until historical balance calculation is available.
+- The primary purple trend is `Balance`: the wallet balance at the end of each calendar period, calculated from the ledger through that period boundary.
+- `Income` and `Spent` remain flow metrics for the selected period. They explain why the balance moved; they are not balance values themselves.
+- Never label income minus spending as `Saved`, `Net worth`, or `Balance`. It is only a cash-flow surplus/deficit.
+- A true net-worth trend is a separate future capability that must combine historical asset balances and liabilities. Until that exists, show `Balance` and do not imply that it represents net worth.
+- Pre-activity periods remain blank. Periods after the first observed transaction can show a real zero-flow point and a carried balance.
 
 ## Screenshot review checklist
 

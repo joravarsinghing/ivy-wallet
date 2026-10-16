@@ -56,6 +56,10 @@ private fun buildCoveredHomeTrendPoints(
                 periodLabel = bucketPoints.first().periodLabel,
                 income = bucketPoints.fold(BigDecimal.ZERO) { total, point -> total + point.income },
                 expenses = bucketPoints.fold(BigDecimal.ZERO) { total, point -> total + point.expenses },
+                balance = bucketPoints
+                    .maxByOrNull { it.periodIdentity.startDate ?: LocalDate.MIN }
+                    ?.balance
+                    ?: BigDecimal.ZERO,
                 isObserved = bucketPoints.any { it.isObserved },
                 periodIdentity = identityFor(
                     bucket = range.bucket,
@@ -129,6 +133,7 @@ private fun emptyPoint(
         periodLabel = period.toString(),
         income = BigDecimal.ZERO,
         expenses = BigDecimal.ZERO,
+        balance = BigDecimal.ZERO,
         isObserved = observed,
         periodIdentity = identity,
     )

@@ -3,6 +3,7 @@ package com.ivy.accounts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,7 +23,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -57,8 +57,6 @@ import com.ivy.wallet.ui.theme.components.BalanceRowMini
 import com.ivy.wallet.ui.theme.components.ItemIconSDefaultIcon
 import com.ivy.wallet.ui.theme.components.ReorderButton
 import com.ivy.wallet.ui.theme.components.ReorderModalSingleType
-import com.ivy.wallet.ui.theme.dynamicContrast
-import com.ivy.wallet.ui.theme.findContrastTextColor
 import com.ivy.wallet.ui.theme.toComposeColor
 import kotlinx.collections.immutable.persistentListOf
 import java.util.UUID
@@ -215,20 +213,18 @@ private fun AccountCard(
             .padding(horizontal = 24.dp)
             .fillMaxWidth()
             .clip(UI.shapes.r4)
+            .background(UI.colors.medium, UI.shapes.r4)
             .border(1.dp, UI.colors.medium, UI.shapes.r4)
             .clickable(
                 onClick = onClick
             )
     ) {
-        val account = accountData.account
-        val contrastColor = findContrastTextColor(account.color.value.toComposeColor())
-        val currency = account.asset.code
+        val currency = accountData.account.asset.code
 
         AccountHeader(
             accountData = accountData,
             currency = currency,
             baseCurrency = baseCurrency,
-            contrastColor = contrastColor,
             onBalanceClick = onBalanceClick
         )
 
@@ -263,86 +259,89 @@ private fun AccountHeader(
     accountData: AccountData,
     currency: String,
     baseCurrency: String,
-    contrastColor: Color,
     onBalanceClick: () -> Unit
 ) {
     val account = accountData.account
+    val accentColor = account.color.value.toComposeColor()
 
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(account.color.value.toComposeColor(), UI.shapes.r4Top)
+            .padding(horizontal = 14.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.Top,
     ) {
-        Spacer(Modifier.height(12.dp))
+        Box(
+            modifier = Modifier
+                .width(5.dp)
+                .height(56.dp)
+                .clip(UI.shapes.r4)
+                .background(accentColor),
+        )
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Spacer(Modifier.width(16.dp))
+        Spacer(Modifier.width(12.dp))
 
-            ItemIconSDefaultIcon(
-                iconName = account.icon?.id,
-                defaultIcon = R.drawable.ic_custom_account_s,
-                tint = contrastColor
-            )
-
-            Spacer(Modifier.width(8.dp))
-
-            Text(
-                text = account.name.value,
-                style = UI.typo.b1.style(
-                    color = contrastColor,
-                    fontWeight = FontWeight.ExtraBold
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ItemIconSDefaultIcon(
+                    iconName = account.icon?.id,
+                    defaultIcon = R.drawable.ic_custom_account_s,
+                    tint = accentColor,
                 )
-            )
 
-            if (!account.includeInBalance) {
                 Spacer(Modifier.width(8.dp))
 
                 Text(
-                    text = stringResource(R.string.excluded),
-                    style = UI.typo.c.style(
-                        color = account.color.value.toComposeColor().dynamicContrast()
+                    text = account.name.value,
+                    style = UI.typo.b1.style(
+                        color = UI.colors.pureInverse,
+                        fontWeight = FontWeight.Bold,
                     )
+                )
+
+                if (!account.includeInBalance) {
+                    Spacer(Modifier.width(8.dp))
+
+                    Text(
+                        text = stringResource(R.string.excluded),
+                        style = UI.typo.c.style(
+                            color = UI.colors.gray,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(6.dp))
+
+            BalanceRow(
+                modifier = Modifier.clickableNoIndication(rememberInteractionSource()) {
+                    onBalanceClick()
+                },
+                textColor = UI.colors.pureInverse,
+                currency = currency,
+                balance = accountData.balance,
+
+                balanceFontSize = 22.sp,
+                currencyFontSize = 18.sp,
+
+                currencyUpfront = false,
+            )
+
+            if (currency != baseCurrency && accountData.balanceBaseCurrency != null) {
+                BalanceRowMini(
+                    modifier = Modifier
+                        .align(Alignment.Start)
+                        .clickableNoIndication(rememberInteractionSource()) {
+                            onBalanceClick()
+                        }
+                        .testTag("baseCurrencyEquivalent"),
+                    textColor = UI.colors.gray,
+                    currency = baseCurrency,
+                    balance = accountData.balanceBaseCurrency!!,
+                    currencyUpfront = false,
                 )
             }
         }
-
-        Spacer(Modifier.height(2.dp))
-
-        BalanceRow(
-            modifier = Modifier
-                .align(Alignment.Start)
-                .padding(horizontal = 16.dp)
-                .clickableNoIndication(rememberInteractionSource()) {
-                    onBalanceClick()
-                },
-            textColor = contrastColor,
-            currency = currency,
-            balance = accountData.balance,
-
-            balanceFontSize = 24.sp,
-            currencyFontSize = 24.sp,
-
-            currencyUpfront = false
-        )
-
-        if (currency != baseCurrency && accountData.balanceBaseCurrency != null) {
-            BalanceRowMini(
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .clickableNoIndication(rememberInteractionSource()) {
-                        onBalanceClick()
-                    }
-                    .testTag("baseCurrencyEquivalent"),
-                textColor = account.color.value.toComposeColor().dynamicContrast(),
-                currency = baseCurrency,
-                balance = accountData.balanceBaseCurrency!!,
-                currencyUpfront = false
-            )
-        }
-
-        Spacer(Modifier.height(12.dp))
     }
 }
 

@@ -104,7 +104,7 @@ private fun ContributorsUi(
         },
         floatingActionButton = {
             GitHubButton {
-                browser.openUri("https://github.com/Ivy-Apps/ivy-wallet")
+                browser.openUri("https://github.com/joravarsinghing/ivy-wallet")
             }
         }
     )
@@ -212,7 +212,7 @@ private fun ProjectInfoRow(
             },
             info = "${projectRepositoryInfo.projectInfo.forks} forks",
             onClick = {
-                browser.openUri("https://github.com/Ivy-Apps/ivy-wallet/fork")
+                browser.openUri("https://github.com/joravarsinghing/ivy-wallet")
             }
         )
 

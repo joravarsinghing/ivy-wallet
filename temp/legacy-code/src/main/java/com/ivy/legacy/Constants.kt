@@ -1,28 +1,18 @@
 package com.ivy.legacy
 
 object Constants {
-    const val URL_TC =
-        "https://github.com/ILIYANGERMANOV/privacy-policies/blob/master/ivy-wallet-tc.md"
-    const val URL_PRIVACY_POLICY =
-        "https://github.com/ILIYANGERMANOV/privacy-policies/blob/master/ivy-wallet-privacy-policy.md"
-
-    const val URL_IVY_WALLET_REPO = "https://github.com/Ivy-Apps/ivy-wallet"
     const val URL_JVY_WALLET_REPO = "https://github.com/joravarsinghing/ivy-wallet"
+    const val URL_JVY_WEBSITE = "https://joravarsinghing.github.io/portfolio/"
+    const val URL_JVY_LINKEDIN = "https://www.linkedin.com/in/joravarsingh/"
 
-    const val URL_GITHUB_NEW_ISSUE = "https://github.com/Ivy-Apps/ivy-wallet/issues/new/choose"
+    const val URL_TC = URL_JVY_WALLET_REPO
+    const val URL_PRIVACY_POLICY = URL_JVY_WEBSITE
 
-    const val URL_HELP_CENTER = "https://t.me/+ETavgioAvWg4NThk"
+    const val URL_GITHUB_NEW_ISSUE =
+        "https://github.com/joravarsinghing/ivy-wallet/issues/new/choose"
 
-    const val URL_IVY_TELEGRAM_INVITE = "https://t.me/+ETavgioAvWg4NThk"
-
-    const val URL_IVY_WALLET_GOOGLE_PLAY =
-        "https://play.google.com/store/apps/details?id=com.ivy.wallet"
+    const val URL_HELP_CENTER = URL_JVY_WEBSITE
 
     const val CATEGORY_UNSPECIFIED_NAME = "Unspecified"
 
-    const val URL_IVY_CONTRIBUTORS =
-        "https://github.com/Ivy-Apps/ivy-wallet#contributors-wall"
-
-    const val URL_GITHUB_SPONSORS =
-        "https://github.com/sponsors/Ivy-Apps"
 }

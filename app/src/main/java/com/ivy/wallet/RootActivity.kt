@@ -382,7 +382,7 @@ class RootActivity : AppCompatActivity(), RootScreen {
                 putExtra(Intent.EXTRA_TEXT, Constants.URL_JVY_WALLET_REPO)
                 type = "text/plain"
             },
-            null
+            "Share Jvy Wallet"
         )
         startActivity(share)
     }

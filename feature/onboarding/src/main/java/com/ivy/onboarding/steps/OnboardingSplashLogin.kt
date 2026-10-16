@@ -217,7 +217,7 @@ fun BoxWithConstraintsScope.OnboardingSplashLogin(
                 .clickable {
                     openUrl(
                         uriHandler = uriHandler,
-                        url = Constants.URL_IVY_WALLET_REPO
+                        url = Constants.URL_JVY_WALLET_REPO
                     )
                 }
                 .padding(vertical = 8.dp)

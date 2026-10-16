@@ -256,6 +256,11 @@
     <string name="hide_income">Hide income</string>
     <string name="hide_income_description">Tap on the hidden income to reveal it for 5s</string>
     <string name="other">Other</string>
+    <string name="jvy_wallet">Jvy Wallet</string>
+    <string name="connect_with_jvy">Connect with Jvy</string>
+    <string name="jvy_website">Jvy website</string>
+    <string name="jvy_linkedin">Jvy on LinkedIn</string>
+    <string name="support_on_linkedin">Support via LinkedIn</string>
     <string name="rate_us_on_google_play">Rate us on Google Play</string>
     <string name="share_ivy_wallet">Share Jvy Wallet</string>
     <string name="product">Product</string>

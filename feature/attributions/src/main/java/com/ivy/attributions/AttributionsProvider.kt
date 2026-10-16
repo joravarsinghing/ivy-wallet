@@ -86,7 +86,7 @@ class AttributionsProvider @Inject constructor() {
         ),
         AttributionItem.Attribution(
             name = "Github Actions",
-            link = "https://github.com/Ivy-Apps/ivy-wallet/actions"
+            link = "https://github.com/joravarsinghing/ivy-wallet/actions"
         ),
         AttributionItem.Attribution(
             name = "Timber",

@@ -58,14 +58,10 @@ import com.ivy.navigation.navigation
 import com.ivy.navigation.screenScopedViewModel
 import com.ivy.ui.R
 import com.ivy.wallet.domain.data.IvyCurrency
-import com.ivy.wallet.ui.theme.Blue
 import com.ivy.wallet.ui.theme.Gradient
 import com.ivy.wallet.ui.theme.GradientGreen
-import com.ivy.wallet.ui.theme.GradientIvy
 import com.ivy.wallet.ui.theme.Gray
-import com.ivy.wallet.ui.theme.MediumBlack
 import com.ivy.wallet.ui.theme.Red
-import com.ivy.wallet.ui.theme.Red3
 import com.ivy.wallet.ui.theme.White
 import com.ivy.wallet.ui.theme.components.IvySwitch
 import com.ivy.wallet.ui.theme.components.IvyToolbar
@@ -177,6 +173,7 @@ private fun BoxWithConstraintsScope.UI(
     var deleteAllDataModalVisible by remember { mutableStateOf(false) }
     var deleteAllDataModalFinalVisible by remember { mutableStateOf(false) }
     val nav = navigation()
+    val rootActivity = rootScreen()
 
     LazyColumn(
         modifier = Modifier
@@ -404,55 +401,65 @@ private fun BoxWithConstraintsScope.UI(
 //        }
 
         item {
-            SettingsSectionDivider(text = stringResource(R.string.other))
+            SettingsSectionDivider(text = stringResource(R.string.jvy_wallet))
 
             Spacer(Modifier.height(16.dp))
 
             val rootScreen = rootScreen()
-            SettingsPrimaryButton(
+            SettingsDefaultButton(
                 icon = R.drawable.ic_custom_star_m,
                 text = stringResource(R.string.rate_us_on_google_play),
-                backgroundGradient = GradientIvy
             ) {
                 rootScreen.reviewIvyWallet(dismissReviewCard = false)
             }
 
             Spacer(Modifier.height(12.dp))
 
-            SettingsPrimaryButton(
+            SettingsDefaultButton(
                 icon = R.drawable.ic_custom_family_m,
                 text = stringResource(R.string.share_ivy_wallet),
-                backgroundGradient = Gradient.solid(Red3)
             ) {
                 rootScreen.shareIvyWallet()
             }
 
             Spacer(Modifier.height(12.dp))
 
-            SettingsPrimaryButton(
+            SettingsDefaultButton(
                 icon = R.drawable.github_logo,
                 iconPadding = 10.dp,
-                text = stringResource(R.string.ivy_wallet_is_opensource),
-                backgroundGradient = Gradient.solid(MediumBlack)
+                text = stringResource(R.string.jvy_wallet_open_source),
+                description = "github.com/joravarsinghing"
             ) {
-                rootScreen.openUrlInBrowser(url = Constants.URL_IVY_WALLET_REPO)
+                rootScreen.openUrlInBrowser(url = Constants.URL_JVY_WALLET_REPO)
             }
         }
 
         item {
-            SettingsSectionDivider(text = stringResource(R.string.product))
+            SettingsSectionDivider(text = stringResource(R.string.connect_with_jvy))
 
             Spacer(Modifier.height(12.dp))
 
-            IvyTelegram()
-
-            Spacer(Modifier.height(16.dp))
-
-            HelpCenter()
+            JvyLink(
+                icon = R.drawable.ic_vue_location_global,
+                text = stringResource(R.string.jvy_website),
+                description = "joravarsinghing.github.io/portfolio"
+            ) {
+                rootActivity.openUrlInBrowser(Constants.URL_JVY_WEBSITE)
+            }
 
             Spacer(Modifier.height(12.dp))
 
-            Releases(nav = nav)
+            JvyLink(
+                icon = R.drawable.ic_support,
+                text = stringResource(R.string.jvy_linkedin),
+                description = "linkedin.com/in/joravarsingh"
+            ) {
+                rootActivity.openUrlInBrowser(Constants.URL_JVY_LINKEDIN)
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            SupportOnLinkedIn()
 
             Spacer(Modifier.height(12.dp))
 
@@ -467,7 +474,7 @@ private fun BoxWithConstraintsScope.UI(
 
             Spacer(Modifier.height(12.dp))
 
-            ContactSupport()
+            Releases(nav = nav)
 
             Spacer(Modifier.height(12.dp))
 
@@ -649,27 +656,19 @@ private fun CustomFeatures(
 }
 
 @Composable
-private fun IvyTelegram() {
-    val rootActivity = rootScreen()
-    SettingsPrimaryButton(
-        icon = R.drawable.ic_telegram_24dp,
-        text = stringResource(R.string.ivy_telegram),
-        backgroundGradient = Gradient.solid(Blue),
-        iconPadding = 10.dp
-    ) {
-        rootActivity.openUrlInBrowser(Constants.URL_IVY_TELEGRAM_INVITE)
-    }
-}
-
-@Composable
-private fun HelpCenter() {
-    val uriHandler = LocalUriHandler.current
+private fun JvyLink(
+    @DrawableRes icon: Int,
+    text: String,
+    description: String,
+    onClick: () -> Unit
+) {
     SettingsDefaultButton(
-        icon = R.drawable.ic_custom_education_m,
-        text = stringResource(R.string.help_center),
-    ) {
-        uriHandler.openUri(Constants.URL_HELP_CENTER)
-    }
+        icon = icon,
+        text = text,
+        description = description,
+        iconPadding = if (icon == R.drawable.github_logo) 10.dp else 6.dp,
+        onClick = onClick
+    )
 }
 
 @Composable
@@ -697,13 +696,14 @@ private fun RequestFeature(
 }
 
 @Composable
-private fun ContactSupport() {
+private fun SupportOnLinkedIn() {
     val rootActivity = rootScreen()
     SettingsDefaultButton(
         icon = R.drawable.ic_support,
         text = stringResource(R.string.contact_support),
+        description = stringResource(R.string.support_on_linkedin),
     ) {
-        rootActivity.openUrlInBrowser(Constants.URL_IVY_TELEGRAM_INVITE)
+        rootActivity.openUrlInBrowser(Constants.URL_JVY_LINKEDIN)
     }
 }
 
@@ -786,7 +786,7 @@ private fun AppSwitch(
         Column(
             Modifier
                 .weight(1f)
-                .padding(top = 20.dp, bottom = 20.dp, end = 8.dp)
+                .padding(top = 14.dp, bottom = 14.dp, end = 8.dp)
         ) {
             Text(
                 text = text,
@@ -987,7 +987,7 @@ private fun SettingsPrimaryButton(
         Column(
             Modifier
                 .weight(1f)
-                .padding(top = 20.dp, bottom = 20.dp, end = 8.dp)
+                .padding(top = 14.dp, bottom = 14.dp, end = 8.dp)
         ) {
             Text(
                 text = text,

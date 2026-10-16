@@ -31,6 +31,8 @@ import com.ivy.data.repository.TransactionRepository
 import com.ivy.data.repository.mapper.TagMapper
 import com.ivy.data.repository.mapper.TransactionMapper
 import com.ivy.domain.features.Features
+import com.ivy.domain.usecase.category.CategoryRuleRepository
+import com.ivy.domain.usecase.category.FutureCategoryEntry
 import com.ivy.legacy.data.EditTransactionDisplayLoan
 import com.ivy.legacy.datamodel.Account
 import com.ivy.legacy.datamodel.temp.toDomain
@@ -73,6 +75,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.UUID
 import javax.inject.Inject
@@ -100,6 +103,7 @@ class EditTransactionViewModel @Inject constructor(
     private val trnByIdAct: TrnByIdAct,
     private val accountByIdAct: AccountByIdAct,
     private val transactionRepo: TransactionRepository,
+    private val categoryRuleRepository: CategoryRuleRepository,
     private val transactionMapper: TransactionMapper,
     private val tagRepository: TagRepository,
     private val tagMapper: TagMapper,
@@ -123,6 +127,9 @@ class EditTransactionViewModel @Inject constructor(
     private var account by mutableStateOf<Account?>(null)
     private var toAccount by mutableStateOf<Account?>(null)
     private var category by mutableStateOf<Category?>(null)
+    private var suggestedCategory by mutableStateOf<Category?>(null)
+    private var showRememberCategoryRule by mutableStateOf(false)
+    private var rememberCategoryRule by mutableStateOf(false)
     private var amount by mutableDoubleStateOf(0.0)
     private var hasChanges by mutableStateOf(false)
     private var displayLoanHelper by mutableStateOf(EditTransactionDisplayLoan())
@@ -201,7 +208,10 @@ class EditTransactionViewModel @Inject constructor(
             account = getAccount(),
             toAccount = getToAccount(),
             category = getCategory(),
+            suggestedCategory = getSuggestedCategory(),
             amount = getAmount(),
+            showRememberCategoryRule = getShowRememberCategoryRule(),
+            rememberCategoryRule = getRememberCategoryRule(),
             hasChanges = getHasChanges(),
             displayLoanHelper = getDisplayLoanHelper(),
             backgroundProcessingStarted = getBackgroundProcessingStarted(),
@@ -276,8 +286,23 @@ class EditTransactionViewModel @Inject constructor(
     }
 
     @Composable
+    private fun getSuggestedCategory(): Category? {
+        return suggestedCategory
+    }
+
+    @Composable
     private fun getAmount(): Double {
         return amount
+    }
+
+    @Composable
+    private fun getShowRememberCategoryRule(): Boolean {
+        return showRememberCategoryRule
+    }
+
+    @Composable
+    private fun getRememberCategoryRule(): Boolean {
+        return rememberCategoryRule
     }
 
     @Composable
@@ -321,6 +346,8 @@ class EditTransactionViewModel @Inject constructor(
             is EditTransactionViewEvent.OnAccountChanged -> onAccountChanged(event.newAccount)
             is EditTransactionViewEvent.OnAmountChanged -> onAmountChanged(event.newAmount)
             is EditTransactionViewEvent.OnCategoryChanged -> onCategoryChanged(event.newCategory)
+            is EditTransactionViewEvent.SetRememberCategoryRule ->
+                setRememberCategoryRule(event.enabled)
             is EditTransactionViewEvent.OnDescriptionChanged ->
                 onDescriptionChanged(event.newDescription)
 
@@ -413,6 +440,7 @@ class EditTransactionViewModel @Inject constructor(
         }
 
         displayLoanHelper = getDisplayLoanHelper(trans = transaction)
+        refreshCategorySuggestion()
     }
 
     private suspend fun getDisplayLoanHelper(trans: Transaction): EditTransactionDisplayLoan {
@@ -474,6 +502,7 @@ class EditTransactionViewModel @Inject constructor(
             title = newTitle
         )
         this.title = newTitle
+        updateRememberCategoryRuleVisibility()
 
         saveIfEditMode()
 
@@ -485,6 +514,7 @@ class EditTransactionViewModel @Inject constructor(
             description = newDescription
         )
         description = newDescription
+        updateRememberCategoryRuleVisibility()
 
         saveIfEditMode()
     }
@@ -659,11 +689,58 @@ class EditTransactionViewModel @Inject constructor(
             categoryId = newCategory?.id?.value
         )
         category = newCategory
+        suggestedCategory = null
+        rememberCategoryRule = false
+        showRememberCategoryRule = newCategory != null && hasRememberableText()
 
         saveIfEditMode()
 
         updateTitleSuggestions()
     }
+
+    private fun setRememberCategoryRule(enabled: Boolean) {
+        rememberCategoryRule = enabled && showRememberCategoryRule
+    }
+
+    private fun refreshCategorySuggestion() {
+        if (editMode || category != null) {
+            suggestedCategory = null
+            return
+        }
+
+        val transaction = loadedTransaction ?: return
+        viewModelScope.launch {
+            val today = LocalDate.now()
+            val match = categoryRuleRepository.matchSuggestion(
+                entry = FutureCategoryEntry(
+                    id = transaction.id.toString(),
+                    date = today,
+                    title = transaction.title,
+                    description = transaction.description,
+                ),
+                effectiveFrom = today,
+            )
+            val matchedCategory = match?.categoryId?.let { categoryId ->
+                runCatching {
+                    categoryRepository.findById(CategoryId(UUID.fromString(categoryId)))
+                }.getOrNull()
+            }
+            if (category == null) {
+                suggestedCategory = matchedCategory
+            }
+        }
+    }
+
+    private fun updateRememberCategoryRuleVisibility() {
+        showRememberCategoryRule = category != null && hasRememberableText()
+        if (!showRememberCategoryRule) {
+            rememberCategoryRule = false
+        }
+        refreshCategorySuggestion()
+    }
+
+    private fun hasRememberableText(): Boolean =
+        !title.isNullOrBlank() || !description.isNullOrBlank()
 
     private fun updateTitleSuggestions(title: String? = loadedTransaction().title) {
         viewModelScope.launch {
@@ -751,6 +828,15 @@ class EditTransactionViewModel @Inject constructor(
                     transactionRepo.save(it)
                 }
 
+                if (rememberCategoryRule && category != null) {
+                    categoryRuleRepository.saveFromTransaction(
+                        title = loadedTransaction().title,
+                        description = loadedTransaction().description,
+                        categoryId = category!!.id.value.toString(),
+                    )
+                    rememberCategoryRule = false
+                }
+
                 refreshWidget(WalletBalanceWidgetReceiver::class.java)
             }
 
@@ -828,9 +914,13 @@ class EditTransactionViewModel @Inject constructor(
         loadedTransaction = null
 
         initialTitle = null
+        title = null
         description = null
         dueDate = null
         category = null
+        suggestedCategory = null
+        showRememberCategoryRule = false
+        rememberCategoryRule = false
         hasChanges = false
     }
 

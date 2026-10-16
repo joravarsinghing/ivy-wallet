@@ -219,6 +219,9 @@
     <string name="create_category">Create category</string>
     <string name="category_name">Category name</string>
     <string name="choose_category">Choose category</string>
+    <string name="remember_category_for_similar_transactions">Remember this category for similar transactions</string>
+    <string name="suggested_category">Suggested category: %1$s</string>
+    <string name="use_suggested_category">Use</string>
     <string name="description_text_field_hint">Enter any details here</string>
     <string name="clean_filter">Clear filter</string>
     <string name="filter">Filter</string>

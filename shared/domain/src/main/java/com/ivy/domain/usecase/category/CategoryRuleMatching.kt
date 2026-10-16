@@ -107,4 +107,17 @@ private fun requireValidRule(rule: CategoryRule) {
     require(rule.pattern.isNotBlank()) { "Category rule pattern is required" }
 }
 
-private fun normalize(value: String): String = value.trim().lowercase(Locale.ROOT)
+fun normalizeCategoryRuleText(value: String): String = value.trim().lowercase(Locale.ROOT)
+
+/**
+ * Chooses a stable substring when the user asks to remember a category for a
+ * transaction. Titles are preferred because they usually contain the
+ * merchant; descriptions are the fallback when the title is empty.
+ */
+fun rememberedCategoryPattern(title: String?, description: String?): String? =
+    listOfNotNull(title, description)
+        .asSequence()
+        .map(::normalizeCategoryRuleText)
+        .firstOrNull(String::isNotBlank)
+
+private fun normalize(value: String): String = normalizeCategoryRuleText(value)

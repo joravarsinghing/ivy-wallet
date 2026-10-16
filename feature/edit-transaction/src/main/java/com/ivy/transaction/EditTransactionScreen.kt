@@ -3,15 +3,19 @@ package com.ivy.transaction
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -20,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -67,6 +72,7 @@ import com.ivy.wallet.ui.edit.core.Toolbar
 import com.ivy.wallet.ui.theme.components.AddPrimaryAttributeButton
 import com.ivy.wallet.ui.theme.components.ChangeTransactionTypeModal
 import com.ivy.wallet.ui.theme.components.CustomExchangeRateCard
+import com.ivy.wallet.ui.theme.components.IvyCheckboxWithText
 import com.ivy.wallet.ui.theme.modal.DeleteModal
 import com.ivy.wallet.ui.theme.modal.ModalAdd
 import com.ivy.wallet.ui.theme.modal.ModalCheck
@@ -110,10 +116,13 @@ fun BoxWithConstraintsScope.EditTransactionScreen(screen: EditTransactionScreen)
         description = uiState.description,
         dateTime = uiState.dateTime,
         category = uiState.category,
+        suggestedCategory = uiState.suggestedCategory,
         account = uiState.account,
         toAccount = uiState.toAccount,
         dueDate = uiState.dueDate,
         amount = uiState.amount,
+        showRememberCategoryRule = uiState.showRememberCategoryRule,
+        rememberCategoryRule = uiState.rememberCategoryRule,
         loanData = uiState.displayLoanHelper,
         backgroundProcessing = uiState.backgroundProcessingStarted,
         customExchangeRateState = uiState.customExchangeRateState,
@@ -140,6 +149,9 @@ fun BoxWithConstraintsScope.EditTransactionScreen(screen: EditTransactionScreen)
         },
         onCategoryChange = {
             viewModel.onEvent(EditTransactionViewEvent.OnCategoryChanged(it))
+        },
+        onRememberCategoryRuleChange = {
+            viewModel.onEvent(EditTransactionViewEvent.SetRememberCategoryRule(it))
         },
         onAccountChange = {
             viewModel.onEvent(EditTransactionViewEvent.OnAccountChanged(it))
@@ -198,11 +210,14 @@ private fun BoxWithConstraintsScope.UI(
     titleSuggestions: ImmutableSet<String>,
     description: String?,
     category: Category?,
+    suggestedCategory: Category?,
     dateTime: Instant?,
     account: Account?,
     toAccount: Account?,
     dueDate: Instant?,
     amount: Double,
+    showRememberCategoryRule: Boolean,
+    rememberCategoryRule: Boolean,
 
     customExchangeRateState: CustomExchangeRateState,
     categories: ImmutableList<Category>,
@@ -213,6 +228,7 @@ private fun BoxWithConstraintsScope.UI(
     onDescriptionChange: (String?) -> Unit,
     onAmountChange: (Double) -> Unit,
     onCategoryChange: (Category?) -> Unit,
+    onRememberCategoryRuleChange: (Boolean) -> Unit,
     onAccountChange: (Account) -> Unit,
     onToAccountChange: (Account) -> Unit,
     onDueDateChange: (LocalDateTime?) -> Unit,
@@ -345,6 +361,36 @@ private fun BoxWithConstraintsScope.UI(
         Category(category = category, onChooseCategory = {
             chooseCategoryModalVisible = true
         })
+
+        if (suggestedCategory != null && category == null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    modifier = Modifier.weight(1f),
+                    text = stringResource(
+                        R.string.suggested_category,
+                        suggestedCategory.name.value,
+                    ),
+                    style = UI.typo.nB2.style(color = UI.colors.mediumInverse),
+                )
+                TextButton(onClick = { onCategoryChange(suggestedCategory) }) {
+                    Text(text = stringResource(R.string.use_suggested_category))
+                }
+            }
+        }
+
+        if (showRememberCategoryRule && category != null) {
+            IvyCheckboxWithText(
+                modifier = Modifier.padding(horizontal = 20.dp),
+                text = stringResource(R.string.remember_category_for_similar_transactions),
+                checked = rememberCategoryRule,
+                onCheckedChange = onRememberCategoryRuleChange,
+            )
+        }
 
         Spacer(Modifier.height(16.dp))
 
@@ -672,9 +718,12 @@ private fun BoxWithConstraintsScope.Preview(isDark: Boolean = false) {
             dateTime = testDateTime,
             description = null,
             category = null,
+            suggestedCategory = null,
             account = Account(name = "phyre", Orange.toArgb()),
             toAccount = null,
             amount = 0.0,
+            showRememberCategoryRule = false,
+            rememberCategoryRule = false,
             dueDate = null,
             transactionType = TransactionType.INCOME,
             customExchangeRateState = CustomExchangeRateState(),
@@ -689,6 +738,7 @@ private fun BoxWithConstraintsScope.Preview(isDark: Boolean = false) {
             onDescriptionChange = {},
             onTitleChange = {},
             onAmountChange = {},
+            onRememberCategoryRuleChange = {},
 
             onCreateCategory = { },
             onEditCategory = {},

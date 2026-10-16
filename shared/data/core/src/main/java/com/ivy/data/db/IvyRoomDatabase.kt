@@ -6,6 +6,7 @@ import androidx.room.migration.AutoMigrationSpec
 import com.ivy.data.db.dao.read.AccountDao
 import com.ivy.data.db.dao.read.BudgetDao
 import com.ivy.data.db.dao.read.CategoryDao
+import com.ivy.data.db.dao.read.CategoryRuleDao
 import com.ivy.data.db.dao.read.ExchangeRatesDao
 import com.ivy.data.db.dao.read.GoalAllocationDao
 import com.ivy.data.db.dao.read.GoalDao
@@ -20,6 +21,7 @@ import com.ivy.data.db.dao.read.UserDao
 import com.ivy.data.db.dao.write.WriteAccountDao
 import com.ivy.data.db.dao.write.WriteBudgetDao
 import com.ivy.data.db.dao.write.WriteCategoryDao
+import com.ivy.data.db.dao.write.WriteCategoryRuleDao
 import com.ivy.data.db.dao.write.WriteExchangeRatesDao
 import com.ivy.data.db.dao.write.WriteGoalAllocationDao
 import com.ivy.data.db.dao.write.WriteGoalDao
@@ -33,6 +35,7 @@ import com.ivy.data.db.dao.write.WriteTransactionDao
 import com.ivy.data.db.entity.AccountEntity
 import com.ivy.data.db.entity.BudgetEntity
 import com.ivy.data.db.entity.CategoryEntity
+import com.ivy.data.db.entity.CategoryRuleEntity
 import com.ivy.data.db.entity.ExchangeRateEntity
 import com.ivy.data.db.entity.GoalAllocationEntity
 import com.ivy.data.db.entity.GoalEntity
@@ -51,6 +54,7 @@ import com.ivy.data.db.migration.Migration127to128_PaidForDateRecord
 import com.ivy.data.db.migration.Migration128to129_DeleteIsDeleted
 import com.ivy.data.db.migration.Migration129to130_LoanIncludeNote
 import com.ivy.data.db.migration.Migration130to131_Goals
+import com.ivy.data.db.migration.Migration131to132_CategoryRules
 import com.ivy.domain.db.RoomTypeConverters
 import com.ivy.domain.db.migration.Migration105to106_TrnRecurringRules
 import com.ivy.domain.db.migration.Migration106to107_Wishlist
@@ -77,7 +81,7 @@ import com.ivy.domain.db.migration.Migration125to126_Tags
         SettingsEntity::class, PlannedPaymentRuleEntity::class,
         UserEntity::class, ExchangeRateEntity::class, BudgetEntity::class,
         LoanEntity::class, LoanRecordEntity::class, TagEntity::class, TagAssociationEntity::class,
-        GoalEntity::class, GoalAllocationEntity::class
+        GoalEntity::class, GoalAllocationEntity::class, CategoryRuleEntity::class
     ],
     autoMigrations = [
         AutoMigration(
@@ -86,7 +90,7 @@ import com.ivy.domain.db.migration.Migration125to126_Tags
             spec = IvyRoomDatabase.DeleteSEMigration::class
         )
     ],
-    version = 131,
+    version = 132,
     exportSchema = true
 )
 @TypeConverters(RoomTypeConverters::class)
@@ -94,6 +98,7 @@ abstract class IvyRoomDatabase : RoomDatabase() {
     abstract val accountDao: AccountDao
     abstract val transactionDao: TransactionDao
     abstract val categoryDao: CategoryDao
+    abstract val categoryRuleDao: CategoryRuleDao
     abstract val budgetDao: BudgetDao
     abstract val plannedPaymentRuleDao: PlannedPaymentRuleDao
     abstract val settingsDao: SettingsDao
@@ -109,6 +114,7 @@ abstract class IvyRoomDatabase : RoomDatabase() {
     abstract val writeAccountDao: WriteAccountDao
     abstract val writeTransactionDao: WriteTransactionDao
     abstract val writeCategoryDao: WriteCategoryDao
+    abstract val writeCategoryRuleDao: WriteCategoryRuleDao
     abstract val writeBudgetDao: WriteBudgetDao
     abstract val writePlannedPaymentRuleDao: WritePlannedPaymentRuleDao
     abstract val writeSettingsDao: WriteSettingsDao
@@ -148,7 +154,8 @@ abstract class IvyRoomDatabase : RoomDatabase() {
             Migration127to128_PaidForDateRecord(),
             Migration128to129_DeleteIsDeleted(),
             Migration129to130_LoanIncludeNote(),
-            Migration130to131_Goals()
+            Migration130to131_Goals(),
+            Migration131to132_CategoryRules()
         )
 
         @Suppress("SpreadOperator")

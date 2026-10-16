@@ -5,6 +5,7 @@ import com.ivy.data.db.IvyRoomDatabase
 import com.ivy.data.db.dao.read.AccountDao
 import com.ivy.data.db.dao.read.BudgetDao
 import com.ivy.data.db.dao.read.CategoryDao
+import com.ivy.data.db.dao.read.CategoryRuleDao
 import com.ivy.data.db.dao.read.ExchangeRatesDao
 import com.ivy.data.db.dao.read.GoalAllocationDao
 import com.ivy.data.db.dao.read.GoalDao
@@ -19,6 +20,7 @@ import com.ivy.data.db.dao.read.UserDao
 import com.ivy.data.db.dao.write.WriteAccountDao
 import com.ivy.data.db.dao.write.WriteBudgetDao
 import com.ivy.data.db.dao.write.WriteCategoryDao
+import com.ivy.data.db.dao.write.WriteCategoryRuleDao
 import com.ivy.data.db.dao.write.WriteExchangeRatesDao
 import com.ivy.data.db.dao.write.WriteGoalAllocationDao
 import com.ivy.data.db.dao.write.WriteGoalDao
@@ -68,6 +70,11 @@ object RoomDbModule {
     @Provides
     fun provideCategoryDao(db: IvyRoomDatabase): CategoryDao {
         return db.categoryDao
+    }
+
+    @Provides
+    fun provideCategoryRuleDao(db: IvyRoomDatabase): CategoryRuleDao {
+        return db.categoryRuleDao
     }
 
     @Provides
@@ -131,6 +138,11 @@ object RoomDbModule {
     @Provides
     fun provideWriteCategoryDao(db: IvyRoomDatabase): WriteCategoryDao {
         return db.writeCategoryDao
+    }
+
+    @Provides
+    fun provideWriteCategoryRuleDao(db: IvyRoomDatabase): WriteCategoryRuleDao {
+        return db.writeCategoryRuleDao
     }
 
     @Provides

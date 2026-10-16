@@ -29,7 +29,10 @@ data class EditTransactionViewState(
     val account: Account?,
     val toAccount: Account?,
     val category: Category?,
+    val suggestedCategory: Category?,
     val amount: Double,
+    val showRememberCategoryRule: Boolean,
+    val rememberCategoryRule: Boolean,
     val hasChanges: Boolean,
     val displayLoanHelper: EditTransactionDisplayLoan,
     val backgroundProcessingStarted: Boolean,
@@ -43,6 +46,7 @@ sealed interface EditTransactionViewEvent {
     data class OnTitleChanged(val newTitle: String?) : EditTransactionViewEvent
     data class OnDescriptionChanged(val newDescription: String?) : EditTransactionViewEvent
     data class OnCategoryChanged(val newCategory: Category?) : EditTransactionViewEvent
+    data class SetRememberCategoryRule(val enabled: Boolean) : EditTransactionViewEvent
     data class OnAccountChanged(val newAccount: Account) : EditTransactionViewEvent
     data class OnToAccountChanged(val newAccount: Account) : EditTransactionViewEvent
     data class OnDueDateChanged(val newDueDate: LocalDateTime?) : EditTransactionViewEvent

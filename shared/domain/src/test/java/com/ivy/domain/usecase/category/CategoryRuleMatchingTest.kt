@@ -8,6 +8,13 @@ import org.junit.Test
 class CategoryRuleMatchingTest {
 
     @Test
+    fun `remembered pattern prefers normalized title and falls back to description`() {
+        rememberedCategoryPattern("  ENOC Station  ", "Fuel") shouldBe "enoc station"
+        rememberedCategoryPattern(" ", "  October Salary ") shouldBe "october salary"
+        rememberedCategoryPattern(null, " ") shouldBe null
+    }
+
+    @Test
     fun `matches future entries case insensitively without changing existing categories`() {
         val rule = CategoryRule(
             id = "fuel",

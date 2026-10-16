@@ -73,6 +73,15 @@ These standards apply to new and modified Android screens, sheets, dialogs, and 
 - Redesigns must not change navigation destinations, ledger calculations, import behavior, backup format, hidden-balance rules, or goal reservation semantics.
 - For each redesigned screen, verify empty, loading, error, long-name, large-number, hidden-balance, and bottom-navigation states before release.
 
+## Reports filter behavior
+
+- Reports must open with a useful default: the current app period, all transaction types, all accounts, and all categories.
+- A filter sheet must support narrowing one dimension independently. Selecting only a month, type, account, category, amount, keyword, or tag must produce a report without requiring unrelated sections.
+- Empty selections in a dimension mean “all” rather than “invalid.” This keeps Clear and Select All predictable and prevents silent no-op filter applications.
+- Apply in-progress filter-sheet state consistently across every control. Amounts, keywords, tags, period, accounts, and categories must read from the draft filter until Apply is pressed.
+- A valid filter with no matching transactions must still render the report shell with zero totals and an explicit no-results explanation. Never make the screen appear unchanged or blank.
+- The current month/period is the default time range; the period picker remains available for historical month and custom-range analysis.
+
 ## Trend metric semantics
 
 - The primary purple trend is `Balance`: the wallet balance at the end of each calendar period, calculated from the ledger through that period boundary.

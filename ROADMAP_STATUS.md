@@ -306,3 +306,12 @@ The following screenshot-driven fixes are implemented on the current branch and 
 Build command: `:app:assembleDemo --offline --no-daemon --no-configuration-cache --max-workers=2 -x :app:uploadCrashlyticsMappingFileDemo`
 
 Build result: `BUILD SUCCESSFUL` on 2026-10-14. Device validation is still pending because the connected Samsung test device was not available to the build environment.
+
+## W2-REPORTS-FILTER-REVAMP — Independent filters and useful defaults
+
+- Reports now open directly on the current app period with all transaction types, accounts, and categories included; the previous blank “choose every filter first” state is removed.
+- Filter normalization treats an empty dimension as “all,” so a user can select only a month, expense type, account, category, amount, keyword, or tag and receive an updated report.
+- The filter sheet now uses its in-progress draft consistently for period, amount, keyword, tag, account, and category controls. Selecting one item from the default all-selected set narrows that dimension directly.
+- Invalid amount ranges remain rejected, while valid filters with no matching records keep the report summary visible and show the existing no-results transaction state.
+- Added `ReportFilterTest` coverage for default period/type normalization, single-type filters, and invalid amount ranges.
+- Verification: `:feature:reports:testDebugUnitTest` passed after the change. No APK was generated for this source-only fix.

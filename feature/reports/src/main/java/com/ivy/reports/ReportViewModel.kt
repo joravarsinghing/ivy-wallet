@@ -213,43 +213,55 @@ class ReportViewModel @Inject constructor(
 
     private fun start() {
         viewModelScope.launch(Dispatchers.IO) {
-            baseCurrency = baseCurrencyAct(Unit)
-            accounts = accountsAct(Unit)
-            categories =
+            val loadedBaseCurrency = baseCurrencyAct(Unit)
+            val loadedAccounts = accountsAct(Unit)
+            val loadedCategories =
                 (listOf(unSpecifiedCategory) + categoryRepository.findAll()).toImmutableList()
+
+            baseCurrency = loadedBaseCurrency
+            accounts = loadedAccounts
+            categories = loadedCategories
             allTags = tagRepository.findAll().toImmutableList()
+
+            // Reports open on the current month with every dimension included.
+            // This makes the page useful immediately and gives the filter sheet
+            // a complete starting point for narrowing one dimension at a time.
+            setFilter(
+                ReportFilter.emptyFilter(loadedBaseCurrency).normalized(
+                    defaultPeriod = ivyContext.selectedPeriod,
+                    allAccounts = loadedAccounts,
+                    allCategories = loadedCategories
+                )
+            )
         }
     }
 
     private suspend fun setFilter(reportFilter: ReportFilter?) {
         scopedIOThread { scope ->
-            if (reportFilter == null) {
-                setReportValues(
-                    income = 0.00,
-                    expense = 0.00,
-                    upcomingIncomeExpenseTransferPair = IncomeExpenseTransferPair.zero(),
-                    overDueIncomeExpenseTransferPair = IncomeExpenseTransferPair.zero(),
-                    history = persistentListOf(),
-                    upcomingTransactions = persistentListOf(),
-                    overdueTransactions = persistentListOf(),
-                    accounts = accountsAct(Unit),
-                    reportFilter = filter,
-                    accountIdFilters = persistentListOf(),
-                    transactions = persistentListOf(),
-                    balanceValue = 0.00
+            val availableAccounts = accounts.ifEmpty { accountsAct(Unit) }
+            val availableCategories = categories.ifEmpty {
+                (listOf(unSpecifiedCategory) + categoryRepository.findAll()).toImmutableList()
+            }
+            val effectiveFilter = (reportFilter ?: ReportFilter.emptyFilter(baseCurrency))
+                .normalized(
+                    defaultPeriod = ivyContext.selectedPeriod,
+                    allAccounts = availableAccounts,
+                    allCategories = availableCategories
                 )
+
+            if (!effectiveFilter.validate()) {
+                loading = false
                 return@scopedIOThread
             }
 
-            if (!reportFilter.validate()) return@scopedIOThread
-            val tempAccounts = reportFilter.accounts
+            val tempAccounts = effectiveFilter.accounts
             val baseCurrency = baseCurrency
             loading = true
 
             val transactionsList = filterTransactions(
                 baseCurrency = baseCurrency,
                 accounts = tempAccounts,
-                filter = reportFilter
+                filter = effectiveFilter
             )
 
             val tempHistory = transactionsList
@@ -280,7 +292,7 @@ class ReportViewModel @Inject constructor(
 
             val tempBalance = calculateBalance(historyIncomeExpense).toDouble()
 
-            val accountFilterIdList = scope.async { reportFilter.accounts.map { it.id } }
+            val accountFilterIdList = scope.async { effectiveFilter.accounts.map { it.id } }
 
             val timeNowUTC = timeNowUTC()
 
@@ -328,7 +340,7 @@ class ReportViewModel @Inject constructor(
                     it.toLegacy(transactionMapper)
                 }.toImmutableList(),
                 accounts = tempAccounts.toImmutableList(),
-                reportFilter = reportFilter,
+                reportFilter = effectiveFilter,
                 accountIdFilters = accountFilterIdList.await().toImmutableList(),
                 transactions = transactionsList.map {
                     it.toLegacy(transactionMapper)
@@ -417,7 +429,8 @@ class ReportViewModel @Inject constructor(
             .filter { !excludeableByTagTransactionsIds.contains(it.id) }
             .filter {
                 with(transactionMapper) {
-                    filter.trnTypes.contains(it.getTransactionType())
+                    filter.trnTypes.ifEmpty { ReportFilter.allTransactionTypes() }
+                        .contains(it.getTransactionType())
                 }
             }
             .filter {

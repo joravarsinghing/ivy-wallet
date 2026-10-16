@@ -226,7 +226,7 @@ fun BoxWithConstraintsScope.FilterOverlay(
                 filter = localFilter,
                 onShowPeriodChooserModal = {
                     choosePeriodModal = ChoosePeriodModalData(
-                        period = filter?.period ?: ivyContext.selectedPeriod
+                        period = localFilter?.period ?: ivyContext.selectedPeriod
                     )
                 }
             )
@@ -341,8 +341,8 @@ fun BoxWithConstraintsScope.FilterOverlay(
     }
 
     val minAmountModalId = remember(
-        nonNullFilter(filter).id,
-        nonNullFilter(filter).minAmount
+        nonNullFilter(localFilter).id,
+        nonNullFilter(localFilter).minAmount
     ) {
         UUID.randomUUID()
     }
@@ -350,7 +350,7 @@ fun BoxWithConstraintsScope.FilterOverlay(
         id = minAmountModalId,
         visible = minAmountModalShown,
         currency = baseCurrency,
-        initialAmount = filter?.minAmount?.takeIf { it > 0 },
+        initialAmount = localFilter?.minAmount?.takeIf { it > 0 },
         dismiss = {
             minAmountModalShown = false
         }
@@ -370,7 +370,7 @@ fun BoxWithConstraintsScope.FilterOverlay(
         id = maxAmountModalId,
         visible = maxAmountModalShown,
         currency = baseCurrency,
-        initialAmount = filter?.maxAmount?.takeIf { it > 0 },
+        initialAmount = localFilter?.maxAmount?.takeIf { it > 0 },
         dismiss = {
             maxAmountModalShown = false
         }
@@ -604,18 +604,24 @@ private fun TypeFilterCheckbox(
         },
         checked = filter != null && filter.trnTypes.contains(trnType),
     ) { checked ->
+        val currentTypes = nonFilter(filter).trnTypes
         if (checked) {
-            // remove trn type
+            // The default report includes every type. Tapping one of those
+            // chips is the quick path to an only-this-type report.
+            val nextTypes = if (currentTypes.size == ReportFilter.allTransactionTypes().size) {
+                listOf(trnType)
+            } else {
+                currentTypes.filter { it != trnType }
+            }
             onSetFilter(
                 nonFilter(filter).copy(
-                    trnTypes = nonFilter(filter).trnTypes.plus(trnType)
+                    trnTypes = nextTypes
                 )
             )
         } else {
-            // add trn type
             onSetFilter(
                 nonFilter(filter).copy(
-                    trnTypes = nonFilter(filter).trnTypes.filter { it != trnType }
+                    trnTypes = currentTypes.plus(trnType).distinct()
                 )
             )
         }
@@ -699,18 +705,22 @@ private fun AccountsFilter(
                     filter?.accounts?.contains(account) == true
                 }
             ) { selected ->
+                val currentAccounts = nonNullFilter(filter).accounts
                 if (selected) {
-                    // remove account
+                    val nextAccounts = if (currentAccounts.size == allAccounts.size) {
+                        listOf(account)
+                    } else {
+                        currentAccounts.filter { it != account }
+                    }
                     onSetFilter(
                         nonNullFilter(filter).copy(
-                            accounts = nonNullFilter(filter).accounts.filter { it != account }
+                            accounts = nextAccounts
                         )
                     )
                 } else {
-                    // add account
                     onSetFilter(
                         nonNullFilter(filter).copy(
-                            accounts = nonNullFilter(filter).accounts
+                            accounts = currentAccounts
                                 .plus(account).sortedBy { it.orderNum }
                         )
                     )
@@ -771,18 +781,22 @@ private fun CategoriesFilter(
                     filter?.categories?.contains(category) == true
                 }
             ) { selected ->
+                val currentCategories = myNonNullFilter.categories
                 if (selected) {
-                    // remove category
+                    val nextCategories = if (currentCategories.size == allCategories.size) {
+                        listOf(category)
+                    } else {
+                        currentCategories.filter { it != category }
+                    }
                     onSetFilter(
                         myNonNullFilter.copy(
-                            categories = myNonNullFilter.categories.filter { it != category }
+                            categories = nextCategories
                         )
                     )
                 } else {
-                    // add category
                     onSetFilter(
                         myNonNullFilter.copy(
-                            categories = myNonNullFilter.categories
+                            categories = currentCategories
                                 .plus(category).sortedBy { it.orderNum }
                         )
                     )

@@ -23,6 +23,12 @@ data class ReportFilter(
 
 ) {
     companion object {
+        fun allTransactionTypes(): List<TransactionType> = listOf(
+            TransactionType.INCOME,
+            TransactionType.EXPENSE,
+            TransactionType.TRANSFER
+        )
+
         fun emptyFilter(
             baseCurrency: String
         ) = ReportFilter(
@@ -40,15 +46,23 @@ data class ReportFilter(
         )
     }
 
+    /**
+     * Reports are useful when a person chooses one filter, not only when every
+     * filter section has been configured. Empty selections therefore mean
+     * "all" for that dimension and a missing period means the current period.
+     */
+    fun normalized(
+        defaultPeriod: com.ivy.legacy.data.model.TimePeriod,
+        allAccounts: List<Account>,
+        allCategories: List<Category>,
+    ): ReportFilter = copy(
+        trnTypes = trnTypes.ifEmpty { allTransactionTypes() },
+        period = period ?: defaultPeriod,
+        accounts = accounts.ifEmpty { allAccounts },
+        categories = categories.ifEmpty { allCategories },
+    )
+
     fun validate(): Boolean {
-        if (trnTypes.isEmpty()) return false
-
-        if (period == null) return false
-
-        if (accounts.isEmpty()) return false
-
-        if (categories.isEmpty()) return false
-
         if (minAmount != null && maxAmount != null) {
             if (minAmount > maxAmount) return false
             if (maxAmount < minAmount) return false

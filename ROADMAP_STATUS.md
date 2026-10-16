@@ -125,6 +125,7 @@ Recon agents must not edit production files, shared contracts, or control-plane 
 - The first unfiltered `assembleDemo` run completed local build/shrink/package work but failed at the external `:app:uploadCrashlyticsMappingFileDemo` task because DNS could not resolve `firebasecrashlyticssymbols.googleapis.com`.
 - No emulator/device baseline was established, so connected instrumentation remains unrun.
 - The Goals/Saving Pools focused unit-test run reaches `:shared:domain:hiltAggregateDepsDebugUnitTest` and stalls like the existing repository-wide test runs.
+- Primary visual QA device supplied by the user: Samsung Galaxy S22 Ultra, Snapdragon, Android 16, One UI 8.
 
 ## Reconnaissance records
 
@@ -143,6 +144,6 @@ Recon agents must not edit production files, shared contracts, or control-plane 
 1. Replace the legacy More-menu Savings goal editor with a Goals-aware summary and navigation; keep the old buffer value only as an import/migration compatibility field.
 2. Fix goal-sheet horizontal clipping, add a distinct Goals icon, and rebalance the Quick access grid.
 3. Correct remaining Jvy branding and attribution links in the More menu.
-4. Install the demo APK on a connected emulator/device and validate create-goal, multi-account allocation, edit, and delete flows visually.
+4. Install the demo APK on the Samsung Galaxy S22 Ultra test device and validate create-goal, multi-account allocation, edit, and delete flows visually across Android 16 / One UI 8.
 5. Diagnose the Hilt unit-test aggregation stall, beginning with Gradle/Hilt worker diagnostics rather than application edits.
 6. Add category-scoped savings rules only after contribution semantics are specified.

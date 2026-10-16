@@ -4,6 +4,8 @@ Date: 2026-10-14
 Product: Jvy Wallet  
 Evidence: user-provided screenshots `Screenshot_20261014_122039_Jvy Wallet.jpg`, `Screenshot_20261014_122043_Jvy Wallet.jpg`, and `Screenshot_20261014_122047_Jvy Wallet.jpg`.
 
+Primary QA device: Samsung Galaxy S22 Ultra, Snapdragon, Android 16, One UI 8.
+
 ## What the screenshots prove
 
 - The Goals destination is reachable from More > Quick access.

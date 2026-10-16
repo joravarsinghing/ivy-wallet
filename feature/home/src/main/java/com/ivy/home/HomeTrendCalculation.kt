@@ -3,6 +3,7 @@ package com.ivy.home
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.YearMonth
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * Builds points for the selected range.
@@ -60,6 +61,10 @@ private fun buildCoveredHomeTrendPoints(
                     bucket = range.bucket,
                     start = periodStart(bucketPoints.first().periodIdentity.startDate!!, range.bucket),
                 ),
+                dailySamples = bucketPoints
+                    .flatMap { it.dailySamples }
+                    .sortedBy { it.date }
+                    .toImmutableList(),
             )
         }
 

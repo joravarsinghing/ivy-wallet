@@ -15,6 +15,7 @@ import com.ivy.base.time.TimeProvider
 import com.ivy.data.DataObserver
 import com.ivy.data.DataWriteEvent
 import com.ivy.data.repository.AccountRepository
+import com.ivy.data.repository.GoalRepository
 import com.ivy.domain.features.Features
 import com.ivy.legacy.IvyWalletCtx
 import com.ivy.legacy.data.model.AccountData
@@ -47,6 +48,7 @@ class AccountsViewModel @Inject constructor(
     private val baseCurrencyAct: BaseCurrencyAct,
     private val accountDataAct: AccountDataAct,
     private val accountRepository: AccountRepository,
+    private val goalRepository: GoalRepository,
     private val dataObserver: DataObserver,
     private val features: Features,
     private val timeProvider: TimeProvider,
@@ -199,8 +201,23 @@ class AccountsViewModel @Inject constructor(
             )
         ).toDouble()
 
+        val reservedByAccount = buildMap {
+            goalRepository.findActiveGoals().forEach { goal ->
+                goalRepository.findAllocations(goal.id).forEach { allocation ->
+                    put(
+                        allocation.accountId,
+                        (get(allocation.accountId) ?: 0.0) + allocation.reservedAmount
+                    )
+                }
+            }
+        }
+
         baseCurrency = baseCurrencyCode
-        accountsData = accountsDataList
+        accountsData = accountsDataList.map { accountData ->
+            accountData.copy(
+                reservedForGoals = reservedByAccount[accountData.account.id.value] ?: 0.0
+            )
+        }
         totalBalanceWithExcluded = totalBalanceWithExcludedAccounts.toString()
         totalBalanceWithExcludedText = context.getString(
             R.string.total,

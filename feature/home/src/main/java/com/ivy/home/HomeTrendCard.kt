@@ -36,6 +36,7 @@ import com.ivy.design.l0_system.style
 import com.ivy.wallet.ui.theme.Green
 import com.ivy.wallet.ui.theme.Red
 import java.math.BigDecimal
+import java.time.LocalDate
 import java.util.Locale
 
 /**
@@ -147,9 +148,21 @@ fun HomeTrendCard(
                             modifier = Modifier.padding(horizontal = 24.dp),
                         )
                         Spacer(Modifier.height(14.dp))
-                        state.points.lastOrNull { it.isObserved }?.let { latestPoint ->
+                        state.points
+                            .filter { it.isObserved }
+                            .takeIf { it.isNotEmpty() }
+                            ?.let { observedPoints ->
+                            val rangeTotals = HomeTrendPoint(
+                                periodLabel = "Selected range",
+                                income = observedPoints.fold(BigDecimal.ZERO) { total, point ->
+                                    total + point.income
+                                },
+                                expenses = observedPoints.fold(BigDecimal.ZERO) { total, point ->
+                                    total + point.expenses
+                                },
+                            )
                             TrendLatestValues(
-                                point = latestPoint,
+                                point = rangeTotals,
                                 visibleMetrics = state.visibleMetrics,
                                 currency = currency,
                                 hideBalance = hideBalance,
@@ -262,9 +275,9 @@ private fun TrendChart(
     currency: String,
     modifier: Modifier = Modifier,
 ) {
-    val hasMultipleActivityPeriods = state.points.count { it.hasActivity() } > 1
-    val values = state.points.flatMap { point ->
-        if (!point.isObserved) return@flatMap emptyList()
+    val plotPoints = trendPlotPoints(state)
+    val hasMultipleActivityPeriods = plotPoints.size > 1
+    val values = plotPoints.flatMap { point ->
         buildList {
             if (HomeTrendMetric.INCOME in state.visibleMetrics) add(point.income)
             if (HomeTrendMetric.EXPENSES in state.visibleMetrics) add(point.expenses)
@@ -331,23 +344,26 @@ private fun TrendChart(
             HomeTrendMetric.values()
                 .filter { it in state.visibleMetrics }
                 .forEach { metric ->
-                    val points = state.points.mapIndexed { index, point ->
-                        if (!point.isObserved) {
-                            null
+                    val axisStart = state.points.firstOrNull()?.periodIdentity?.startDate
+                    val axisEnd = state.points.lastOrNull()?.periodIdentity?.startDate?.let {
+                        if (state.range.isDaily) it else it.plusMonths(1).minusDays(1)
+                    }
+                    val span = if (axisStart != null && axisEnd != null) {
+                        java.time.temporal.ChronoUnit.DAYS.between(axisStart, axisEnd).coerceAtLeast(1)
+                    } else 1
+                    val points = plotPoints.map { point ->
+                        val x = if (axisStart == null || axisEnd == null || axisStart == axisEnd) {
+                            size.width / 2f
                         } else {
-                            val x = if (state.points.size == 1) {
-                                size.width / 2f
-                            } else {
-                                size.width * index / (state.points.lastIndex.toFloat())
-                            }
-                            val normalized = metric.value(point)
-                                .subtract(minimum)
-                                .toFloat() / spread.toFloat()
-                            androidx.compose.ui.geometry.Offset(
-                                x,
-                                size.height - (normalized * size.height),
-                            )
+                            size.width * java.time.temporal.ChronoUnit.DAYS.between(axisStart, point.date) / span.toFloat()
                         }
+                        val normalized = metric.value(point)
+                            .subtract(minimum)
+                            .toFloat() / spread.toFloat()
+                        androidx.compose.ui.geometry.Offset(
+                            x,
+                            size.height - (normalized * size.height),
+                        )
                     }
                     points.zipWithNext().forEach { (start, end) ->
                         if (hasMultipleActivityPeriods && start != null && end != null) {
@@ -370,6 +386,33 @@ private fun TrendChart(
                 }
         }
     }
+}
+
+private data class TrendPlotPoint(
+    val date: LocalDate,
+    val income: BigDecimal,
+    val expenses: BigDecimal,
+) {
+    val savings: BigDecimal
+        get() = income.subtract(expenses)
+}
+
+private fun trendPlotPoints(state: HomeTrendState): List<TrendPlotPoint> {
+    val dailySamples = state.points
+        .flatMap { it.dailySamples }
+        .sortedBy { it.date }
+    if (!state.range.isDaily && dailySamples.isNotEmpty()) {
+        return dailySamples.map {
+            TrendPlotPoint(it.date, it.income, it.expenses)
+        }
+    }
+    return state.points
+        .filter { it.isObserved }
+        .mapNotNull { point ->
+            point.periodIdentity.startDate?.let {
+                TrendPlotPoint(it, point.income, point.expenses)
+            }
+        }
 }
 
 private fun HomeTrendPoint.hasActivity(): Boolean =
@@ -492,6 +535,12 @@ private fun TrendLoadingPill() {
 }
 
 private fun HomeTrendMetric.value(point: HomeTrendPoint): BigDecimal = when (this) {
+    HomeTrendMetric.INCOME -> point.income
+    HomeTrendMetric.EXPENSES -> point.expenses
+    HomeTrendMetric.SAVINGS -> point.savings
+}
+
+private fun HomeTrendMetric.value(point: TrendPlotPoint): BigDecimal = when (this) {
     HomeTrendMetric.INCOME -> point.income
     HomeTrendMetric.EXPENSES -> point.expenses
     HomeTrendMetric.SAVINGS -> point.savings

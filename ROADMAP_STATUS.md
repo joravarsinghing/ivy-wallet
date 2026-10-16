@@ -158,17 +158,28 @@ Wave 2 now contains the three practical planning features from the current sprin
 - Documentation updated: Mobile UI standards, BudgetBakers mash-up notes, ADR 0016, and this status file.
 - Verification: `:feature:home:compileDebugKotlin` and `:feature:home:testDebugUnitTest` pass with 34 tests completed; the Home Paparazzi report was generated; and the official demo APK build completed successfully. Samsung S22 Ultra QA remains pending because the local ADB daemon could not start.
 
+**W2-HISTORY-AND-TRENDS — Editable history and intra-month fidelity: IMPLEMENTED / VERIFIED**
+
+- Home `View all` now opens an explicit all-transactions mode instead of the compact Home-only projection. Existing month navigation can be used to reach September and tap any entry to edit it without changing the full Transactions screen's behavior.
+- Restored category icons in compact Home activity rows and kept the rows bounded and tap-target friendly.
+- Trend analytics now exclude opening-balance `Adjust balance` entries and transfers, while preserving genuine dated income and expense records in the ledger and history screen. This prevents opening balances from creating false peaks while keeping real September expenses editable.
+- Monthly ranges retain calendar-month context but plot local-date samples inside observed months. Post-activity quiet days are real zeroes, pre-activity periods remain gaps, and date-based x positions prevent a two-point straight-line chart from hiding intra-month peaks and troughs.
+- Trend summaries use the selected range totals rather than an empty trailing day, and the chart keeps a stable measured height while refreshing.
+- Accounts now show goal-reserved and available amounts beneath each account's monthly activity summary.
+- Focused verification passed: Home, Transactions, and Accounts Kotlin compilation; Home unit tests; and Home Paparazzi verification. Official numbered demo APK built as `Jvy_wallet_v0.2.7.apk` / Android version code `213`.
+- Device QA remains pending because a Samsung Galaxy S22 Ultra / Android 16 / One UI 8 device was not connected to the build environment.
+
 **RELEASE-STANDARD — Numbered APK generation: COMPLETE**
 
 - Added `version.properties` as the authoritative semantic version and Android version-code source.
 - Added `scripts/build-jvy-apk.ps1` as the only official workflow for APKs intended for installation, QA, sharing, or release.
 - Numbered artifacts use `Jvy_wallet_v<major>.<minor>.<patch>.apk`; the Android `versionCode` increases by one after each successful official build.
-- The current release is `0.2.5` / version code `211`; the next official patch build will be `0.2.6` / version code `212`.
+- The current release is `0.2.7` / version code `213`; the next official patch build will be `0.2.8` / version code `214`.
 - Failed builds do not consume numbers. Test and compile-only Gradle tasks do not consume numbers.
 - Documentation is in `README.md`, `AGENTS.md`, and `docs/standards/APK-GENERATION.md`.
 - Validation: APK script syntax passed; Home compile/unit/Paparazzi verification passed; and the official demo APK packaging completed successfully on 2026-10-15.
-- Current artifact: `artifacts/apk/Jvy_wallet_v0.2.5.apk`.
-- Current artifact SHA-256: `21D25E5CE77ED8BD98853985D057DF3AD23136E6639D476F4F2517E4938DD985`.
+- Current artifact: `artifacts/apk/Jvy_wallet_v0.2.7.apk`.
+- Current artifact SHA-256: `805F76098FC80C65887FB5C085E984FC59805E1555C960B00038459563F3EE65`.
 
 ## Workspace
 

@@ -118,6 +118,7 @@ fun BoxWithConstraintsScope.TransactionsScreen(screen: TransactionsScreen) {
 
     UI(
         screen = screen,
+        allTransactions = screen.allTransactions,
         period = uiState.period,
         baseCurrency = uiState.baseCurrency,
         currency = uiState.currency,
@@ -210,6 +211,7 @@ fun BoxWithConstraintsScope.TransactionsScreen(screen: TransactionsScreen) {
 @Composable
 private fun BoxWithConstraintsScope.UI(
     screen: TransactionsScreen,
+    allTransactions: Boolean = false,
     period: TimePeriod,
     baseCurrency: String,
     currency: String,
@@ -263,7 +265,9 @@ private fun BoxWithConstraintsScope.UI(
     onChoosePeriodModal: (ChoosePeriodModalData?) -> Unit,
 ) {
     val ivyContext = ivyWalletCtx()
-    val itemColor = (account?.color ?: category?.color?.value)?.toComposeColor() ?: Gray
+    val itemColor = if (allTransactions) UI.colors.pure else {
+        (account?.color ?: category?.color?.value)?.toComposeColor() ?: Gray
+    }
 
     var categoryModalData: CategoryModalData? by remember { mutableStateOf(null) }
     var accountModalData: AccountModalData? by remember { mutableStateOf(null) }
@@ -307,6 +311,7 @@ private fun BoxWithConstraintsScope.UI(
             item {
                 Header(
                     screen = screen,
+                    allTransactions = allTransactions,
                     history = history,
                     income = income,
                     expenses = expenses,
@@ -587,6 +592,7 @@ private fun BoxWithConstraintsScope.DeleteModals(
 @Composable
 private fun Header(
     screen: TransactionsScreen,
+    allTransactions: Boolean,
     history: ImmutableList<TransactionHistoryItem>,
     currency: String,
     baseCurrency: String,
@@ -616,7 +622,7 @@ private fun Header(
         Spacer(Modifier.height(20.dp))
 
         val hideEditAndDeleteButtonForAccountTransfer =
-            screen.transactions.none { it.type == TransactionType.TRANSFER }
+            !allTransactions && screen.transactions.none { it.type == TransactionType.TRANSFER }
 
         ItemStatisticToolbar(
             contrastColor = contrastColor,
@@ -630,6 +636,7 @@ private fun Header(
 
         Item(
             contrastColor = contrastColor,
+            allTransactions = allTransactions,
             account = account,
             category = category,
             showAccountModal = showAccountModal,
@@ -731,6 +738,7 @@ private fun Header(
 @Composable
 private fun Item(
     contrastColor: Color,
+    allTransactions: Boolean,
     account: Account?,
     category: Category?,
 
@@ -794,6 +802,24 @@ private fun Item(
 
                 Text(
                     text = category.name.value,
+                    style = UI.typo.b1.style(
+                        color = contrastColor,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                )
+            }
+
+            allTransactions -> {
+                ItemIconMDefaultIcon(
+                    iconName = null,
+                    defaultIcon = R.drawable.ic_custom_category_m,
+                    tint = contrastColor
+                )
+
+                Spacer(Modifier.width(8.dp))
+
+                Text(
+                    text = "All transactions",
                     style = UI.typo.b1.style(
                         color = contrastColor,
                         fontWeight = FontWeight.ExtraBold

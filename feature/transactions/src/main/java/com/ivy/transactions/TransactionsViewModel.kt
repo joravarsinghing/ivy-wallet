@@ -52,7 +52,9 @@ import com.ivy.wallet.domain.action.account.CalcAccIncomeExpenseAct
 import com.ivy.wallet.domain.action.exchange.ExchangeAct
 import com.ivy.wallet.domain.action.settings.BaseCurrencyAct
 import com.ivy.wallet.domain.action.transaction.LegacyCalcTrnsIncomeExpenseAct
+import com.ivy.wallet.domain.action.transaction.HistoryTrnsAct
 import com.ivy.wallet.domain.action.transaction.LegacyTrnsWithDateDivsAct
+import com.ivy.wallet.domain.action.wallet.CalcWalletBalanceAct
 import com.ivy.wallet.domain.deprecated.logic.CategoryCreator
 import com.ivy.wallet.domain.deprecated.logic.PlannedPaymentsLogic
 import com.ivy.wallet.domain.deprecated.logic.WalletAccountLogic
@@ -85,8 +87,10 @@ class TransactionsViewModel @Inject constructor(
     private val accountsAct: AccountsAct,
     private val accTrnsAct: AccTrnsAct,
     private val trnsWithDateDivsAct: LegacyTrnsWithDateDivsAct,
+    private val historyTrnsAct: HistoryTrnsAct,
     private val baseCurrencyAct: BaseCurrencyAct,
     private val calcAccBalanceAct: CalcAccBalanceAct,
+    private val calcWalletBalanceAct: CalcWalletBalanceAct,
     private val calcAccIncomeExpenseAct: CalcAccIncomeExpenseAct,
     private val calcTrnsIncomeExpenseAct: LegacyCalcTrnsIncomeExpenseAct,
     private val exchangeAct: ExchangeAct,
@@ -434,6 +438,40 @@ class TransactionsViewModel @Inject constructor(
         }
     }
 
+    private suspend fun initForAllTransactions() {
+        val range = period.value.toRange(ivyContext.startDayOfMonth, timeConverter, timeProvider)
+        val legacyTransactions = with(transactionMapper) {
+            historyTrnsAct(range.toCloseTimeRange()).map {
+                val tags = tagRepository.findByIds(it.tags).toImmutableLegacyTags()
+                it.toEntity().toLegacyDomain(tags = tags)
+            }
+        }
+        val stats = calcTrnsIncomeExpenseAct(
+            LegacyCalcTrnsIncomeExpenseAct.Input(
+                transactions = legacyTransactions,
+                accounts = accounts.value,
+                baseCurrency = baseCurrency.value
+            )
+        )
+        income.doubleValue = stats.income.toDouble()
+        expenses.doubleValue = stats.expense.toDouble()
+        balance.doubleValue = calcWalletBalanceAct(
+            CalcWalletBalanceAct.Input(baseCurrency = baseCurrency.value)
+        ).toDouble()
+        history.value = trnsWithDateDivsAct(
+            LegacyTrnsWithDateDivsAct.Input(
+                baseCurrency = baseCurrency.value,
+                transactions = legacyTransactions
+            )
+        ).toImmutableList()
+        upcoming.value = persistentListOf()
+        overdue.value = persistentListOf()
+        upcomingIncome.doubleValue = 0.0
+        upcomingExpenses.doubleValue = 0.0
+        overdueIncome.doubleValue = 0.0
+        overdueExpenses.doubleValue = 0.0
+    }
+
     private suspend fun initForCategory(categoryId: UUID, accountFilterList: List<UUID>) {
         val accountFilterSet = accountFilterList.toSet()
         val initialCategory = ioThread {
@@ -723,6 +761,10 @@ class TransactionsViewModel @Inject constructor(
     private fun delete(screen: TransactionsScreen) {
         viewModelScope.launch {
             when {
+                screen.allTransactions -> {
+                    initForAllTransactions()
+                }
+
                 screen.accountId != null -> {
                     deleteAccount(screen.accountId!!)
                 }

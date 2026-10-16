@@ -33,6 +33,7 @@ import com.ivy.navigation.TransactionsScreen
 import com.ivy.navigation.navigation
 import com.ivy.ui.R
 import com.ivy.wallet.domain.data.TransactionHistoryDateDivider
+import com.ivy.wallet.ui.theme.components.ItemIconSDefaultIcon
 import com.ivy.wallet.ui.theme.toComposeColor
 import java.math.BigDecimal
 import java.util.Locale
@@ -69,7 +70,9 @@ fun HomeCompactActivity(
             }
             Text(
                 text = "View all",
-                modifier = Modifier.clickable { nav.navigateTo(TransactionsScreen()) },
+                modifier = Modifier.clickable {
+                    nav.navigateTo(TransactionsScreen(allTransactions = true))
+                },
                 style = UI.typo.c.style(UI.colors.primary, FontWeight.Bold),
             )
         }
@@ -159,7 +162,17 @@ private fun CompactActivityRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        androidx.compose.foundation.layout.Box(Modifier.size(30.dp).background(color, CircleShape))
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier.size(30.dp).background(color, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            ItemIconSDefaultIcon(
+                modifier = Modifier.size(22.dp),
+                iconName = category?.icon?.id,
+                defaultIcon = R.drawable.ic_custom_category_s,
+                tint = UI.colors.pureInverse,
+            )
+        }
         Column(Modifier.weight(1f)) {
             Text(
                 text = transaction.title?.takeIf { it.isNotBlank() } ?: "Transaction",

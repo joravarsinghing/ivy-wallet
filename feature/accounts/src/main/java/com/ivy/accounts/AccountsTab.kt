@@ -244,6 +244,16 @@ private fun AccountCard(
             )
 
             Spacer(Modifier.height(12.dp))
+
+            IncomeExpensesRow(
+                currency = currency,
+                incomeLabel = "Reserved for goals",
+                income = accountData.reservedForGoals,
+                expensesLabel = "Available",
+                expenses = (accountData.balance - accountData.reservedForGoals).coerceAtLeast(0.0)
+            )
+
+            Spacer(Modifier.height(12.dp))
         }
     }
 }

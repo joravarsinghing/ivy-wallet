@@ -86,6 +86,8 @@ data class HomeTrendPoint(
     val isObserved: Boolean = true,
     /** Stable period identity used for ordering and bucketing. */
     val periodIdentity: HomeTrendPeriodIdentity = HomeTrendPeriodIdentity.legacy(periodLabel),
+    /** Intra-month samples used to give monthly ranges a truthful daily shape. */
+    val dailySamples: ImmutableList<HomeTrendSample> = persistentListOf(),
 ) {
     val savings: BigDecimal
         get() = income.subtract(expenses)
@@ -97,6 +99,16 @@ data class HomeTrendPoint(
             is HomeTrendPeriodIdentity.Month -> "month:${identity.yearMonth}"
             is HomeTrendPeriodIdentity.Legacy -> "legacy:${identity.label}"
         }
+}
+
+@Immutable
+data class HomeTrendSample(
+    val date: LocalDate,
+    val income: BigDecimal,
+    val expenses: BigDecimal,
+) {
+    val savings: BigDecimal
+        get() = income.subtract(expenses)
 }
 
 @Immutable

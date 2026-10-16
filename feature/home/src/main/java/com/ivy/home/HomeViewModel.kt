@@ -55,6 +55,7 @@ import com.ivy.wallet.domain.action.global.StartDayOfMonthAct
 import com.ivy.wallet.domain.action.settings.CalcBufferDiffAct
 import com.ivy.wallet.domain.action.settings.SettingsAct
 import com.ivy.wallet.domain.action.transaction.HistoryWithDateDivsAct
+import com.ivy.wallet.domain.action.transaction.LegacyCalcTrnsIncomeExpenseAct
 import com.ivy.wallet.domain.action.viewmodel.home.HasTrnsAct
 import com.ivy.wallet.domain.action.viewmodel.home.OverdueAct
 import com.ivy.wallet.domain.action.viewmodel.home.ShouldHideBalanceAct
@@ -92,6 +93,7 @@ class HomeViewModel @Inject constructor(
     private val customerJourneyLogic: CustomerJourneyCardsProvider,
     private val historyWithDateDivsAct: HistoryWithDateDivsAct,
     private val calcIncomeExpenseAct: CalcIncomeExpenseAct,
+    private val calcTrnsIncomeExpenseAct: LegacyCalcTrnsIncomeExpenseAct,
     private val calcWalletBalanceAct: CalcWalletBalanceAct,
     private val settingsAct: SettingsAct,
     private val accountsAct: AccountsAct,
@@ -389,37 +391,73 @@ class HomeViewModel @Inject constructor(
         trend = trend.copy(loading = true)
 
         val end = trendEndDate()
-        val rawPoints = (trend.range.periodCount - 1 downTo 0).map { offset ->
+        val buckets = (trend.range.periodCount - 1 downTo 0).map { offset ->
             val pointDate = if (trend.range.isDaily) {
                 end.minusDays(offset.toLong())
             } else {
                 end.withDayOfMonth(1).minusMonths(offset.toLong())
             }
-            val bucketStart = if (trend.range.isDaily) pointDate else pointDate.withDayOfMonth(1)
-            val bucketEnd = if (trend.range.isDaily) pointDate else pointDate.withDayOfMonth(1).plusMonths(1).minusDays(1)
-            val bucketRange = trendRange(bucketStart, bucketEnd)
-            val historyItems = historyWithDateDivsAct(
-                HistoryWithDateDivsAct.Input(bucketRange, baseCurrency)
-            )
-            val hasSourceData = historyItems.any { it is Transaction }
-            val stats = if (hasSourceData) {
-                calcIncomeExpenseAct(CalcIncomeExpenseAct.Input(baseCurrency, accounts, bucketRange))
-            } else null
-            val label = if (trend.range.isDaily) {
-                "${pointDate.month.getDisplayName(TextStyle.SHORT, Locale.US)} ${pointDate.dayOfMonth}"
+            val start = if (trend.range.isDaily) pointDate else pointDate.withDayOfMonth(1)
+            val endOfBucket = if (trend.range.isDaily) {
+                pointDate
             } else {
-                "${pointDate.month.getDisplayName(TextStyle.SHORT, Locale.US)} ${pointDate.year}"
+                pointDate.withDayOfMonth(1).plusMonths(1).minusDays(1).coerceAtMost(end)
             }
+            val transactions = historyWithDateDivsAct(
+                HistoryWithDateDivsAct.Input(trendRange(start, endOfBucket), baseCurrency)
+            ).filterIsInstance<Transaction>().filter(::isTrendTransaction)
+            TrendBucket(start, endOfBucket, transactions)
+        }
+        val firstObservedDate = buckets
+            .flatMap { it.transactions }
+            .mapNotNull { transaction ->
+                transaction.dateTime?.let { timeConverter.run { it.toLocalDate() } }
+            }
+            .minOrNull()
+
+        val rawPoints = buckets.map { bucket ->
+            val stats = calculateTrendStats(bucket.transactions, accounts, baseCurrency)
+            val dailySamples = if (!trend.range.isDaily && firstObservedDate != null) {
+                val sampleStart = maxOf(bucket.start, firstObservedDate)
+                if (sampleStart <= bucket.end) {
+                    buildList {
+                        var date = sampleStart
+                        while (true) {
+                        val dayTransactions = bucket.transactions.filter { transaction ->
+                            transaction.dateTime?.let { timeConverter.run { it.toLocalDate() } } == date
+                        }
+                        val dayStats = calculateTrendStats(dayTransactions, accounts, baseCurrency)
+                        add(HomeTrendSample(
+                            date = date,
+                            income = dayStats?.income ?: BigDecimal.ZERO,
+                            expenses = dayStats?.expense ?: BigDecimal.ZERO,
+                        ))
+                        if (date == bucket.end) break
+                        date = date.plusDays(1)
+                        }
+                    }.toImmutableList()
+                } else {
+                    persistentListOf()
+                }
+            } else {
+                persistentListOf()
+            }
+            val pointDate = bucket.start
             HomeTrendPoint(
-                periodLabel = label,
+                periodLabel = if (trend.range.isDaily) {
+                    "${pointDate.month.getDisplayName(TextStyle.SHORT, Locale.US)} ${pointDate.dayOfMonth}"
+                } else {
+                    "${pointDate.month.getDisplayName(TextStyle.SHORT, Locale.US)} ${pointDate.year}"
+                },
                 income = stats?.income ?: BigDecimal.ZERO,
                 expenses = stats?.expense ?: BigDecimal.ZERO,
-                isObserved = hasSourceData,
+                isObserved = bucket.transactions.isNotEmpty(),
                 periodIdentity = if (trend.range.isDaily) {
                     HomeTrendPeriodIdentity.Day(pointDate)
                 } else {
                     HomeTrendPeriodIdentity.Month(java.time.YearMonth.from(pointDate))
                 },
+                dailySamples = dailySamples,
             )
         }
         val points = buildHomeTrendPoints(rawPoints, trend.range, anchorDate = end)
@@ -429,6 +467,31 @@ class HomeViewModel @Inject constructor(
             loading = false,
         )
     }
+
+    private suspend fun calculateTrendStats(
+        transactions: List<Transaction>,
+        accounts: List<Account>,
+        baseCurrency: String,
+    ) = transactions.takeIf { it.isNotEmpty() }?.let {
+        calcTrnsIncomeExpenseAct(
+            LegacyCalcTrnsIncomeExpenseAct.Input(
+                transactions = it,
+                accounts = accounts,
+                baseCurrency = baseCurrency,
+            )
+        )
+    }
+
+    private fun isTrendTransaction(transaction: Transaction): Boolean =
+        transaction.type != TransactionType.TRANSFER &&
+            !(transaction.type == TransactionType.INCOME &&
+                transaction.title?.trim()?.equals("Adjust balance", ignoreCase = true) == true)
+
+    private data class TrendBucket(
+        val start: LocalDate,
+        val end: LocalDate,
+        val transactions: List<Transaction>,
+    )
 
     private fun trendRange(from: LocalDate, to: LocalDate): ClosedTimeRange =
         FromToTimeRange(

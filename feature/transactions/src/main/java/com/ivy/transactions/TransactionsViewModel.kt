@@ -31,6 +31,7 @@ import com.ivy.design.l0_system.RedLight
 import com.ivy.domain.features.Features
 import com.ivy.frp.then
 import com.ivy.legacy.IvyWalletCtx
+import com.ivy.legacy.data.model.Month
 import com.ivy.legacy.data.model.TimePeriod
 import com.ivy.legacy.data.model.toCloseTimeRange
 import com.ivy.legacy.datamodel.temp.toImmutableLegacyTags
@@ -66,6 +67,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import java.util.UUID
 import javax.inject.Inject
 import com.ivy.legacy.datamodel.Account as LegacyAccount
@@ -735,27 +737,29 @@ class TransactionsViewModel @Inject constructor(
     }
 
     private fun nextMonth(screen: TransactionsScreen) {
-        val month = period.value.month
-        val year = period.value.year ?: dateNowUTC().year
-        if (month != null) {
-            start(
-                screen = screen,
-                timePeriod = month.incrementMonthPeriod(ivyContext, 1L, year),
-                reset = false
-            )
+        adjacentMonthPeriod(increment = 1L)?.let { nextPeriod ->
+            start(screen = screen, timePeriod = nextPeriod, reset = false)
         }
     }
 
     private fun previousMonth(screen: TransactionsScreen) {
-        val month = period.value.month
-        val year = period.value.year ?: dateNowUTC().year
-        if (month != null) {
-            start(
-                screen = screen,
-                timePeriod = month.incrementMonthPeriod(ivyContext, -1L, year),
-                reset = false
-            )
+        adjacentMonthPeriod(increment = -1L)?.let { previousPeriod ->
+            start(screen = screen, timePeriod = previousPeriod, reset = false)
         }
+    }
+
+    /**
+     * Transaction history owns its month cursor. Do not use Month.incrementMonthPeriod here:
+     * that legacy helper also mutates IvyWalletCtx.selectedPeriod, which is shared with Home.
+     */
+    private fun adjacentMonthPeriod(increment: Long): TimePeriod? {
+        val month = period.value.month ?: return null
+        val year = period.value.year ?: timeProvider.localDateNow().year
+        val adjacent = LocalDate.of(year, month.monthValue, 1).plusMonths(increment)
+        return TimePeriod(
+            month = Month.fromMonthValue(adjacent.monthValue),
+            year = adjacent.year,
+        )
     }
 
     private fun delete(screen: TransactionsScreen) {

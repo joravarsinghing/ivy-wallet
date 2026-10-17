@@ -25,9 +25,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.ivy.base.model.TransactionType
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
-import com.ivy.navigation.ReportScreen
+import com.ivy.navigation.PieChartStatisticScreen
 import com.ivy.navigation.navigation
 import com.ivy.wallet.ui.theme.toComposeColor
 import java.math.BigDecimal
@@ -87,17 +88,26 @@ fun HomeSpendingBreakdownCard(
             .padding(horizontal = 16.dp)
             .clip(RoundedCornerShape(22.dp))
             .background(UI.colors.medium)
-            .clickable(onClick = { nav.navigateTo(ReportScreen) })
+            .clickable(onClick = {
+                nav.navigateTo(PieChartStatisticScreen(type = TransactionType.EXPENSE))
+            })
             .semantics {
                 role = Role.Button
-                contentDescription = "Open spending reports"
+                contentDescription = "View full expense breakdown chart"
             }
             .padding(horizontal = 24.dp, vertical = 20.dp),
     ) {
-        Text(
-            text = "Where your money went",
-            style = UI.typo.b1.style(color = UI.colors.pureInverse, fontWeight = FontWeight.ExtraBold),
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "Where your money went",
+                modifier = Modifier.weight(1f),
+                style = UI.typo.b1.style(color = UI.colors.pureInverse, fontWeight = FontWeight.ExtraBold),
+            )
+            Text(
+                text = "View chart",
+                style = UI.typo.c.style(color = UI.colors.primary, fontWeight = FontWeight.Bold),
+            )
+        }
         Spacer(Modifier.height(3.dp))
         Text(
             text = "Top spending categories for this period",

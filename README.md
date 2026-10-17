@@ -229,6 +229,8 @@ Jvy Wallet is for people who want useful money tools **without handing their fin
 > [!IMPORTANT]
 > Backups are **user-controlled files, not encrypted cloud storage**. Keep exports somewhere private, and use Android device security, a trusted password manager, or encrypted storage when sharing or archiving them.
 
+Read the complete [Jvy Wallet Privacy Policy](docs/legal/PRIVACY_POLICY.md) for details about local storage, imports, backups, diagnostics, permissions, and deletion.
+
 <details>
 <summary><b>What Jvy Wallet deliberately does <u>not</u> do</b></summary>
 

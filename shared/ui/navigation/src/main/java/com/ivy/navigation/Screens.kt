@@ -115,6 +115,10 @@ data object BudgetScreen : Screen {
 
 data object GoalsScreen : Screen
 
+data object SecurityScreen : Screen
+
+data object NetWorthScreen : Screen
+
 data object LoansScreen : Screen {
     override val isLegacy: Boolean
         get() = true

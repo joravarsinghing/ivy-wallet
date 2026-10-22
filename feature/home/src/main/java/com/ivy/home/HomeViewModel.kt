@@ -21,6 +21,7 @@ import com.ivy.data.model.Category
 import com.ivy.data.model.primitive.AssetCode
 import com.ivy.data.repository.CategoryRepository
 import com.ivy.data.repository.GoalRepository
+import com.ivy.data.repository.SavedAnalyticsRepository
 import com.ivy.data.repository.mapper.TransactionMapper
 import com.ivy.domain.features.Features
 import com.ivy.domain.usecase.exchange.SyncExchangeRatesUseCase
@@ -48,6 +49,7 @@ import com.ivy.legacy.utils.ioThread
 import com.ivy.navigation.BalanceScreen
 import com.ivy.navigation.MainScreen
 import com.ivy.navigation.Navigation
+import com.ivy.navigation.ReportScreen
 import com.ivy.ui.ComposeViewModel
 import com.ivy.wallet.domain.action.account.AccountsAct
 import com.ivy.wallet.domain.action.category.LegacyCategoryIncomeWithAccountFiltersAct
@@ -117,6 +119,7 @@ class HomeViewModel @Inject constructor(
     private val timeConverter: TimeConverter,
     private val features: Features,
     private val dataStore: IvyDataStore,
+    private val savedAnalyticsRepository: SavedAnalyticsRepository,
 ) : ComposeViewModel<HomeState, HomeEvent>() {
     private var currentTheme by mutableStateOf(Theme.AUTO)
     private var name by mutableStateOf("")
@@ -161,6 +164,7 @@ class HomeViewModel @Inject constructor(
     private var spendingBreakdown by mutableStateOf(HomeSpendingBreakdownState())
     private var visibleDashboardCards by mutableStateOf(defaultVisibleHomeDashboardCards)
     private var dashboardEditorVisible by mutableStateOf(false)
+    private var savedAnalytics by mutableStateOf<ImmutableList<com.ivy.data.db.entity.SavedAnalyticsEntity>>(persistentListOf())
 
     @Composable
     override fun uiState(): HomeState {
@@ -189,6 +193,7 @@ class HomeViewModel @Inject constructor(
             spendingBreakdown = spendingBreakdown,
             visibleDashboardCards = visibleDashboardCards,
             dashboardEditorVisible = dashboardEditorVisible,
+            savedAnalytics = savedAnalytics,
         )
     }
 
@@ -294,6 +299,7 @@ class HomeViewModel @Inject constructor(
                 HomeEvent.CloseDashboardEditor -> dashboardEditorVisible = false
                 is HomeEvent.ToggleDashboardCard -> toggleDashboardCard(event.card)
                 HomeEvent.RestoreDashboardDefaults -> restoreDashboardDefaults()
+                HomeEvent.OpenSavedReports -> nav.navigateTo(ReportScreen)
             }
         }
     }
@@ -301,6 +307,7 @@ class HomeViewModel @Inject constructor(
     private suspend fun start() {
         loadTrendPreferences()
         loadDashboardPreferences()
+        savedAnalytics = savedAnalyticsRepository.findAll().toImmutableList()
         suspend {
             val startDay = startDayOfMonthAct(Unit)
             ivyContext.initSelectedPeriodInMemory(

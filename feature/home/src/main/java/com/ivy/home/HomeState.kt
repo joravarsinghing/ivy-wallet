@@ -3,6 +3,7 @@ package com.ivy.home
 import androidx.compose.runtime.Immutable
 import com.ivy.base.legacy.Theme
 import com.ivy.base.legacy.TransactionHistoryItem
+import com.ivy.data.db.entity.SavedAnalyticsEntity
 import com.ivy.home.customerjourney.CustomerJourneyCardModel
 import com.ivy.legacy.data.AppBaseData
 import com.ivy.legacy.data.BufferInfo
@@ -10,6 +11,7 @@ import com.ivy.legacy.data.LegacyDueSection
 import com.ivy.legacy.data.model.TimePeriod
 import com.ivy.wallet.domain.pure.data.IncomeExpensePair
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import java.math.BigDecimal
 
 @Immutable
@@ -40,4 +42,5 @@ data class HomeState(
     val spendingBreakdown: HomeSpendingBreakdownState = HomeSpendingBreakdownState(),
     val visibleDashboardCards: Set<HomeDashboardCardId> = defaultVisibleHomeDashboardCards,
     val dashboardEditorVisible: Boolean = false,
+    val savedAnalytics: ImmutableList<SavedAnalyticsEntity> = persistentListOf(),
 )

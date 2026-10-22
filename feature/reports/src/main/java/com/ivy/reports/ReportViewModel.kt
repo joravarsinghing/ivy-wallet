@@ -24,6 +24,8 @@ import com.ivy.data.model.Tag
 import com.ivy.data.model.Transaction
 import com.ivy.data.model.TransactionId
 import com.ivy.data.model.Transfer
+import com.ivy.data.db.entity.SavedAnalyticsEntity
+import com.ivy.data.repository.SavedAnalyticsRepository
 import com.ivy.data.model.primitive.ColorInt
 import com.ivy.data.model.primitive.NotBlankTrimmedString
 import com.ivy.data.repository.CategoryRepository
@@ -68,7 +70,11 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 import java.math.BigDecimal
+import java.time.Duration
 import java.time.ZoneId
 import java.util.UUID
 import javax.inject.Inject
@@ -90,14 +96,18 @@ class ReportViewModel @Inject constructor(
     private val exportCsvUseCase: ExportCsvUseCase,
     private val timeProvider: TimeProvider,
     private val timeConverter: TimeConverter,
-    private val features: Features
+    private val features: Features,
+    private val savedAnalyticsRepository: SavedAnalyticsRepository,
+    private val json: Json
 ) : ComposeViewModel<ReportScreenState, ReportScreenEvent>() {
+    private val unspecifiedCategoryId =
+        UUID.nameUUIDFromBytes("ivy:reports:unspecified-category".toByteArray())
     private val unSpecifiedCategory =
         Category(
             name = NotBlankTrimmedString.unsafe(stringRes(R.string.unspecified)),
             color = ColorInt(Gray.toArgb()),
             icon = null,
-            id = CategoryId(UUID.randomUUID()),
+            id = CategoryId(unspecifiedCategoryId),
             orderNum = 0.0,
         )
     private var baseCurrency by mutableStateOf("")
@@ -107,6 +117,8 @@ class ReportViewModel @Inject constructor(
     private var balance by mutableDoubleStateOf(0.0)
     private var income by mutableDoubleStateOf(0.0)
     private var expenses by mutableDoubleStateOf(0.0)
+    private var previousIncome by mutableStateOf<Double?>(null)
+    private var previousExpenses by mutableStateOf<Double?>(null)
     private var upcomingIncome by mutableDoubleStateOf(0.0)
     private var upcomingExpenses by mutableDoubleStateOf(0.0)
     private var overdueIncome by mutableDoubleStateOf(0.0)
@@ -126,6 +138,7 @@ class ReportViewModel @Inject constructor(
     private var showTransfersAsIncExpCheckbox by mutableStateOf(false)
     private var treatTransfersAsIncExp by mutableStateOf(false)
     private var allTags by mutableStateOf<ImmutableList<Tag>>(persistentListOf())
+    private var savedAnalytics by mutableStateOf<ImmutableList<SavedAnalyticsEntity>>(persistentListOf())
 
     private var tagSearchJob: Job? = null
     private val tagSearchDebounceTimeInMills: Long = 500
@@ -148,6 +161,8 @@ class ReportViewModel @Inject constructor(
             balance = balance,
             baseCurrency = baseCurrency,
             expenses = expenses,
+            previousIncome = previousIncome,
+            previousExpenses = previousExpenses,
             filter = filter,
             filterOverlayVisible = filterOverlayVisible,
             history = history,
@@ -165,6 +180,7 @@ class ReportViewModel @Inject constructor(
             upcomingIncome = upcomingIncome,
             upcomingTransactions = upcomingTransactions,
             allTags = allTags,
+            savedAnalytics = savedAnalytics,
             showAccountColorsInTransactions = getShouldShowAccountSpecificColorInTransactions()
         )
     }
@@ -188,6 +204,9 @@ class ReportViewModel @Inject constructor(
                 )
 
                 is ReportScreenEvent.OnTagSearch -> onTagSearch(event.data)
+                is ReportScreenEvent.OnSaveCurrentFilter -> saveCurrentFilter(event.name)
+                is ReportScreenEvent.OnApplySavedAnalytics -> applySavedAnalytics(event.id)
+                is ReportScreenEvent.OnDeleteSavedAnalytics -> deleteSavedAnalytics(event.id)
             }
         }
     }
@@ -222,6 +241,7 @@ class ReportViewModel @Inject constructor(
             accounts = loadedAccounts
             categories = loadedCategories
             allTags = tagRepository.findAll().toImmutableList()
+            savedAnalytics = savedAnalyticsRepository.findAll().toImmutableList()
 
             // Reports open on the current month with every dimension included.
             // This makes the page useful immediately and gives the filter sheet
@@ -234,6 +254,42 @@ class ReportViewModel @Inject constructor(
                 )
             )
         }
+    }
+
+    private suspend fun saveCurrentFilter(name: String) {
+        val currentFilter = filter ?: return
+        val trimmedName = name.trim()
+        if (trimmedName.isBlank()) return
+
+        savedAnalyticsRepository.save(
+            SavedAnalyticsEntity(
+                name = trimmedName,
+                kind = SavedAnalyticsEntity.KIND_REPORT,
+                definition = json.encodeToString(currentFilter.toSavedDefinition())
+            )
+        )
+        savedAnalytics = savedAnalyticsRepository.findAll().toImmutableList()
+    }
+
+    private suspend fun applySavedAnalytics(id: UUID) {
+        val saved = savedAnalyticsRepository.findById(id) ?: return
+        val definition = runCatching {
+            json.decodeFromString<SavedAnalyticsDefinition>(saved.definition)
+        }.getOrNull() ?: return
+
+        val restoredFilter = runCatching {
+            definition.toReportFilter(
+                accounts = accounts,
+                categories = categories,
+                baseCurrency = baseCurrency
+            )
+        }.getOrNull() ?: return
+        setFilter(restoredFilter)
+    }
+
+    private suspend fun deleteSavedAnalytics(id: UUID) {
+        savedAnalyticsRepository.delete(id)
+        savedAnalytics = savedAnalyticsRepository.findAll().toImmutableList()
     }
 
     private suspend fun setFilter(reportFilter: ReportFilter?) {
@@ -291,6 +347,11 @@ class ReportViewModel @Inject constructor(
                     if (treatTransfersAsIncExp) historyIncomeExpense.transferExpense.toDouble() else 0.0
 
             val tempBalance = calculateBalance(historyIncomeExpense).toDouble()
+            val previousPeriodStats = calculatePreviousPeriodStats(
+                filter = effectiveFilter,
+                accounts = tempAccounts,
+                baseCurrency = baseCurrency,
+            )
 
             val accountFilterIdList = scope.async { effectiveFilter.accounts.map { it.id } }
 
@@ -345,7 +406,9 @@ class ReportViewModel @Inject constructor(
                 transactions = transactionsList.map {
                     it.toLegacy(transactionMapper)
                 }.toImmutableList(),
-                balanceValue = tempBalance
+                balanceValue = tempBalance,
+                previousIncomeValue = previousPeriodStats?.first,
+                previousExpensesValue = previousPeriodStats?.second,
             )
 
             loading = false
@@ -364,7 +427,9 @@ class ReportViewModel @Inject constructor(
         reportFilter: ReportFilter? = null,
         accountIdFilters: ImmutableList<UUID>,
         transactions: ImmutableList<LegacyTransaction>,
-        balanceValue: Double
+        balanceValue: Double,
+        previousIncomeValue: Double? = null,
+        previousExpensesValue: Double? = null,
     ) {
         this.income = income
         this.expenses = expense
@@ -380,8 +445,48 @@ class ReportViewModel @Inject constructor(
         this.accountIdFilters = accountIdFilters
         this.transactions = transactions
         this.balance = balanceValue
+        this.previousIncome = previousIncomeValue
+        this.previousExpenses = previousExpensesValue
         this.showTransfersAsIncExpCheckbox =
             reportFilter?.trnTypes?.contains(TransactionType.TRANSFER) ?: false
+    }
+
+    private suspend fun calculatePreviousPeriodStats(
+        filter: ReportFilter,
+        accounts: List<Account>,
+        baseCurrency: String,
+    ): Pair<Double, Double>? {
+        val currentRange = filter.period?.toRange(
+            ivyContext.startDayOfMonth,
+            timeConverter,
+            timeProvider,
+        ) ?: return null
+        val duration = Duration.between(currentRange.from(), currentRange.to())
+        val previousFilter = filter.copy(
+            period = com.ivy.legacy.data.model.TimePeriod(
+                fromToRange = com.ivy.legacy.data.model.FromToTimeRange(
+                    from = currentRange.from().minus(duration),
+                    to = currentRange.to().minus(duration),
+                )
+            )
+        )
+        val previousTransactions = filterTransactions(
+            baseCurrency = baseCurrency,
+            accounts = accounts,
+            filter = previousFilter,
+        )
+        val previousStats = calcTrnsIncomeExpenseAct(
+            CalcTrnsIncomeExpenseAct.Input(
+                transactions = previousTransactions,
+                accounts = accounts,
+                baseCurrency = baseCurrency,
+            )
+        )
+        val previousIncome = previousStats.income.toDouble() +
+            if (treatTransfersAsIncExp) previousStats.transferIncome.toDouble() else 0.0
+        val previousExpenses = previousStats.expense.toDouble() +
+            if (treatTransfersAsIncExp) previousStats.transferExpense.toDouble() else 0.0
+        return previousIncome to previousExpenses
     }
 
     private suspend fun filterTransactions(
@@ -542,7 +647,7 @@ class ReportViewModel @Inject constructor(
         if (!filter.validate()) return
 
         ivyContext.createNewFile(
-            "IvyWalletReport-${
+            "JvyWalletReport-${
                 timeNowUTC().getISOFormattedDateTime()
             }.csv"
         ) { fileUri ->

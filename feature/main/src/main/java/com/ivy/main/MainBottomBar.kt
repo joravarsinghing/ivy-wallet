@@ -8,21 +8,27 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -85,9 +91,23 @@ fun BoxWithConstraintsScope.BottomBar(
 
     showAddAccountModal: () -> Unit,
 ) {
+    if (adaptiveWindowClass(maxWidth) != AdaptiveWindowClass.COMPACT) {
+        AdaptiveMainRail(
+            windowClass = adaptiveWindowClass(maxWidth),
+            tab = tab,
+            selectTab = selectTab,
+            onAddIncome = onAddIncome,
+            onAddExpense = onAddExpense,
+            onAddTransfer = onAddTransfer,
+            onAddPlannedPayment = onAddPlannedPayment,
+            showAddAccountModal = showAddAccountModal,
+        )
+        return
+    }
+
     val ivyContext = ivyWalletCtx()
 
-    var expanded by remember { mutableStateOf(false) }
+    var expanded by rememberSaveable { mutableStateOf(false) }
 
     val modalId = remember { UUID.randomUUID() }
 
@@ -262,6 +282,168 @@ fun BoxWithConstraintsScope.BottomBar(
             MainTab.ACCOUNTS -> {
                 showAddAccountModal()
             }
+        }
+    }
+}
+
+@Composable
+private fun BoxWithConstraintsScope.AdaptiveMainRail(
+    windowClass: AdaptiveWindowClass,
+    tab: MainTab,
+    selectTab: (MainTab) -> Unit,
+    onAddIncome: () -> Unit,
+    onAddExpense: () -> Unit,
+    onAddTransfer: () -> Unit,
+    onAddPlannedPayment: () -> Unit,
+    showAddAccountModal: () -> Unit,
+) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val railWidth = if (windowClass == AdaptiveWindowClass.EXPANDED) 112.dp else 88.dp
+
+    if (expanded && tab == MainTab.HOME) {
+        Spacer(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(UI.colors.pure.copy(alpha = 0.94f))
+                .clickableNoIndication(rememberInteractionSource()) {
+                    expanded = false
+                }
+                .zIndex(90f)
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxHeight()
+            .width(railWidth)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .background(pureBlur())
+            .zIndex(100f),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(Modifier.height(24.dp))
+        RailTab(
+            icon = R.drawable.ic_home,
+            name = stringResource(R.string.home),
+            selected = tab == MainTab.HOME,
+            selectedColor = Ivy,
+            showLabel = windowClass == AdaptiveWindowClass.EXPANDED,
+            onClick = { selectTab(MainTab.HOME) },
+        )
+        Spacer(Modifier.height(12.dp))
+        RailTab(
+            icon = R.drawable.ic_accounts,
+            name = stringResource(R.string.accounts),
+            selected = tab == MainTab.ACCOUNTS,
+            selectedColor = Green,
+            showLabel = windowClass == AdaptiveWindowClass.EXPANDED,
+            onClick = { selectTab(MainTab.ACCOUNTS) },
+        )
+        Spacer(Modifier.weight(1f))
+        Text(
+            text = "Add",
+            style = UI.typo.c.style(color = UI.colors.gray, fontWeight = FontWeight.Bold),
+        )
+        Spacer(Modifier.height(8.dp))
+        IvyCircleButton(
+            modifier = Modifier.size(FAB_BUTTON_SIZE),
+            icon = R.drawable.ic_add,
+            backgroundGradient = when (tab) {
+                MainTab.HOME -> if (expanded) Gradient.solid(UI.colors.gray) else GradientIvy
+                MainTab.ACCOUNTS -> GradientGreen
+            },
+            hasShadow = !expanded,
+            tint = White,
+        ) {
+            if (tab == MainTab.HOME) {
+                expanded = !expanded
+            } else {
+                showAddAccountModal()
+            }
+        }
+        Spacer(Modifier.height(24.dp))
+    }
+
+    if (expanded && tab == MainTab.HOME) {
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 28.dp, bottom = 28.dp)
+                .navigationBarsPadding()
+                .widthIn(max = 260.dp)
+                .zIndex(200f),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.End,
+        ) {
+            IvyOutlinedButton(
+                iconStart = R.drawable.ic_planned_payments,
+                text = stringResource(R.string.add_planned_payment),
+                solidBackground = true,
+            ) {
+                expanded = false
+                onAddPlannedPayment()
+            }
+            IvyOutlinedButton(
+                iconStart = R.drawable.ic_transfer,
+                text = stringResource(R.string.transfer),
+                solidBackground = true,
+            ) {
+                expanded = false
+                onAddTransfer()
+            }
+            IvyOutlinedButton(
+                iconStart = R.drawable.ic_income,
+                text = stringResource(R.string.add_income),
+                solidBackground = true,
+            ) {
+                expanded = false
+                onAddIncome()
+            }
+            IvyOutlinedButton(
+                iconStart = R.drawable.ic_expense,
+                text = stringResource(R.string.add_expense),
+                solidBackground = true,
+            ) {
+                expanded = false
+                onAddExpense()
+            }
+        }
+    }
+}
+
+@Composable
+private fun RailTab(
+    @DrawableRes icon: Int,
+    name: String,
+    selected: Boolean,
+    selectedColor: Color,
+    showLabel: Boolean,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(UI.shapes.rFull)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 10.dp)
+            .testTag(name.lowercase()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        IvyIcon(
+            icon = icon,
+            tint = if (selected) selectedColor else UI.colors.pureInverse,
+        )
+        if (showLabel) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = name,
+                textAlign = TextAlign.Center,
+                style = UI.typo.c.style(
+                    fontWeight = FontWeight.Bold,
+                    color = if (selected) selectedColor else UI.colors.pureInverse,
+                ),
+            )
         }
     }
 }

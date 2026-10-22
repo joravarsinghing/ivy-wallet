@@ -8,6 +8,9 @@ import java.util.UUID
 
 @Dao
 interface GoalDao {
+    @Query("SELECT * FROM goals ORDER BY isActive DESC, deadline ASC, createdAt ASC")
+    suspend fun findAll(): List<GoalEntity>
+
     @Query("SELECT * FROM goals WHERE isActive = 1 ORDER BY deadline ASC, createdAt ASC")
     fun observeActive(): Flow<List<GoalEntity>>
 

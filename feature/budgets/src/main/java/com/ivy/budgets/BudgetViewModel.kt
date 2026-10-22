@@ -61,6 +61,7 @@ class BudgetViewModel @Inject constructor(
     private val exchangeAct: ExchangeAct,
     private val timeProvider: TimeProvider,
     private val timeConverter: TimeConverter,
+    private val budgetAlertScheduler: BudgetAlertScheduler,
 ) : ComposeViewModel<BudgetScreenState, BudgetScreenEvent>() {
 
     private val baseCurrency = mutableStateOf("")
@@ -73,6 +74,7 @@ class BudgetViewModel @Inject constructor(
     private val totalRemainingBudget = mutableDoubleStateOf(0.0)
     private val reorderModalVisible = mutableStateOf(false)
     private val budgetModalData = mutableStateOf<BudgetModalData?>(null)
+    private val insight = mutableStateOf(BudgetInsight())
 
     @Composable
     override fun uiState(): BudgetScreenState {
@@ -90,7 +92,8 @@ class BudgetViewModel @Inject constructor(
             totalRemainingBudgetText = getTotalRemainingBudgetText(),
             timeRange = getTimeRange(),
             reorderModalVisible = getReorderModalVisible(),
-            budgetModalData = getBudgetModalData()
+            budgetModalData = getBudgetModalData(),
+            insight = insight.value,
         )
     }
 
@@ -213,6 +216,8 @@ class BudgetViewModel @Inject constructor(
                     )
                 }.toImmutableList()
             }
+            insight.value = calculateBudgetInsight(this@BudgetViewModel.budgets.value)
+            budgetAlertScheduler.schedule(insight.value, baseCurrency)
             totalRemainingBudget.doubleValue = calculateTotalRemainingBudget(
                 budgets = this@BudgetViewModel.budgets.value,
                 categoryBudgetsTotal = categoryBudgetsTotal.doubleValue

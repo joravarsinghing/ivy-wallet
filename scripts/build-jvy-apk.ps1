@@ -11,6 +11,18 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $repoRoot
 
+# Use the same authoritative workflow on Windows and cloud/Linux hosts.
+# A process-level file lock prevents two builds allocating the same version.
+$lockDirectory = Join-Path $repoRoot ".gradle"
+New-Item -ItemType Directory -Path $lockDirectory -Force | Out-Null
+$buildLock = [System.IO.File]::Open(
+    (Join-Path $lockDirectory "jvy-apk-build.lock"),
+    [System.IO.FileMode]::OpenOrCreate,
+    [System.IO.FileAccess]::ReadWrite,
+    [System.IO.FileShare]::None
+)
+try {
+
 $versionFile = Join-Path $repoRoot "version.properties"
 if (-not (Test-Path -LiteralPath $versionFile)) {
     throw "Missing authoritative version file: $versionFile"
@@ -44,7 +56,19 @@ $nextVersion = "$major.$minor.$patch"
 $nextCode = $currentCode + 1
 $variantTitle = $Variant.Substring(0, 1).ToUpperInvariant() + $Variant.Substring(1)
 $gradleTask = ":app:assemble$variantTitle"
-$gradle = Join-Path $repoRoot "gradlew.bat"
+$gradle = if ($env:OS -eq "Windows_NT") {
+    Join-Path $repoRoot "gradlew.bat"
+} else {
+    Join-Path $repoRoot "gradlew"
+}
+
+$artifactDirectory = Join-Path $repoRoot "artifacts/apk"
+$artifactName = "Jvy_wallet_v$nextVersion.apk"
+$artifactPath = Join-Path $artifactDirectory $artifactName
+$manifestPath = Join-Path $artifactDirectory "Jvy_wallet_v$nextVersion.json"
+if ((Test-Path -LiteralPath $artifactPath) -or (Test-Path -LiteralPath $manifestPath)) {
+    throw "Version $nextVersion already has an artifact. Refusing to overwrite it."
+}
 
 Write-Host "Building Jvy Wallet $nextVersion (versionCode $nextCode, $Variant)..."
 $gradleArguments = @(
@@ -55,6 +79,7 @@ $gradleArguments = @(
     "--no-configuration-cache",
     "--max-workers=2",
     "--console=plain"
+    "-Pkotlin.compiler.execution.strategy=in-process"
 )
 if ($Variant -eq "demo") {
     $gradleArguments += @("-x", ":app:uploadCrashlyticsMappingFileDemo")
@@ -65,24 +90,22 @@ if ($LASTEXITCODE -ne 0) {
     throw "APK build failed. Version $nextVersion was not allocated or persisted."
 }
 
+$apkSource = Join-Path $repoRoot "app/build/outputs/apk/$Variant/app-$Variant.apk"
+if (-not (Test-Path -LiteralPath $apkSource)) {
+    throw "Gradle succeeded but the expected APK was not found: $apkSource"
+}
+if ((Get-Item -LiteralPath $apkSource).Length -eq 0) {
+    throw "Gradle produced an empty APK. Version was not persisted."
+}
+
 $propertiesText = @(
     "# Authoritative Jvy Wallet APK release baseline."
     "# Updated only after a successful official APK build."
     "versionName=$nextVersion"
     "versionCode=$nextCode"
 )
-Set-Content -LiteralPath $versionFile -Value $propertiesText -Encoding utf8
-
-$apkSource = Join-Path $repoRoot "app\build\outputs\apk\$Variant\app-$Variant.apk"
-if (-not (Test-Path -LiteralPath $apkSource)) {
-    throw "Gradle succeeded but the expected APK was not found: $apkSource"
-}
-
-$artifactDirectory = Join-Path $repoRoot "artifacts\apk"
 New-Item -ItemType Directory -Path $artifactDirectory -Force | Out-Null
-$artifactName = "Jvy_wallet_v$nextVersion.apk"
-$artifactPath = Join-Path $artifactDirectory $artifactName
-Copy-Item -LiteralPath $apkSource -Destination $artifactPath -Force
+Copy-Item -LiteralPath $apkSource -Destination $artifactPath
 
 $sha256 = (Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash
 $manifest = [ordered]@{
@@ -94,8 +117,13 @@ $manifest = [ordered]@{
     sha256 = $sha256
     builtAt = (Get-Date).ToUniversalTime().ToString("o")
 }
-$manifest | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $artifactDirectory "Jvy_wallet_v$nextVersion.json") -Encoding utf8
+$manifest | ConvertTo-Json | Set-Content -LiteralPath $manifestPath -Encoding utf8
+# Persist only after both deliverables exist and the checksum has been calculated.
+Set-Content -LiteralPath $versionFile -Value $propertiesText -Encoding utf8
 
 Write-Host "Created: $artifactPath"
 Write-Host "SHA-256: $sha256"
 Write-Host "Commit version.properties with the source changes before distributing the APK."
+} finally {
+    $buildLock.Dispose()
+}

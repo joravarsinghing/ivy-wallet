@@ -325,12 +325,10 @@ private fun BoxWithConstraintsScope.UI(
 
             Spacer(Modifier.height(12.dp))
 
-            AppSwitch(
-                lockApp = lockApp,
-                onSetLockApp = onSetLockApp,
-                text = stringResource(R.string.lock_app),
-                icon = R.drawable.ic_custom_fingerprint_m
-            )
+            SettingsDefaultButton(
+                text = "Security · PIN and biometrics",
+                icon = R.drawable.ic_custom_fingerprint_m,
+            ) { nav.navigateTo(com.ivy.navigation.SecurityScreen) }
 
             Spacer(Modifier.height(12.dp))
 

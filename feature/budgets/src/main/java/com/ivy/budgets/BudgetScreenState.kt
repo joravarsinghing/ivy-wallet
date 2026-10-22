@@ -18,5 +18,6 @@ data class BudgetScreenState(
     val totalRemainingBudgetText: String?,
     val timeRange: FromToTimeRange?,
     val reorderModalVisible: Boolean,
-    val budgetModalData: BudgetModalData?
+    val budgetModalData: BudgetModalData?,
+    val insight: BudgetInsight = BudgetInsight(),
 )

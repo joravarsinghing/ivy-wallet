@@ -13,6 +13,7 @@ import com.ivy.data.db.dao.read.LoanDao
 import com.ivy.data.db.dao.read.LoanRecordDao
 import com.ivy.data.db.dao.read.PlannedPaymentRuleDao
 import com.ivy.data.db.dao.read.SettingsDao
+import com.ivy.data.db.dao.read.SavedAnalyticsDao
 import com.ivy.data.db.dao.read.TagAssociationDao
 import com.ivy.data.db.dao.read.TagDao
 import com.ivy.data.db.dao.read.TransactionDao
@@ -28,6 +29,7 @@ import com.ivy.data.db.dao.write.WriteLoanDao
 import com.ivy.data.db.dao.write.WriteLoanRecordDao
 import com.ivy.data.db.dao.write.WritePlannedPaymentRuleDao
 import com.ivy.data.db.dao.write.WriteSettingsDao
+import com.ivy.data.db.dao.write.WriteSavedAnalyticsDao
 import com.ivy.data.db.dao.write.WriteTagAssociationDao
 import com.ivy.data.db.dao.write.WriteTagDao
 import com.ivy.data.db.dao.write.WriteTransactionDao
@@ -86,6 +88,9 @@ object RoomDbModule {
     fun provideSettingsDao(db: IvyRoomDatabase): SettingsDao {
         return db.settingsDao
     }
+
+    @Provides
+    fun provideSavedAnalyticsDao(db: IvyRoomDatabase): SavedAnalyticsDao = db.savedAnalyticsDao
 
     @Provides
     fun provideLoanDao(db: IvyRoomDatabase): LoanDao {
@@ -154,6 +159,10 @@ object RoomDbModule {
     fun provideWriteSettingsDao(db: IvyRoomDatabase): WriteSettingsDao {
         return db.writeSettingsDao
     }
+
+    @Provides
+    fun provideWriteSavedAnalyticsDao(db: IvyRoomDatabase): WriteSavedAnalyticsDao =
+        db.writeSavedAnalyticsDao
 
     @Provides
     fun provideWriteLoanDao(db: IvyRoomDatabase): WriteLoanDao {

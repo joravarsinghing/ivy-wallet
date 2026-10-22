@@ -74,13 +74,20 @@ class BackupDataUseCaseAndroidTest {
             dispatchersProvider = TestDispatchersProvider,
             fileSystem = FileSystem(appContext),
             dataObserver = DataObserver(),
-            backupTransactionRunner = object : BackupTransactionRunner {
-                override suspend fun <T> run(block: suspend () -> T): T = block()
-            },
+            backupTransactionRunner = RoomBackupTransactionRunner(db),
             tagsReader = db.tagDao,
             tagAssociationReader = db.tagAssociationDao,
             tagsWriter = db.writeTagDao,
-            tagAssociationWriter = db.writeTagAssociationDao
+            tagAssociationWriter = db.writeTagAssociationDao,
+            savedAnalyticsReader = db.savedAnalyticsDao,
+            savedAnalyticsWriter = db.writeSavedAnalyticsDao,
+            wealthRepository = com.ivy.data.repository.WealthRepository(db),
+            goalsReader = db.goalDao,
+            goalAllocationsReader = db.goalAllocationDao,
+            categoryRulesReader = db.categoryRuleDao,
+            goalsWriter = db.writeGoalDao,
+            goalAllocationsWriter = db.writeGoalAllocationDao,
+            categoryRulesWriter = db.writeCategoryRuleDao,
         )
     }
 
@@ -92,6 +99,28 @@ class BackupDataUseCaseAndroidTest {
     @Test
     fun backup450_150() = runBlocking {
         backupTestCase("450-150")
+    }
+
+    @Test
+    fun planningMetadataSurvivesFreshDatabaseRestore() = runBlocking {
+        val fixtureTime = java.time.Instant.ofEpochMilli(1700000000123)
+        val account = com.ivy.data.db.entity.AccountEntity("Savings", "USD", 0)
+        val category = com.ivy.data.db.entity.CategoryEntity("Groceries", 0)
+        val goal = com.ivy.data.db.entity.GoalEntity("Emergency", com.ivy.data.db.entity.GoalKind.EMERGENCY_FUND, 25000.25, isActive = false, createdAt = fixtureTime)
+        val allocation = com.ivy.data.db.entity.GoalAllocationEntity(goal.id, account.id, 1000.75, createdAt = fixtureTime)
+        val rule = com.ivy.data.db.entity.CategoryRuleEntity("rule", category.id.toString(), "market", "DESCRIPTION", "CONTAINS", 5, false)
+        db.writeAccountDao.save(account)
+        db.writeCategoryDao.save(category)
+        db.writeGoalDao.save(goal)
+        db.writeGoalAllocationDao.save(allocation)
+        db.writeCategoryRuleDao.save(rule)
+        val exported = useCase.generateJsonBackup()
+        closeDb()
+        createDb()
+        useCase.importJson(exported)
+        org.junit.Assert.assertEquals(listOf(goal), db.goalDao.findAll())
+        org.junit.Assert.assertEquals(listOf(allocation), db.goalAllocationDao.findAll())
+        org.junit.Assert.assertEquals(listOf(rule), db.categoryRuleDao.findAll())
     }
 
     private suspend fun backupTestCase(version: String) {

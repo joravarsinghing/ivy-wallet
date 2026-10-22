@@ -13,6 +13,20 @@ import com.ivy.data.db.dao.fake.FakeSettingsDao
 import com.ivy.data.db.dao.fake.FakeTagAssociationDao
 import com.ivy.data.db.dao.fake.FakeTagDao
 import com.ivy.data.db.dao.fake.FakeTransactionDao
+import com.ivy.data.db.dao.read.SavedAnalyticsDao
+import com.ivy.data.db.dao.write.WriteSavedAnalyticsDao
+import com.ivy.data.db.dao.read.GoalDao
+import com.ivy.data.db.dao.read.GoalAllocationDao
+import com.ivy.data.db.dao.read.CategoryRuleDao
+import com.ivy.data.db.dao.write.WriteGoalDao
+import com.ivy.data.db.dao.write.WriteGoalAllocationDao
+import com.ivy.data.db.dao.write.WriteCategoryRuleDao
+import com.ivy.data.db.entity.AccountEntity
+import com.ivy.data.db.entity.CategoryEntity
+import com.ivy.data.db.entity.CategoryRuleEntity
+import com.ivy.data.db.entity.GoalEntity
+import com.ivy.data.db.entity.GoalAllocationEntity
+import com.ivy.data.db.entity.GoalKind
 import com.ivy.data.repository.AccountRepository
 import com.ivy.data.repository.CurrencyRepository
 import com.ivy.data.repository.fake.fakeRepositoryMemoFactory
@@ -21,10 +35,48 @@ import com.ivy.data.testResource
 import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import io.mockk.mockk
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.verify
+import com.ivy.base.legacy.SharedPrefs
+import kotlinx.serialization.encodeToString
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
 class BackupDataUseCaseTest {
+    // Ivy's persisted/backup timestamp contract is epoch milliseconds, not nanoseconds.
+    private val fixtureTime = java.time.Instant.ofEpochMilli(1700000000123)
+
+    private class PlanningStore {
+        val goals = linkedMapOf<java.util.UUID, GoalEntity>()
+        val allocations = linkedMapOf<Pair<java.util.UUID, java.util.UUID>, GoalAllocationEntity>()
+        val rules = linkedMapOf<String, CategoryRuleEntity>()
+        val goalsReader = mockk<GoalDao> {
+            coEvery { findAll() } answers { goals.values.toList() }
+        }
+        val allocationsReader = mockk<GoalAllocationDao> {
+            coEvery { findAll() } answers { allocations.values.toList() }
+        }
+        val rulesReader = mockk<CategoryRuleDao> {
+            coEvery { findAll() } answers { rules.values.toList() }
+        }
+        val goalsWriter = mockk<WriteGoalDao> {
+            coEvery { saveMany(any()) } answers { firstArg<List<GoalEntity>>().forEach { goals[it.id] = it } }
+        }
+        val allocationsWriter = mockk<WriteGoalAllocationDao> {
+            coEvery { deleteByGoalId(any()) } answers {
+                val goalId = firstArg<java.util.UUID>()
+                allocations.keys.removeAll { it.first == goalId }
+            }
+            coEvery { saveMany(any()) } answers {
+                firstArg<List<GoalAllocationEntity>>().forEach { allocations[it.goalId to it.accountId] = it }
+            }
+        }
+        val rulesWriter = mockk<WriteCategoryRuleDao> {
+            coEvery { saveMany(any()) } answers { firstArg<List<CategoryRuleEntity>>().forEach { rules[it.id] = it } }
+        }
+    }
+
     private fun newBackupDataUseCase(
         accountDao: FakeAccountDao = FakeAccountDao(),
         categoryDao: FakeCategoryDao = FakeCategoryDao(),
@@ -35,7 +87,9 @@ class BackupDataUseCaseTest {
         loanDao: FakeLoanDao = FakeLoanDao(),
         loanRecordDao: FakeLoanRecordDao = FakeLoanRecordDao(),
         tagDao: FakeTagDao = FakeTagDao(),
-        tagAssociationDao: FakeTagAssociationDao = FakeTagAssociationDao()
+        tagAssociationDao: FakeTagAssociationDao = FakeTagAssociationDao(),
+        planning: PlanningStore = PlanningStore(),
+        sharedPrefs: SharedPrefs = mockk(relaxed = true),
     ): BackupDataUseCase {
         val accountMapper = AccountMapper(
             CurrencyRepository(
@@ -70,7 +124,7 @@ class BackupDataUseCaseTest {
             plannedPaymentRuleWriter = plannedPaymentDao,
 
             context = mockk(relaxed = true),
-            sharedPrefs = mockk(relaxed = true),
+            sharedPrefs = sharedPrefs,
             json = KotlinxSerializationModule.provideJson(),
             dispatchersProvider = TestDispatchersProvider,
             fileSystem = mockk(relaxed = true),
@@ -81,7 +135,18 @@ class BackupDataUseCaseTest {
             tagsReader = tagDao,
             tagsWriter = tagDao,
             tagAssociationReader = tagAssociationDao,
-            tagAssociationWriter = tagAssociationDao
+            tagAssociationWriter = tagAssociationDao,
+            savedAnalyticsReader = mockk<SavedAnalyticsDao>(relaxed = true),
+            savedAnalyticsWriter = mockk<WriteSavedAnalyticsDao>(relaxed = true),
+            wealthRepository = mockk<com.ivy.data.repository.WealthRepository>(relaxed = true).also {
+                io.mockk.coEvery { it.read() } returns com.ivy.data.model.wealth.WealthBackup()
+            },
+            goalsReader = planning.goalsReader,
+            goalAllocationsReader = planning.allocationsReader,
+            categoryRulesReader = planning.rulesReader,
+            goalsWriter = planning.goalsWriter,
+            goalAllocationsWriter = planning.allocationsWriter,
+            categoryRulesWriter = planning.rulesWriter,
         )
     }
 
@@ -117,5 +182,126 @@ class BackupDataUseCaseTest {
     @Test
     fun `backup compatibility with 450 (150)`() = runTest {
         backupTestCase("450-150")
+    }
+
+    @Test
+    fun `planning data survives fresh restore including archived goals and inactive rules`() = runTest {
+        val account = AccountEntity(name = "Savings", currency = "USD", color = 0)
+        val category = CategoryEntity(name = "Groceries", color = 0)
+        val goal = GoalEntity(name = "Emergency", kind = GoalKind.EMERGENCY_FUND, targetAmount = 25000.25, isActive = false, createdAt = fixtureTime)
+        val allocation = GoalAllocationEntity(goal.id, account.id, 1000.75, createdAt = fixtureTime)
+        val rule = CategoryRuleEntity("rule-1", category.id.toString(), "market", "DESCRIPTION", "CONTAINS", 5, false)
+        val data = IvyWalletCompleteData(accounts = listOf(account), categories = listOf(category),
+            goals = listOf(goal), goalAllocations = listOf(allocation), categoryRules = listOf(rule))
+        val json = KotlinxSerializationModule.provideJson()
+        val original = newBackupDataUseCase()
+        original.importJson(json.encodeToString(data))
+        val exported = original.generateJsonBackup()
+        val restored = newBackupDataUseCase()
+        restored.importJson(exported)
+        val result = json.decodeFromString<IvyWalletCompleteData>(restored.generateJsonBackup())
+        result.goals shouldBe data.goals
+        result.goalAllocations shouldBe data.goalAllocations
+        result.categoryRules shouldBe data.categoryRules
+        restored.generateJsonBackup() shouldBe exported
+    }
+
+    @Test
+    fun `existing account and category IDs are remapped inside planning references`() = runTest {
+        val oldAccount = AccountEntity(name = "Savings", currency = "USD", color = 0)
+        val oldCategory = CategoryEntity(name = "Groceries", color = 0)
+        val currentAccount = oldAccount.copy(id = java.util.UUID.randomUUID())
+        val currentCategory = oldCategory.copy(id = java.util.UUID.randomUUID())
+        val accounts = FakeAccountDao().also { it.save(currentAccount) }
+        val categories = FakeCategoryDao().also { it.save(currentCategory) }
+        val goal = GoalEntity("House", GoalKind.PURCHASE, 100000.0, createdAt = fixtureTime)
+        val planning = PlanningStore()
+        val useCase = newBackupDataUseCase(accountDao = accounts, categoryDao = categories, planning = planning)
+        val data = IvyWalletCompleteData(accounts = listOf(oldAccount), categories = listOf(oldCategory), goals = listOf(goal),
+            goalAllocations = listOf(GoalAllocationEntity(goal.id, oldAccount.id, 250.0)),
+            categoryRules = listOf(CategoryRuleEntity("r", oldCategory.id.toString(), "shop", "DESCRIPTION", "CONTAINS", 1, true)))
+        useCase.importJson(KotlinxSerializationModule.provideJson().encodeToString(data))
+        planning.allocations.values.single().accountId shouldBe currentAccount.id
+        planning.rules.values.single().categoryId shouldBe currentCategory.id.toString()
+    }
+
+    @Test
+    fun `legacy backup without optional planning fields preserves existing planning data`() = runTest {
+        val planning = PlanningStore()
+        val goal = GoalEntity("Keep me", GoalKind.CUSTOM, 10.0, createdAt = fixtureTime)
+        planning.goals[goal.id] = goal
+        val useCase = newBackupDataUseCase(planning = planning)
+        useCase.importJson(testResource("backups/450-150.json").readText(Charsets.UTF_16))
+        planning.goals.values.toList() shouldBe listOf(goal)
+    }
+
+    @Test
+    fun `goals-only backup is importable`() = runTest {
+        val goal = GoalEntity("Goal", GoalKind.CUSTOM, 10.0, createdAt = fixtureTime)
+        val planning = PlanningStore()
+        val useCase = newBackupDataUseCase(planning = planning)
+        useCase.importJson(KotlinxSerializationModule.provideJson().encodeToString(IvyWalletCompleteData(goals = listOf(goal))))
+        planning.goals.values.toList() shouldBe listOf(goal)
+    }
+
+    @Test
+    fun `negative reservation fails before any planning writes`() = runTest {
+        val planning = PlanningStore()
+        val goal = GoalEntity("Goal", GoalKind.CUSTOM, 10.0, createdAt = fixtureTime)
+        val data = IvyWalletCompleteData(goals = listOf(goal), goalAllocations = listOf(
+            GoalAllocationEntity(goal.id, java.util.UUID.randomUUID(), -5.0)))
+        val failure = runCatching {
+            newBackupDataUseCase(planning = planning).importJson(KotlinxSerializationModule.provideJson().encodeToString(data))
+        }.exceptionOrNull()
+        (failure is IllegalArgumentException) shouldBe true
+        coVerify(exactly = 0) { planning.goalsWriter.saveMany(any()) }
+        coVerify(exactly = 0) { planning.allocationsWriter.saveMany(any()) }
+    }
+
+    @Test
+    fun `restore replaces imported goals reservations without affecting unrelated goals`() = runTest {
+        val planning = PlanningStore()
+        val goal = GoalEntity("Restored", GoalKind.CUSTOM, 10.0, createdAt = fixtureTime)
+        val unrelated = GoalEntity("Unrelated", GoalKind.CUSTOM, 20.0, createdAt = fixtureTime)
+        planning.goals[goal.id] = goal
+        planning.goals[unrelated.id] = unrelated
+        val stale = GoalAllocationEntity(goal.id, java.util.UUID.randomUUID(), 5.0)
+        val keep = GoalAllocationEntity(unrelated.id, java.util.UUID.randomUUID(), 7.0)
+        planning.allocations[stale.goalId to stale.accountId] = stale
+        planning.allocations[keep.goalId to keep.accountId] = keep
+        newBackupDataUseCase(planning = planning).importJson(KotlinxSerializationModule.provideJson()
+            .encodeToString(IvyWalletCompleteData(goals = listOf(goal))))
+        planning.allocations.values.toList() shouldBe listOf(keep)
+    }
+
+    @Test
+    fun `historical references to deleted accounts and categories survive backup`() = runTest {
+        val goal = GoalEntity("Archived", GoalKind.CUSTOM, 10.0, isActive = false, createdAt = fixtureTime)
+        val allocation = GoalAllocationEntity(goal.id, java.util.UUID.randomUUID(), 5.0, createdAt = fixtureTime)
+        val rule = CategoryRuleEntity("old", java.util.UUID.randomUUID().toString(), "shop", "DESCRIPTION", "CONTAINS", 0, false)
+        val data = IvyWalletCompleteData(goals = listOf(goal), goalAllocations = listOf(allocation), categoryRules = listOf(rule))
+        val json = KotlinxSerializationModule.provideJson()
+        val source = newBackupDataUseCase()
+        source.importJson(json.encodeToString(data))
+        val destination = newBackupDataUseCase()
+        destination.importJson(source.generateJsonBackup())
+        val restored = json.decodeFromString<IvyWalletCompleteData>(destination.generateJsonBackup())
+        restored.goalAllocations shouldBe listOf(allocation)
+        restored.categoryRules shouldBe listOf(rule)
+    }
+
+    @Test
+    fun `backup cannot export credentials or disable installation app lock`() = runTest {
+        val prefs = mockk<SharedPrefs>(relaxed = true)
+        val useCase = newBackupDataUseCase(sharedPrefs = prefs)
+        val data = IvyWalletCompleteData(
+            goals = listOf(GoalEntity("Goal", GoalKind.CUSTOM, 10.0, createdAt = fixtureTime)),
+            sharedPrefs = hashMapOf(SharedPrefs.APP_LOCK_ENABLED to "false"),
+        )
+        val json = KotlinxSerializationModule.provideJson()
+        useCase.importJson(json.encodeToString(data))
+        verify(exactly = 0) { prefs.putBoolean(SharedPrefs.APP_LOCK_ENABLED, any()) }
+        val exported = json.decodeFromString<IvyWalletCompleteData>(useCase.generateJsonBackup())
+        exported.sharedPrefs.containsKey(SharedPrefs.APP_LOCK_ENABLED) shouldBe false
     }
 }

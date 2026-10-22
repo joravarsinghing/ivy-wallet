@@ -26,6 +26,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -128,12 +129,12 @@ fun BoxWithConstraintsScope.FilterOverlay(
     var choosePeriodModal: ChoosePeriodModalData? by remember {
         mutableStateOf(null)
     }
-    var minAmountModalShown by remember { mutableStateOf(false) }
-    var maxAmountModalShown by remember { mutableStateOf(false) }
-    var includeKeywordModalShown by remember { mutableStateOf(false) }
-    var excludeKeywordModalShown by remember { mutableStateOf(false) }
-    var includedTagModalVisible by remember { mutableStateOf(false) }
-    var excludedTagModalVisible by remember { mutableStateOf(false) }
+    var minAmountModalShown by rememberSaveable { mutableStateOf(false) }
+    var maxAmountModalShown by rememberSaveable { mutableStateOf(false) }
+    var includeKeywordModalShown by rememberSaveable { mutableStateOf(false) }
+    var excludeKeywordModalShown by rememberSaveable { mutableStateOf(false) }
+    var includedTagModalVisible by rememberSaveable { mutableStateOf(false) }
+    var excludedTagModalVisible by rememberSaveable { mutableStateOf(false) }
     val includedTags by remember(localFilter) {
         derivedStateOf {
             localFilter?.includedTags?.toImmutableList() ?: persistentListOf()

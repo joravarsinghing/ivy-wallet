@@ -28,6 +28,11 @@ enum class HomeDashboardCardId(
         label = "Where your money went",
         description = "See which categories used the most money.",
     ),
+    SAVED_REPORTS(
+        stableId = "saved_reports",
+        label = "Saved reports",
+        description = "Keep your favorite analytics close on Home.",
+    ),
 }
 
 @Immutable

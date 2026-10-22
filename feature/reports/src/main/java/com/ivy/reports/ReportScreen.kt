@@ -14,7 +14,15 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
@@ -97,6 +105,7 @@ private fun BoxWithConstraintsScope.UI(
     val context = LocalContext.current
 
     val listState = rememberScrollPositionListState(key = "reports")
+    var saveDialogVisible by rememberSaveable { mutableStateOf(false) }
 
     if (state.loading) {
         Box(
@@ -136,7 +145,8 @@ private fun BoxWithConstraintsScope.UI(
                             filterOverlayVisible = true
                         )
                     )
-                }
+                },
+                onSave = { saveDialogVisible = true }
             )
         }
 
@@ -149,6 +159,18 @@ private fun BoxWithConstraintsScope.UI(
                 style = UI.typo.h2.style(
                     fontWeight = FontWeight.ExtraBold
                 )
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            SavedAnalyticsPanel(
+                savedAnalytics = state.savedAnalytics,
+                onApply = {
+                    onEventHandler.invoke(ReportScreenEvent.OnApplySavedAnalytics(it))
+                },
+                onDelete = {
+                    onEventHandler.invoke(ReportScreenEvent.OnDeleteSavedAnalytics(it))
+                }
             )
 
             Spacer(Modifier.height(8.dp))
@@ -199,6 +221,14 @@ private fun BoxWithConstraintsScope.UI(
                     }
                 }
             )
+
+            if (state.previousIncome != null && state.previousExpenses != null) {
+                Text(
+                    modifier = Modifier.padding(horizontal = 32.dp),
+                    text = "Compared with the previous period: income ${comparisonLabel(state.income, state.previousIncome)} · expenses ${comparisonLabel(state.expenses, state.previousExpenses)}",
+                    style = UI.typo.c.style(color = Gray, fontWeight = FontWeight.Medium),
+                )
+            }
 
             if (state.showTransfersAsIncExpCheckbox) {
                 IvyCheckboxWithText(
@@ -288,6 +318,15 @@ private fun BoxWithConstraintsScope.UI(
         }
     }
 
+    SaveAnalyticsDialog(
+        visible = saveDialogVisible,
+        onDismiss = { saveDialogVisible = false },
+        onSave = {
+            saveDialogVisible = false
+            onEventHandler.invoke(ReportScreenEvent.OnSaveCurrentFilter(it))
+        }
+    )
+
     FilterOverlay(
         visible = state.filterOverlayVisible,
         baseCurrency = state.baseCurrency,
@@ -309,6 +348,12 @@ private fun BoxWithConstraintsScope.UI(
             onEventHandler.invoke(ReportScreenEvent.OnTagSearch(data = it))
         }
     )
+}
+
+private fun comparisonLabel(current: Double, previous: Double): String {
+    if (previous == 0.0) return if (current == 0.0) "unchanged" else "new"
+    val percentage = ((current - previous) / kotlin.math.abs(previous)) * 100.0
+    return "${if (percentage >= 0) "+" else ""}${"%.0f".format(java.util.Locale.US, percentage)}%"
 }
 
 @Composable
@@ -364,7 +409,8 @@ private fun NoFilterEmptyState(
 @Composable
 private fun Toolbar(
     onExport: () -> Unit,
-    onFilter: () -> Unit
+    onFilter: () -> Unit,
+    onSave: () -> Unit
 ) {
     val nav = navigation()
     IvyToolbar(
@@ -376,6 +422,19 @@ private fun Toolbar(
         Spacer(Modifier.weight(1f))
 
         // Export CSV
+        IvyOutlinedButton(
+            text = stringResource(R.string.save),
+            iconTint = Green,
+            textColor = Green,
+            solidBackground = true,
+            padding = 8.dp,
+            iconStart = null
+        ) {
+            onSave()
+        }
+
+        Spacer(Modifier.width(8.dp))
+
         IvyOutlinedButton(
             text = stringResource(R.string.export),
             iconTint = Green,
@@ -397,6 +456,84 @@ private fun Toolbar(
         }
 
         Spacer(Modifier.width(24.dp))
+    }
+}
+
+@Composable
+private fun SaveAnalyticsDialog(
+    visible: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
+    var name by rememberSaveable { mutableStateOf("") }
+
+    if (visible) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text(stringResource(R.string.save_report)) },
+            text = {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.report_name)) }
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = name.isNotBlank(),
+                    onClick = {
+                        onSave(name)
+                    }
+                ) {
+                    Text(stringResource(R.string.save))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun SavedAnalyticsPanel(
+    savedAnalytics: kotlinx.collections.immutable.ImmutableList<com.ivy.data.db.entity.SavedAnalyticsEntity>,
+    onApply: (UUID) -> Unit,
+    onDelete: (UUID) -> Unit,
+) {
+    if (savedAnalytics.isEmpty()) return
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 32.dp)
+    ) {
+        Text(
+            text = stringResource(R.string.saved_reports),
+            style = UI.typo.b1.style(fontWeight = FontWeight.ExtraBold)
+        )
+        Spacer(Modifier.height(4.dp))
+        savedAnalytics.forEach { saved ->
+            androidx.compose.foundation.layout.Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    modifier = Modifier.weight(1f),
+                    text = saved.name,
+                    style = UI.typo.b2.style()
+                )
+                TextButton(onClick = { onApply(saved.id) }) {
+                    Text(stringResource(R.string.apply_filter))
+                }
+                TextButton(onClick = { onDelete(saved.id) }) {
+                    Text(stringResource(R.string.delete))
+                }
+            }
+        }
     }
 }
 

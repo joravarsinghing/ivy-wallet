@@ -34,6 +34,12 @@ class SharedPrefs @Inject constructor(
         // ----------------------------- Others -----------------------------------------------
         const val CATEGORY_SORT_ORDER = "categorySortOrder"
         const val DATA_BACKUP_COMPLETED = "data_backup_completed"
+
+        // ----------------------------- Net worth -----------------------------------------------
+        const val NET_WORTH_ASSET_ACCOUNT_IDS = "net_worth_asset_account_ids"
+        const val NET_WORTH_LIABILITY_ACCOUNT_IDS = "net_worth_liability_account_ids"
+        const val NET_WORTH_HISTORY = "net_worth_history"
+        const val LAST_BUDGET_ALERT_SIGNATURE = "last_budget_alert_signature"
     }
 
     private val preferences = appContext.getSharedPreferences(PREFS_FILENAME, Context.MODE_PRIVATE)

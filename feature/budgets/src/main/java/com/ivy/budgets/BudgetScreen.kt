@@ -77,6 +77,11 @@ private fun BoxWithConstraintsScope.UI(
 
         Spacer(Modifier.height(8.dp))
 
+        BudgetInsightCard(
+            insight = state.insight,
+            currency = state.baseCurrency,
+        )
+
         for (item in state.budgets) {
             Spacer(Modifier.height(24.dp))
 

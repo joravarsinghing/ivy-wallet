@@ -1,36 +1,26 @@
 package com.ivy.wallet
 
 import android.content.Intent
-import androidx.biometric.BiometricPrompt
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ivy.base.legacy.SharedPrefs
 import com.ivy.base.legacy.Theme
-import com.ivy.base.legacy.stringRes
 import com.ivy.base.model.TransactionType
 import com.ivy.data.db.dao.read.SettingsDao
 import com.ivy.data.repository.LegalRepository
 import com.ivy.frp.test.TestIdlingResource
 import com.ivy.legacy.IvyWalletCtx
 import com.ivy.legacy.utils.ioThread
-import com.ivy.legacy.utils.readOnly
 import com.ivy.navigation.DisclaimerScreen
 import com.ivy.navigation.EditTransactionScreen
 import com.ivy.navigation.MainScreen
 import com.ivy.navigation.Navigation
 import com.ivy.navigation.OnboardingScreen
-import com.ivy.ui.R
 import com.ivy.wallet.domain.deprecated.logic.notification.TransactionReminderLogic
 import com.ivy.wallet.migrations.MigrationsManager
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
-import timber.log.Timber
-import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
 @HiltViewModel
@@ -43,20 +33,23 @@ class RootViewModel @Inject constructor(
     private val transactionReminderLogic: TransactionReminderLogic,
     private val migrationsManager: MigrationsManager,
     private val legalRepo: LegalRepository,
+    private val authSession: com.ivy.security.AuthSessionController,
+    private val dataStore: com.ivy.data.datastore.IvyDataStore,
 ) : ViewModel() {
 
     companion object {
         const val EXTRA_ADD_TRANSACTION_TYPE = "add_transaction_type_extra"
 
-        const val USER_INACTIVITY_TIME_LIMIT = 60 // Time in seconds
     }
 
-    private var appLockEnabled = false
-
-    private val _appLocked = MutableStateFlow<Boolean?>(null)
-    val appLocked = _appLocked.readOnly()
+    val appLocked = authSession.locked
+    val securitySettings = authSession.settings
+    private var started = false
 
     fun start(systemDarkMode: Boolean, intent: Intent) {
+        // The Activity/Compose tree is recreated on resize, rotation, and theme changes.
+        if (started) return
+        started = true
         viewModelScope.launch {
             TestIdlingResource.increment()
 
@@ -75,10 +68,21 @@ class RootViewModel @Inject constructor(
             TestIdlingResource.increment()
 
             ioThread {
-                appLockEnabled = sharedPrefs.getBoolean(SharedPrefs.APP_LOCK_ENABLED, false)
-                // initial app locked state
-                _appLocked.value = appLockEnabled
-
+                // Older classification builds used DataStore only. Migrate before either
+                // Accounts or the direct More -> Net worth entry point can read the profile.
+                val roleKeys = listOf(SharedPrefs.NET_WORTH_ASSET_ACCOUNT_IDS, SharedPrefs.NET_WORTH_LIABILITY_ACCOUNT_IDS)
+                if (roleKeys.any { !sharedPrefs.has(it) }) {
+                    try {
+                        val legacy = dataStore.data.first()
+                        roleKeys.filter { !sharedPrefs.has(it) }.forEach { key ->
+                            sharedPrefs.putString(key, legacy[androidx.datastore.preferences.core.stringSetPreferencesKey(key)].orEmpty().joinToString(","))
+                        }
+                    } catch (error: kotlinx.coroutines.CancellationException) {
+                        throw error
+                    } catch (_: Exception) {
+                        // Optional wealth metadata must not block access to the existing ledger.
+                    }
+                }
                 if (isOnboardingCompleted()) {
                     navigateOnboardedUser(intent)
                 } else {
@@ -127,33 +131,13 @@ class RootViewModel @Inject constructor(
         return false
     }
 
-    @Suppress("EmptyFunctionBlock")
-    fun handleBiometricAuthResult(
-        onAuthSuccess: () -> Unit = {}
-    ): BiometricPrompt.AuthenticationCallback {
-        return object : BiometricPrompt.AuthenticationCallback() {
-            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                Timber.d(stringRes(R.string.authentication_succeeded))
-                unlockApp()
-                onAuthSuccess()
-            }
-
-            override fun onAuthenticationFailed() {
-                Timber.d(stringRes(R.string.authentication_failed))
-            }
-
-            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-            }
-        }
-    }
-
     private fun isOnboardingCompleted(): Boolean {
         return sharedPrefs.getBoolean(SharedPrefs.ONBOARDING_COMPLETED, false)
     }
 
     // App Lock & UserInactivity --------------------------------------------------------------------
     fun isAppLockEnabled(): Boolean {
-        return appLockEnabled
+        return authSession.settings.value.enabled
     }
 
     fun isAppLocked(): Boolean {
@@ -162,46 +146,7 @@ class RootViewModel @Inject constructor(
     }
 
     fun lockApp() {
-        _appLocked.value = true
+        authSession.lock()
     }
 
-    fun unlockApp() {
-        _appLocked.value = false
-    }
-
-    private val userInactiveTime = AtomicLong(0)
-    private var userInactiveJob: Job? = null
-
-    @Suppress("MagicNumber")
-    fun startUserInactiveTimeCounter() {
-        if (userInactiveJob != null && userInactiveJob!!.isActive) return
-
-        userInactiveJob = viewModelScope.launch(Dispatchers.IO) {
-            while (userInactiveTime.get() < USER_INACTIVITY_TIME_LIMIT &&
-                userInactiveJob != null && !userInactiveJob?.isCancelled!!
-            ) {
-                delay(1000)
-                userInactiveTime.incrementAndGet()
-            }
-
-            if (!isAppLocked()) {
-                lockApp()
-            }
-
-            cancel()
-        }
-    }
-
-    fun checkUserInactiveTimeStatus() {
-        if (userInactiveTime.get() < USER_INACTIVITY_TIME_LIMIT) {
-            if (userInactiveJob != null && userInactiveJob?.isCancelled == false) {
-                userInactiveJob?.cancel()
-                resetUserInactiveTimer()
-            }
-        }
-    }
-
-    fun resetUserInactiveTimer() {
-        userInactiveTime.set(0)
-    }
 }

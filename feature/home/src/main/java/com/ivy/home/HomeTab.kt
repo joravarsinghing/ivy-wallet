@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -87,12 +88,12 @@ fun BoxWithConstraintsScope.HomeUi(
     val ivyContext = ivyWalletCtx()
 
     var bufferModalData: BufferModalData? by remember { mutableStateOf(null) }
-    var currencyModalVisible by remember { mutableStateOf(false) }
+    var currencyModalVisible by rememberSaveable { mutableStateOf(false) }
     var choosePeriodModal: ChoosePeriodModalData? by remember {
         mutableStateOf(null)
     }
-    var moreMenuExpanded by remember { mutableStateOf(ivyContext.moreMenuExpanded) }
-    var skipAllModalVisible by remember { mutableStateOf(false) }
+    var moreMenuExpanded by rememberSaveable { mutableStateOf(ivyContext.moreMenuExpanded) }
+    var skipAllModalVisible by rememberSaveable { mutableStateOf(false) }
     val setMoreMenuExpanded = { expanded: Boolean ->
         moreMenuExpanded = expanded
         ivyContext.setMoreMenuExpanded(expanded)
@@ -169,11 +170,13 @@ fun BoxWithConstraintsScope.HomeUi(
             spendingBreakdown = uiState.spendingBreakdown,
             moneyComingUp = uiState.moneyComingUp,
             trend = uiState.trend,
+            savedAnalytics = uiState.savedAnalytics,
             onTrendRangeSelected = { onEvent(HomeEvent.SetTrendRange(it)) },
             onTrendMetricToggle = { onEvent(HomeEvent.ToggleTrendMetric(it)) },
             onOpenTrendEditor = { onEvent(HomeEvent.OpenTrendEditor) },
             onCloseTrendEditor = { onEvent(HomeEvent.CloseTrendEditor) },
             onOpenDashboardEditor = { onEvent(HomeEvent.OpenDashboardEditor) },
+            onOpenSavedReports = { onEvent(HomeEvent.OpenSavedReports) },
             onOpenMoreMenu = {
                 setMoreMenuExpanded(true)
             },
@@ -319,6 +322,7 @@ fun HomeLazyColumn(
     spendingBreakdown: HomeSpendingBreakdownState,
     moneyComingUp: MoneyComingUpState,
     trend: HomeTrendState,
+    savedAnalytics: ImmutableList<com.ivy.data.db.entity.SavedAnalyticsEntity>,
     onTrendRangeSelected: (HomeTrendRange) -> Unit,
     onTrendMetricToggle: (HomeTrendMetric) -> Unit,
     onOpenTrendEditor: () -> Unit,
@@ -334,6 +338,7 @@ fun HomeLazyColumn(
     onOpenMoreMenu: () -> Unit,
     onBalanceClick: () -> Unit,
     onOpenDashboardEditor: () -> Unit,
+    onOpenSavedReports: () -> Unit,
 
     onPayOrGet: (Transaction) -> Unit,
     onDismiss: (CustomerJourneyCardModel) -> Unit,
@@ -430,6 +435,14 @@ fun HomeLazyColumn(
                 state = spendingBreakdown,
                 currency = baseData.baseCurrency,
                 hideBalance = hideBalance,
+            )
+        }
+
+        if (HomeDashboardCardId.SAVED_REPORTS in visibleDashboardCards && savedAnalytics.isNotEmpty()) item {
+            Spacer(Modifier.height(16.dp))
+            HomeSavedReportsCard(
+                reports = savedAnalytics,
+                onOpenReports = onOpenSavedReports,
             )
         }
 

@@ -7,6 +7,12 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.HasDefaultViewModelProviderFactory
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 
 @SuppressLint("ComposeCompositionLocalUsage")
@@ -20,13 +26,18 @@ fun NavigationRoot(
     CompositionLocalProvider(
         LocalNavigation provides navigation,
     ) {
-        val viewModelStore = LocalViewModelStoreOwner.current
+        // Pure previews/screenshot hosts may have no Activity owner. They do not
+        // instantiate destination ViewModels, so no retained stores are needed.
+        val owner = LocalViewModelStoreOwner.current
+        val stores: NavigationViewModelStores? = if (owner != null) {
+            viewModel(viewModelStoreOwner = owner)
+        } else null
+        val context = LocalContext.current
+        val currentScreen = navigation.currentScreen
         DisposableEffect(navigation.currentScreen) {
             onDispose {
-                // Destroy viewModels only for non-legacy screens
-                if (navigation.lastScreen?.isLegacy == false) {
-                    viewModelStore?.viewModelStore?.clear()
-                }
+                // Never clear the Activity's store: it contains root/authentication state.
+                if (currentScreen?.isLegacy == false && !context.isChangingActivityConfigurations()) stores?.clear(currentScreen)
             }
         }
         navGraph(navigation.currentScreen)
@@ -50,8 +61,26 @@ inline fun <reified T : ViewModel> screenScopedViewModel(
 ): T {
     val viewModelStoreOwner = LocalViewModelStoreOwner.current
     requireNotNull(viewModelStoreOwner) { "No ViewModelStoreOwner provided" }
-    val viewModelProvider = factory?.let {
-        ViewModelProvider(viewModelStoreOwner, it)
-    } ?: ViewModelProvider(viewModelStoreOwner)
+    val screen = navigation().currentScreen
+    val stores: NavigationViewModelStores = viewModel()
+    val selectedFactory = factory ?: (viewModelStoreOwner as? HasDefaultViewModelProviderFactory)?.defaultViewModelProviderFactory
+        ?: ViewModelProvider.NewInstanceFactory()
+    val extras = (viewModelStoreOwner as? HasDefaultViewModelProviderFactory)?.defaultViewModelCreationExtras ?: CreationExtras.Empty
+    val store = if (screen?.isLegacy == false) stores.forScreen(screen) else viewModelStoreOwner.viewModelStore
+    val viewModelProvider = remember(store, selectedFactory) { ViewModelProvider(store, selectedFactory, extras) }
     return viewModelProvider[T::class.java]
+}
+
+/** Stores survive configuration changes with the Activity holder, without owning root state. */
+class NavigationViewModelStores : ViewModel() {
+    private val stores = mutableMapOf<Screen, ViewModelStore>()
+    fun forScreen(screen: Screen): ViewModelStore = stores.getOrPut(screen) { ViewModelStore() }
+    fun clear(screen: Screen) { stores.remove(screen)?.clear() }
+    override fun onCleared() { stores.values.forEach { it.clear() }; stores.clear() }
+}
+
+private tailrec fun android.content.Context.isChangingActivityConfigurations(): Boolean = when (this) {
+    is android.app.Activity -> isChangingConfigurations
+    is android.content.ContextWrapper -> baseContext.isChangingActivityConfigurations()
+    else -> false
 }

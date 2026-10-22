@@ -57,6 +57,13 @@ private fun BoxWithConstraintsScope.UI(
         Header = {
             Spacer(Modifier.height(32.dp))
 
+            CashFlowForecastCard(
+                forecast = state.forecast,
+                currency = state.currency,
+            )
+
+            Spacer(Modifier.height(16.dp))
+
             Text(
                 modifier = Modifier.padding(start = 24.dp),
                 text = stringResource(R.string.planned_payments_inline),

@@ -39,4 +39,5 @@ sealed interface HomeEvent {
     data object CloseDashboardEditor : HomeEvent
     data class ToggleDashboardCard(val card: HomeDashboardCardId) : HomeEvent
     data object RestoreDashboardDefaults : HomeEvent
+    data object OpenSavedReports : HomeEvent
 }

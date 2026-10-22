@@ -8,6 +8,8 @@ For any APK intended for installation, sharing, QA, or release, use the official
 .\scripts\build-jvy-apk.ps1
 ```
 
+On Linux/macOS use the same script with PowerShell 7: `pwsh -NoProfile -File ./scripts/build-jvy-apk.ps1`. The workflow selects the platform's Gradle wrapper automatically.
+
 Do not distribute the raw `app/build/outputs/apk/` filename. The deliverable is named `Jvy_wallet_v<major>.<minor>.<patch>.apk`, with a strictly increasing Android `versionCode`.
 
 The authoritative version is `version.properties`. The script increments the patch by default and persists the new version only after a successful build. Use `-Bump minor` for a backward-compatible feature release and `-Bump major` only for an intentional compatibility-breaking release.

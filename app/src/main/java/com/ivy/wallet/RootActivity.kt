@@ -15,8 +15,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.biometric.BiometricManager
-import androidx.biometric.BiometricPrompt
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -25,7 +23,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
-import androidx.core.content.ContextCompat
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.android.material.datepicker.MaterialDatePicker
@@ -52,7 +50,6 @@ import com.ivy.navigation.NavigationRoot
 import com.ivy.ui.R
 import com.ivy.ui.time.TimeFormatter
 import com.ivy.ui.time.impl.DateTimePicker
-import com.ivy.wallet.ui.applocked.AppLockedScreen
 import com.ivy.widget.balance.WalletBalanceWidgetReceiver
 import com.ivy.widget.transaction.AddTransactionWidget
 import com.ivy.widget.transaction.AddTransactionWidgetCompact
@@ -112,6 +109,14 @@ class RootActivity : AppCompatActivity(), RootScreen {
             }
 
             val appLocked by viewModel.appLocked.collectAsState()
+            val lockSettings by viewModel.securitySettings.collectAsState()
+            val sensitive = lockSettings.enabled || appLocked == true || navigation.currentScreen == com.ivy.navigation.SecurityScreen
+            LaunchedEffect(sensitive) {
+                if (sensitive) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            }
+            val savedScreens = rememberSaveableStateHolder()
+            NavigationRoot(navigation = navigation) { screen ->
             when (appLocked) {
                 null -> { // display nothing
                 }
@@ -123,16 +128,7 @@ class RootActivity : AppCompatActivity(), RootScreen {
                             timeProvider = timeProvider,
                             timeFormatter = timeFormatter,
                         ) {
-                            AppLockedScreen(
-                                onShowOSBiometricsModal = {
-                                    authenticateWithOSBiometricsModal(
-                                        biometricPromptCallback = viewModel.handleBiometricAuthResult()
-                                    )
-                                },
-                                onContinueWithoutAuthentication = {
-                                    viewModel.unlockApp()
-                                }
-                            )
+                            com.ivy.security.ui.SecurityLockScreen()
                         }
                     }
                 }
@@ -140,7 +136,7 @@ class RootActivity : AppCompatActivity(), RootScreen {
                 false -> {
                     // Keep NavigationRoot alive so the current route survives a theme switch,
                     // but recreate the themed screen subtree to discard stale colors.
-                    NavigationRoot(navigation = navigation) { screen ->
+                    savedScreens.SaveableStateProvider("route:${screen}") {
                         key(activeTheme) {
                             IvyUI(
                                 design = ivyDesign,
@@ -155,6 +151,7 @@ class RootActivity : AppCompatActivity(), RootScreen {
                     }
                 }
             }
+            }
 
             IvyMaterial3Theme(
                 dark = isDarkThemeEnabled(
@@ -163,7 +160,10 @@ class RootActivity : AppCompatActivity(), RootScreen {
                 ),
                 isTrueBlack = activeTheme == Theme.AMOLED_DARK
             ) {
-                dateTimePicker.Content()
+                if (appLocked == false) {
+                    dateTimePicker.Content()
+                    com.ivy.security.ui.SecurityRecoveryHost()
+                }
             }
         }
     }
@@ -310,7 +310,7 @@ class RootActivity : AppCompatActivity(), RootScreen {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (viewModel.isAppLockEnabled() && !hasFocus) {
+        if (viewModel.isAppLockEnabled() || viewModel.isAppLocked() || navigation.currentScreen == com.ivy.navigation.SecurityScreen) {
             window.setFlags(
                 WindowManager.LayoutParams.FLAG_SECURE,
                 WindowManager.LayoutParams.FLAG_SECURE
@@ -322,43 +322,10 @@ class RootActivity : AppCompatActivity(), RootScreen {
 
     override fun onResume() {
         super.onResume()
-        if (viewModel.isAppLockEnabled()) {
-            viewModel.checkUserInactiveTimeStatus()
-        }
     }
 
     override fun onPause() {
         super.onPause()
-        if (viewModel.isAppLockEnabled()) {
-            viewModel.startUserInactiveTimeCounter()
-        }
-    }
-
-    private fun authenticateWithOSBiometricsModal(
-        biometricPromptCallback: BiometricPrompt.AuthenticationCallback
-    ) {
-        val executor = ContextCompat.getMainExecutor(this)
-        val biometricPrompt = BiometricPrompt(
-            this,
-            executor,
-            biometricPromptCallback
-        )
-
-        val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle(
-                getString(R.string.authentication_required)
-            )
-            .setSubtitle(
-                getString(R.string.authentication_required_description)
-            )
-            .setAllowedAuthenticators(
-                BiometricManager.Authenticators.BIOMETRIC_WEAK or
-                        BiometricManager.Authenticators.DEVICE_CREDENTIAL
-            )
-            .setConfirmationRequired(false)
-            .build()
-
-        biometricPrompt.authenticate(promptInfo)
     }
 
     override fun onBackPressed() {

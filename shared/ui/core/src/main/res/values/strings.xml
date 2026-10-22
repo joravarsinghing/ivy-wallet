@@ -448,6 +448,10 @@
     <string name="transfers_as_income_expense_description">Treat account transfers as income or expense in the Accounts screen</string>
     <string name="home_category">Home</string>
     <string name="generating_report">Generating report…</string>
+    <string name="save_report">Save report</string>
+    <string name="report_name">Report name</string>
+    <string name="saved_reports">Saved reports</string>
+    <string name="cancel">Cancel</string>
     <string name="sort_by">Sort by</string>
     <string name="skip_all">Skip all</string>
     <string name="confirm_skip_all">Confirm skipping all</string>

@@ -3,6 +3,7 @@ package com.ivy.reports
 import com.ivy.base.legacy.TransactionHistoryItem
 import com.ivy.data.model.Category
 import com.ivy.data.model.Tag
+import com.ivy.data.db.entity.SavedAnalyticsEntity
 import com.ivy.legacy.datamodel.Account
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -14,6 +15,8 @@ data class ReportScreenState(
     val balance: Double = 0.0,
     val income: Double = 0.0,
     val expenses: Double = 0.0,
+    val previousIncome: Double? = null,
+    val previousExpenses: Double? = null,
     val upcomingIncome: Double = 0.0,
     val upcomingExpenses: Double = 0.0,
     val overdueIncome: Double = 0.0,
@@ -33,5 +36,6 @@ data class ReportScreenState(
     val showTransfersAsIncExpCheckbox: Boolean = false,
     val treatTransfersAsIncExp: Boolean = false,
     val allTags: ImmutableList<Tag> = persistentListOf(),
-    val showAccountColorsInTransactions: Boolean = false
+    val showAccountColorsInTransactions: Boolean = false,
+    val savedAnalytics: ImmutableList<SavedAnalyticsEntity> = persistentListOf()
 )

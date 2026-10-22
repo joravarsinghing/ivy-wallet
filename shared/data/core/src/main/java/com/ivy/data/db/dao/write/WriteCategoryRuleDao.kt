@@ -10,6 +10,9 @@ interface WriteCategoryRuleDao {
     @Upsert
     suspend fun save(value: CategoryRuleEntity)
 
+    @Upsert
+    suspend fun saveMany(values: List<CategoryRuleEntity>)
+
     @Query("UPDATE category_rules SET isActive = :isActive WHERE id = :id")
     suspend fun setActive(id: String, isActive: Boolean)
 

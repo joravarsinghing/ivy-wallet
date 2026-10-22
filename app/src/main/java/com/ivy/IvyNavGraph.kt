@@ -81,6 +81,8 @@ fun BoxWithConstraintsScope.IvyNavGraph(screen: Screen?) {
         is ReportScreen -> ReportScreen(screen = screen)
         is BudgetScreen -> BudgetScreen(screen = screen)
         is GoalsScreen -> GoalsScreen(screen = screen)
+        com.ivy.navigation.SecurityScreen -> com.ivy.security.ui.SecuritySettingsScreen()
+        com.ivy.navigation.NetWorthScreen -> com.ivy.networth.NetWorthScreen()
         is LoansScreen -> LoansScreen(screen = screen)
         is LoanDetailsScreen -> LoanDetailsScreen(screen = screen)
         is SearchScreen -> SearchScreen(screen = screen)

@@ -19,6 +19,21 @@ import java.util.UUID
 @RunWith(AndroidJUnit4::class)
 class IvyRoomDatabaseMigrationTest {
 
+    @Test
+    fun migrate133to134_preservesLedgerAndAddsWealthStorage() {
+        helper.createDatabase("wealth-migration", 133).apply {
+            execSQL("INSERT INTO accounts (id, name, color, orderNum, includeInBalance, isSynced, isDeleted) VALUES ('bank', 'Bank', 0, 0, 1, 0, 0)")
+            close()
+        }
+        val migrated = helper.runMigrationsAndValidate("wealth-migration", 134, true, com.ivy.data.db.migration.Migration133to134_Wealth())
+        migrated.query("SELECT name FROM accounts WHERE id = 'bank'").use {
+            it.moveToFirst() shouldBe true
+            it.getString(0) shouldBe "Bank"
+        }
+        migrated.execSQL("INSERT INTO wealth_records (id, kind, ownerId, effectiveDate, payload) VALUES ('item', 'item', 'item', '2026-10-21', '{}')")
+        migrated.close()
+    }
+
     @get:Rule
     val helper: MigrationTestHelper = MigrationTestHelper(
         InstrumentationRegistry.getInstrumentation(),

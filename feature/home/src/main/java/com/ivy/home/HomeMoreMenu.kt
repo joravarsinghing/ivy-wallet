@@ -256,6 +256,10 @@ private fun ColumnScope.Content(
         onOpenGoals = { nav.navigateTo(GoalsScreen) }
     )
 
+    androidx.compose.material3.TextButton(onClick = { nav.navigateTo(com.ivy.navigation.NetWorthScreen) }) {
+        Text("Net worth · assets and liabilities")
+    }
+
     Spacer(Modifier.height(16.dp))
 
     OpenSource()

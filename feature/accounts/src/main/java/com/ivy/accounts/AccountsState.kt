@@ -3,6 +3,7 @@ package com.ivy.accounts
 import androidx.compose.runtime.Immutable
 import com.ivy.legacy.data.model.AccountData
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 @Immutable
 data class AccountsState(
@@ -15,4 +16,5 @@ data class AccountsState(
     val reorderVisible: Boolean,
     val compactAccountsModeEnabled: Boolean,
     val hideTotalBalance: Boolean,
+    val netWorth: NetWorthUiState = NetWorthUiState(accounts = persistentListOf()),
 )

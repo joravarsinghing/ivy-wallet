@@ -9,6 +9,9 @@ import java.util.UUID
 @Dao
 interface GoalAllocationDao {
     @Query("SELECT * FROM goal_allocations ORDER BY updatedAt DESC")
+    suspend fun findAll(): List<GoalAllocationEntity>
+
+    @Query("SELECT * FROM goal_allocations ORDER BY updatedAt DESC")
     fun observeAll(): Flow<List<GoalAllocationEntity>>
 
     @Query("SELECT * FROM goal_allocations WHERE goalId = :goalId ORDER BY updatedAt DESC")

@@ -42,8 +42,12 @@ class NetWorthViewModel @Inject constructor(
     var months by mutableStateOf(6)
         private set
     val hidden get() = prefs.getBoolean(SharedPrefs.HIDE_CURRENT_BALANCE, false)
+    var guideSeen by mutableStateOf(prefs.getBoolean("net_worth_guide_seen_v1", false))
+        private set
+    fun finishGuide() { prefs.putBoolean("net_worth_guide_seen_v1", true); guideSeen = true }
     private var loadingJob: Job? = null
     fun load() {
+        guideSeen = prefs.getBoolean("net_worth_guide_seen_v1", false)
         loadingJob?.cancel()
         loadingJob = viewModelScope.launch {
             loading = true; error = null

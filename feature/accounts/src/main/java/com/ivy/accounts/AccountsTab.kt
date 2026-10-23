@@ -183,7 +183,7 @@ private fun BoxWithConstraintsScope.UI(
         }
 
         item {
-            Spacer(Modifier.height(112.dp))
+            Spacer(Modifier.height(if (androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f) 224.dp else 176.dp))
         }
     }
 

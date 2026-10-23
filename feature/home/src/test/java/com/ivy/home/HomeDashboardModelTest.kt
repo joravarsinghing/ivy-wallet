@@ -14,6 +14,7 @@ class HomeDashboardModelTest {
                 HomeDashboardCardId.MONEY_COMING_UP,
                 HomeDashboardCardId.MONEY_TRENDS,
                 HomeDashboardCardId.SPENDING_BREAKDOWN,
+                HomeDashboardCardId.SAVED_REPORTS,
             ),
             defaultHomeDashboardCards.map { it.id },
         )

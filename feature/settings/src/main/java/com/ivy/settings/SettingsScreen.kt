@@ -326,7 +326,7 @@ private fun BoxWithConstraintsScope.UI(
             Spacer(Modifier.height(12.dp))
 
             SettingsDefaultButton(
-                text = "Security · PIN and biometrics",
+                text = "Security & screen capture",
                 icon = R.drawable.ic_custom_fingerprint_m,
             ) { nav.navigateTo(com.ivy.navigation.SecurityScreen) }
 

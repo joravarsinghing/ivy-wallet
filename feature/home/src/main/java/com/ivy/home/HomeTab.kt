@@ -372,7 +372,7 @@ fun HomeLazyColumn(
             .nestedScroll(nestedScrollConnection)
             .testTag("home_lazy_column"),
         state = listState,
-        contentPadding = PaddingValues(bottom = 112.dp),
+        contentPadding = PaddingValues(bottom = if (androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f) 224.dp else 176.dp),
     ) {
         item {
             CashFlowInfo(

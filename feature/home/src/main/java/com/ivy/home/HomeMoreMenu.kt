@@ -1,571 +1,63 @@
 package com.ivy.home
 
-import androidx.annotation.DrawableRes
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraintsScope
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Text
+import android.content.Intent
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import com.ivy.base.legacy.Theme
-import com.ivy.design.l0_system.UI
-import com.ivy.design.l0_system.style
-import com.ivy.design.utils.thenIf
-import com.ivy.legacy.Constants
-import com.ivy.legacy.ivyWalletCtx
-import com.ivy.legacy.rootScreen
-import com.ivy.legacy.utils.clickableNoIndication
-import com.ivy.legacy.utils.colorLerp
-import com.ivy.legacy.utils.lerp
-import com.ivy.legacy.utils.navigationBarInset
-import com.ivy.legacy.utils.openUrl
-import com.ivy.legacy.utils.rememberInteractionSource
-import com.ivy.legacy.utils.rememberSwipeListenerState
-import com.ivy.legacy.utils.springBounce
-import com.ivy.legacy.utils.statusBarInset
-import com.ivy.legacy.utils.toDensityPx
-import com.ivy.legacy.utils.verticalSwipeListener
-import com.ivy.navigation.BudgetScreen
-import com.ivy.navigation.CategoriesScreen
-import com.ivy.navigation.IvyPreview
-import com.ivy.navigation.GoalsScreen
-import com.ivy.navigation.LoansScreen
-import com.ivy.navigation.PlannedPaymentsScreen
-import com.ivy.navigation.ReportScreen
-import com.ivy.navigation.SearchScreen
-import com.ivy.navigation.SettingsScreen
-import com.ivy.navigation.navigation
-import com.ivy.ui.R
-import com.ivy.wallet.ui.theme.Blue
-import com.ivy.wallet.ui.theme.Gray
-import com.ivy.wallet.ui.theme.components.CircleButtonFilled
-import com.ivy.wallet.ui.theme.components.IvyIcon
-import com.ivy.wallet.ui.theme.modal.AddModalBackHandling
-import com.ivy.wallet.ui.theme.wallet.AmountCurrencyB1
-import java.util.UUID
-import kotlin.math.roundToInt
+import com.ivy.navigation.*
 
-private const val SWIPE_UP_THRESHOLD_CLOSE_MORE_MENU = 300
-
-@Composable
-fun BoxWithConstraintsScope.MoreMenu(
-    expanded: Boolean,
-
-    balance: Double,
-    buffer: Double,
-    currency: String,
-    theme: Theme,
-
-    setExpanded: (Boolean) -> Unit,
-    onSwitchTheme: () -> Unit,
-    onBufferClick: () -> Unit,
-    onCurrencyClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val ivyContext = ivyWalletCtx()
-
-    val percentExpanded by animateFloatAsState(
-        targetValue = if (expanded) 1f else 0f,
-        animationSpec = springBounce(),
-        label = ""
-    )
-    val iconRotation by animateFloatAsState(
-        targetValue = if (expanded) -180f else 0f,
-        animationSpec = springBounce(),
-        label = ""
-    )
-
-    val buttonSizePx = 40.dp.toDensityPx()
-
-    val xBase = ivyContext.screenWidth - 24.dp.toDensityPx()
-    val yBaseCollapsed = 20.dp.toDensityPx() + statusBarInset()
-    val yBaseExpanded = ivyContext.screenHeight - 48.dp.toDensityPx() - navigationBarInset()
-
-    val yButton = lerp(
-        start = yBaseCollapsed,
-        end = yBaseExpanded - buttonSizePx,
-        fraction = percentExpanded
-    )
-
-    // Background
-    val colorMedium = UI.colors.medium
-    if (percentExpanded > 0.01f) {
-        Canvas(
-            modifier = modifier
-                .fillMaxSize()
-                .clickableNoIndication(rememberInteractionSource()) {
-                    // do nothing
-                }
-                .zIndex(500f)
-        ) {
-            val radiusCollapsed = buttonSizePx / 2f
-            val radiusExpanded = ivyContext.screenHeight * 1.5f
-            val radius = lerp(radiusCollapsed, radiusExpanded, percentExpanded)
-
-            val yBackground = lerp(
-                start = yBaseCollapsed + radius,
-                end = yBaseExpanded,
-                fraction = percentExpanded
-            )
-
-            drawCircle(
-                color = colorMedium,
-                center = Offset(
-                    x = xBase - buttonSizePx / 2f,
-                    y = yBackground
-                ),
-                radius = radius
-            )
-        }
-    }
-
-    if (percentExpanded > 0.01f) {
-        Column(
-            modifier = modifier
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .fillMaxSize()
-                .alpha(percentExpanded)
-                .verticalScroll(rememberScrollState())
-                .zIndex(510f)
-                .verticalSwipeListener(
-                    sensitivity = SWIPE_UP_THRESHOLD_CLOSE_MORE_MENU,
-                    state = rememberSwipeListenerState(),
-                    onSwipeUp = {
-                        setExpanded(false)
-                    }
-                )
-        ) {
-            val modalId = remember {
-                UUID.randomUUID()
-            }
-
-            AddModalBackHandling(
-                modalId = modalId,
-                visible = expanded
-            ) {
-                setExpanded(false)
-            }
-
-            Content(
-                theme = theme,
-                onSwitchTheme = onSwitchTheme,
-                balance = balance,
-                buffer = buffer,
-                currency = currency,
-                onBufferClick = onBufferClick,
-                onCurrencyClick = onCurrencyClick
-            )
-        }
-    }
-
-    CircleButtonFilled(
-        modifier = Modifier
-            .layout { measurable, constraints ->
-                val placeable = measurable.measure(constraints)
-
-                layout(placeable.width, placeable.height) {
-                    placeable.place(
-                        x = xBase.roundToInt() - buttonSizePx.roundToInt(),
-                        y = yButton.roundToInt()
-                    )
-                }
-            }
-            .rotate(iconRotation)
-            .thenIf(expanded) {
-                zIndex(520f)
-            }
-            .testTag("home_more_menu_arrow"),
-        backgroundColor = colorLerp(UI.colors.medium, UI.colors.pure, percentExpanded),
-        icon = R.drawable.ic_expandarrow
-    ) {
-        setExpanded(!expanded)
-    }
-}
-
-@Composable
-private fun ColumnScope.Content(
-    balance: Double,
-    buffer: Double,
-    currency: String,
-    theme: Theme,
-
-    onSwitchTheme: () -> Unit,
-    onBufferClick: () -> Unit,
-    onCurrencyClick: () -> Unit,
-) {
-    Spacer(Modifier.height(24.dp))
-
-    val nav = navigation()
-    SearchButton {
-        nav.navigateTo(
-            screen = SearchScreen
-        )
-    }
-
-    Spacer(Modifier.height(16.dp))
-
-    QuickAccess(
-        theme = theme,
-        onSwitchTheme = onSwitchTheme
-    )
-
-    Spacer(Modifier.height(40.dp))
-
-    GoalsSummary(
-        reservedAmount = buffer,
-        currency = currency,
-        onOpenGoals = { nav.navigateTo(GoalsScreen) }
-    )
-
-    androidx.compose.material3.TextButton(onClick = { nav.navigateTo(com.ivy.navigation.NetWorthScreen) }) {
-        Text("Net worth · assets and liabilities")
-    }
-
-    Spacer(Modifier.height(16.dp))
-
-    OpenSource()
-
-    Spacer(Modifier.weight(1f))
-}
-
-@Composable
-private fun SearchButton(
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clip(UI.shapes.rFull)
-            .background(UI.colors.pure)
-            .border(1.dp, Gray, UI.shapes.rFull)
-            .clickable {
-                onClick()
-            },
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Spacer(Modifier.width(12.dp))
-
-        IvyIcon(icon = R.drawable.ic_search)
-
-        Spacer(Modifier.width(12.dp))
-
-        Text(
-            modifier = Modifier.padding(
-                vertical = 12.dp,
-            ),
-            text = stringResource(R.string.search_transactions),
-            style = UI.typo.b2.style(
-                fontWeight = FontWeight.SemiBold,
-                color = UI.colors.pureInverse
-            )
-        )
-
-        Spacer(Modifier.width(16.dp))
-    }
-}
-
-@Composable
-private fun ColumnScope.OpenSource() {
-    val uriHandler = LocalUriHandler.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clip(UI.shapes.r4)
-            .background(UI.colors.pure)
-            .clickable {
-                openUrl(
-                    uriHandler = uriHandler,
-                    url = Constants.URL_JVY_WALLET_REPO
-                )
-            }
-            .padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Spacer(Modifier.width(16.dp))
-
-        IvyIcon(
-            icon = R.drawable.github_logo
-        )
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 24.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.jvy_wallet_open_source),
-                style = UI.typo.b2.style(
-                    fontWeight = FontWeight.ExtraBold
-                )
-            )
-
-            Spacer(Modifier.height(4.dp))
-
-            Text(
-                text = Constants.URL_JVY_WALLET_REPO,
-                style = UI.typo.c.style(
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Blue
-                )
-            )
-        }
-    }
-}
-
-@Composable
-private fun ColumnScope.GoalsSummary(
-    reservedAmount: Double,
-    currency: String,
-    onOpenGoals: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clip(UI.shapes.r4)
-            .background(UI.colors.pure)
-            .clickable(onClick = onOpenGoals)
-            .padding(horizontal = 16.dp, vertical = 14.dp)
-            .testTag("goals_summary_row"),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = stringResource(R.string.reserved_for_goals),
-                style = UI.typo.b1.style(
-                    color = UI.colors.pureInverse,
-                    fontWeight = FontWeight.ExtraBold
-                )
-            )
-            Spacer(Modifier.weight(1f))
-            AmountCurrencyB1(
-                amount = reservedAmount,
-                currency = currency,
-                amountFontWeight = FontWeight.ExtraBold
-            )
-        }
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = "Reserved in goals and excluded from Safe to Spend. Tap to manage.",
-            style = UI.typo.c.style(color = UI.colors.gray)
-        )
-    }
-}
-
-@Composable
-private fun QuickAccess(
-    theme: Theme,
-    onSwitchTheme: () -> Unit
-) {
-    Column {
-        val nav = navigation()
-
-        Text(
-            modifier = Modifier.padding(start = 24.dp),
-            text = stringResource(R.string.quick_access),
-            style = UI.typo.b2.style()
-        )
-
-        Spacer(Modifier.height(16.dp))
-
-        val rootScreen = rootScreen()
-        val items = listOf(
-            QuickAccessItem(R.drawable.home_more_menu_settings, stringResource(R.string.settings)) {
-                nav.navigateTo(SettingsScreen)
-            },
-            QuickAccessItem(R.drawable.home_more_menu_categories, stringResource(R.string.categories)) {
-                nav.navigateTo(CategoriesScreen)
-            },
-            QuickAccessItem(
-                icon = when (theme) {
-                    Theme.LIGHT -> R.drawable.home_more_menu_light_mode
-                    Theme.DARK -> R.drawable.home_more_menu_dark_mode
-                    Theme.AMOLED_DARK -> R.drawable.home_more_menu_amoled_dark_mode
-                    Theme.AUTO -> R.drawable.home_more_menu_auto_mode
-                },
-                label = when (theme) {
-                    Theme.LIGHT -> stringResource(R.string.light_mode)
-                    Theme.DARK -> stringResource(R.string.dark_mode)
-                    Theme.AMOLED_DARK -> stringResource(R.string.amoled_mode)
-                    Theme.AUTO -> stringResource(R.string.auto_mode)
-                },
-                backgroundColor = when (theme) {
-                    Theme.LIGHT -> UI.colors.pure
-                    Theme.DARK, Theme.AMOLED_DARK -> UI.colors.pureInverse
-                    Theme.AUTO -> UI.colors.pure
-                },
-                tint = when (theme) {
-                    Theme.LIGHT, Theme.AUTO -> UI.colors.pureInverse
-                    Theme.DARK, Theme.AMOLED_DARK -> UI.colors.pure
-                },
-                onClick = onSwitchTheme
-            ),
-            QuickAccessItem(R.drawable.home_more_menu_planned_payments, stringResource(R.string.planned_payments)) {
-                nav.navigateTo(PlannedPaymentsScreen)
-            },
-            QuickAccessItem(R.drawable.home_more_menu_share, stringResource(R.string.share_jvy)) {
-                rootScreen.shareIvyWallet()
-            },
-            QuickAccessItem(R.drawable.home_more_menu_reports, stringResource(R.string.reports)) {
-                nav.navigateTo(ReportScreen)
-            },
-            QuickAccessItem(R.drawable.home_more_menu_budgets, stringResource(R.string.budgets)) {
-                nav.navigateTo(BudgetScreen)
-            },
-            QuickAccessItem(R.drawable.home_more_menu_loans, stringResource(R.string.loans)) {
-                nav.navigateTo(LoansScreen)
-            },
-            QuickAccessItem(R.drawable.home_more_menu_goals, stringResource(R.string.goals)) {
-                nav.navigateTo(GoalsScreen)
-            }
-        )
-
-        items.chunked(3).forEachIndexed { index, rowItems ->
-            if (index > 0) Spacer(Modifier.height(20.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.Top
-            ) {
-                rowItems.forEach { item ->
-                    MoreMenuButton(
-                        icon = item.icon,
-                        label = item.label,
-                        backgroundColor = item.backgroundColor,
-                        tint = item.tint,
-                        onClick = item.onClick
-                    )
-                }
-            }
-        }
-    }
-}
-
-private data class QuickAccessItem(
-    @DrawableRes val icon: Int,
-    val label: String,
-    val backgroundColor: Color = Color.Black,
-    val tint: Color = Color.White,
-    val onClick: () -> Unit
+internal val homeMenuDestinations: List<Pair<String, Screen>> = listOf(
+    "Search transactions" to SearchScreen,
+    "Net worth" to NetWorthScreen,
+    "Reports & insights" to ReportScreen,
+    "Budgets" to BudgetScreen,
+    "Upcoming payments" to PlannedPaymentsScreen,
+    "Savings goals" to GoalsScreen,
+    "Loans & money owed" to LoansScreen,
+    "Categories" to CategoriesScreen,
+    "Security & screen capture" to SecurityScreen,
+    "Settings & backups" to SettingsScreen,
 )
 
+/** An anchored, scrollable menu replaces the screen-coordinate animated overlay. */
+@Suppress("UNUSED_PARAMETER")
 @Composable
-private fun MoreMenuButton(
-    @DrawableRes icon: Int,
-    label: String,
-
-    backgroundColor: Color = UI.colors.pure,
-    tint: Color = UI.colors.pureInverse,
-    expandPadding: Dp = 14.dp,
-
-    onClick: () -> Unit
+fun BoxWithConstraintsScope.MoreMenu(
+    expanded: Boolean, balance: Double, buffer: Double, currency: String, theme: Theme,
+    setExpanded: (Boolean) -> Unit, onSwitchTheme: () -> Unit,
+    onBufferClick: () -> Unit, onCurrencyClick: () -> Unit, modifier: Modifier = Modifier,
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        CircleButtonFilled(
-            icon = icon,
-            backgroundColor = backgroundColor,
-            tint = tint,
-            clickAreaPadding = expandPadding,
-            onClick = onClick
-        )
-
-        Spacer(Modifier.height(8.dp))
-
-        Text(
-            modifier = Modifier
-                .defaultMinSize(minWidth = 92.dp)
-                .clickableNoIndication(rememberInteractionSource()) {
-                    onClick()
-                },
-            text = label,
-            style = UI.typo.c.style(
-                color = UI.colors.pureInverse,
-                fontWeight = FontWeight.ExtraBold,
-                textAlign = TextAlign.Center
-            )
-        )
-    }
-}
-
-@Preview
-@Composable
-private fun BoxWithConstraintsScope.Preview_Expanded() {
-    IvyPreview {
-        MoreMenu(
-            expanded = true,
-            balance = 7523.43,
-            buffer = 5000.0,
-            currency = "BGN",
-            theme = Theme.LIGHT,
-            setExpanded = {
-            },
-            onSwitchTheme = {},
-            onBufferClick = {},
-            onCurrencyClick = {}
-        )
-    }
-}
-
-@Preview
-@Composable
-private fun BoxWithConstraintsScope.Preview() {
-    IvyPreview {
-        var expanded by remember { mutableStateOf(false) }
-
-        MoreMenu(
-            expanded = expanded,
-            balance = 7523.43,
-            buffer = 5000.0,
-            currency = "BGN",
-            theme = Theme.LIGHT,
-            setExpanded = {
-                expanded = it
-            },
-            onSwitchTheme = {},
-            onBufferClick = {},
-            onCurrencyClick = {}
-        )
+    val nav = navigation()
+    val context = LocalContext.current
+    val uri = LocalUriHandler.current
+    Box(modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 12.dp, end = 16.dp)) {
+        IconButton(onClick = { setExpanded(!expanded) }, modifier = Modifier.testTag("home_more_menu_arrow")) {
+            Icon(Icons.Outlined.MoreHoriz, "Open all money tools")
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { setExpanded(false) }, modifier = Modifier.widthIn(min = 280.dp, max = 340.dp).heightIn(max = 560.dp)) {
+            Text("Your money tools", Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.titleSmall)
+            homeMenuDestinations.forEach { (label, screen) ->
+                DropdownMenuItem(text = { Text(label) }, onClick = { setExpanded(false); nav.navigateTo(screen) })
+            }
+            HorizontalDivider()
+            DropdownMenuItem(text = { Text("Wallet currency · $currency") }, onClick = { setExpanded(false); onCurrencyClick() })
+            DropdownMenuItem(text = { Text("Change appearance · ${theme.name.lowercase()}") }, onClick = { setExpanded(false); onSwitchTheme() })
+            DropdownMenuItem(text = { Text("Share Jvy Wallet") }, onClick = {
+                setExpanded(false)
+                runCatching { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "Jvy Wallet · ${com.ivy.legacy.Constants.URL_JVY_WALLET_REPO}")
+                }, "Share Jvy Wallet")) }
+            })
+            DropdownMenuItem(text = { Text("About & open source") }, onClick = { setExpanded(false); runCatching { uri.openUri(com.ivy.legacy.Constants.URL_JVY_WALLET_REPO) } })
+        }
     }
 }

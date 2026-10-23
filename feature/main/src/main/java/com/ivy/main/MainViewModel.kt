@@ -34,7 +34,7 @@ class MainViewModel @Inject constructor(
 
     fun start(screen: MainScreen) {
         nav.onBackPressed[screen] = {
-            if (ivyContext.mainTab == MainTab.ACCOUNTS) {
+            if (ivyContext.mainTab != MainTab.HOME) {
                 ivyContext.selectMainTab(MainTab.HOME)
                 true
             } else {

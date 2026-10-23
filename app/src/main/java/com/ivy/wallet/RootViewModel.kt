@@ -35,6 +35,7 @@ class RootViewModel @Inject constructor(
     private val legalRepo: LegalRepository,
     private val authSession: com.ivy.security.AuthSessionController,
     private val dataStore: com.ivy.data.datastore.IvyDataStore,
+    val screenCapturePreferences: com.ivy.security.ScreenCapturePreferences,
 ) : ViewModel() {
 
     companion object {

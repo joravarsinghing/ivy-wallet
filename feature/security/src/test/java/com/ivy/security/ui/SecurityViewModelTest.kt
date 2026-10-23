@@ -16,6 +16,7 @@ class SecurityViewModelTest {
     private lateinit var session: AuthSessionController
     private lateinit var store: SecurityStore
     private lateinit var vm: SecurityViewModel
+    private val capture = mockk<ScreenCapturePreferences>(relaxed = true)
     @Before fun prepare() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         mockkStatic(SystemClock::class)
@@ -30,9 +31,21 @@ class SecurityViewModelTest {
         every { session.finishAuthentication(any(), any(), any()) } returns true
         coEvery { store.verify(any(), any()) } returns CredentialResult.Success
         coEvery { store.configure(any(), any()) } returns "NEW-RECOVERY-CODE"
-        vm = SecurityViewModel(session, store)
+        vm = SecurityViewModel(session, store, capture)
     }
     @After fun finish() { unmockkStatic(SystemClock::class); Dispatchers.resetMain() }
+
+    @Test fun `capture preference cannot change while locked`() {
+        clearMocks(capture)
+        vm.setScreenCapture(true)
+        verify(exactly = 0) { capture.setAllowed(any()) }
+    }
+    @Test fun `unlocked user can explicitly change capture preference`() {
+        clearMocks(capture)
+        every { session.locked } returns MutableStateFlow(false)
+        vm.setScreenCapture(true)
+        verify(exactly = 1) { capture.setAllowed(true) }
+    }
 
     @Test fun `testing biometrics cannot replace the current PIN proof`() = runTest {
         assertTrue(vm.beginBiometric(settings = true, biometricOnly = true))

@@ -19,6 +19,7 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -94,6 +95,8 @@ class RootActivity : AppCompatActivity(), RootScreen {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        // Fail private before Compose has read the user's unlocked-screen preference.
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         setupApp()
         setContent {
             val viewModel: RootViewModel = viewModel()
@@ -110,8 +113,13 @@ class RootActivity : AppCompatActivity(), RootScreen {
 
             val appLocked by viewModel.appLocked.collectAsState()
             val lockSettings by viewModel.securitySettings.collectAsState()
-            val sensitive = lockSettings.enabled || appLocked == true || navigation.currentScreen == com.ivy.navigation.SecurityScreen
-            LaunchedEffect(sensitive) {
+            val capturePreference by viewModel.screenCapturePreferences.allowed.collectAsState()
+            val securityUi: com.ivy.security.ui.SecurityViewModel = viewModel()
+            val sensitive = com.ivy.security.shouldProtectScreenCapture(
+                locked = appLocked, lockEnabled = lockSettings.enabled, preference = capturePreference,
+                credentialsVisible = navigation.currentScreen == com.ivy.navigation.SecurityScreen || securityUi.recoveryCode != null,
+            )
+            SideEffect {
                 if (sensitive) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
                 else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
             }

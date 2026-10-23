@@ -5,6 +5,14 @@ import androidx.activity.result.ActivityResultRegistryOwner
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.compose.material3.Surface
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density as ComposeDensity
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.core.app.ActivityOptionsCompat
 import app.cash.paparazzi.DeviceConfig
@@ -26,7 +34,7 @@ import java.util.Locale
 
 @RunWith(TestParameterInjector::class)
 class NetWorthPaparazziTest(@TestParameter private val window: Window) {
-    enum class Window(val width: Int, val height: Int) { Phone(360, 800), Fold(720, 720), DeX(1280, 800) }
+    enum class Window(val width: Int, val height: Int, val font: Float = 1f) { SmallPhone(320, 640), Phone(360, 800), Fold(720, 720), DeX(1280, 800), LargeText(360, 800, 2f) }
     @get:Rule val paparazzi = Paparazzi(deviceConfig = DeviceConfig.PIXEL_6_PRO.copy(screenWidth = window.width, screenHeight = window.height, density = Density.MEDIUM,
         orientation = if (window.width > window.height) ScreenOrientation.LANDSCAPE else ScreenOrientation.PORTRAIT), showSystemUi = false)
 
@@ -54,8 +62,8 @@ class NetWorthPaparazziTest(@TestParameter private val window: Window) {
             }
         }
         paparazzi.snapshot {
-            CompositionLocalProvider(LocalActivityResultRegistryOwner provides registry) {
-                IvyMaterial3Theme(dark = false, isTrueBlack = false) {
+            CompositionLocalProvider(LocalActivityResultRegistryOwner provides registry, LocalDensity provides ComposeDensity(LocalDensity.current.density, window.font)) {
+                IvyMaterial3Theme(dark = window == Window.Fold, isTrueBlack = false) {
                     Surface { NetWorthScreenContent(vm, {}, initialTab = tab) }
                 }
             }
@@ -65,4 +73,24 @@ class NetWorthPaparazziTest(@TestParameter private val window: Window) {
     @Test fun history() = snapshot(3)
     @Test fun hiddenBalances() = snapshot(0, hidden = true)
     @Test fun emptyAssets() = snapshot(1, empty = true)
+    @Test fun firstVisitOverview() = snapshot(0, empty = true)
+    @Test fun guideStart() = guide(0)
+    @Test fun guideFinish() = guide(3)
+    private fun guide(step: Int) {
+        paparazzi.snapshot {
+            CompositionLocalProvider(LocalDensity provides ComposeDensity(LocalDensity.current.density, window.font)) {
+                IvyMaterial3Theme(dark = window == Window.Fold, isTrueBlack = false) {
+                    Surface(Modifier.fillMaxSize()) {
+                        Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+                            Surface(Modifier.widthIn(max = 640.dp).fillMaxWidth(), shape = androidx.compose.material3.MaterialTheme.shapes.large) {
+                                Column(Modifier.verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    WealthGuidePage(step, {}, {}, {}, {})
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

@@ -1,829 +1,151 @@
 package com.ivy.main
 
-import androidx.annotation.DrawableRes
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraintsScope
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
-import com.ivy.design.l0_system.UI
-import com.ivy.design.l0_system.style
-import com.ivy.design.utils.thenIf
 import com.ivy.legacy.data.model.MainTab
-import com.ivy.legacy.ivyWalletCtx
-import com.ivy.legacy.utils.clickableNoIndication
-import com.ivy.legacy.utils.densityScope
-import com.ivy.legacy.utils.lerp
-import com.ivy.legacy.utils.navigationBarInset
-import com.ivy.legacy.utils.rememberInteractionSource
-import com.ivy.legacy.utils.springBounceFast
-import com.ivy.legacy.utils.toDensityDp
-import com.ivy.legacy.utils.toDensityPx
-import com.ivy.ui.R
-import com.ivy.wallet.ui.theme.Gradient
-import com.ivy.wallet.ui.theme.GradientGreen
-import com.ivy.wallet.ui.theme.GradientIvy
-import com.ivy.wallet.ui.theme.Green
-import com.ivy.wallet.ui.theme.Ivy
-import com.ivy.wallet.ui.theme.White
-import com.ivy.wallet.ui.theme.components.IvyCircleButton
-import com.ivy.wallet.ui.theme.components.IvyIcon
-import com.ivy.wallet.ui.theme.components.IvyOutlinedButton
-import com.ivy.wallet.ui.theme.gradientExpenses
-import com.ivy.wallet.ui.theme.modal.AddModalBackHandling
-import com.ivy.wallet.ui.theme.pureBlur
-import java.util.UUID
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
-val TRN_BUTTON_CLICK_AREA_HEIGHT = 150.dp
-val FAB_BUTTON_SIZE = 56.dp
+internal data class MainDestination(val tab: MainTab, val label: String, val icon: ImageVector)
+internal val mainDestinations = listOf(
+    MainDestination(MainTab.HOME, "Home", Icons.Outlined.Home),
+    MainDestination(MainTab.ACCOUNTS, "Accounts", Icons.Outlined.AccountBalanceWallet),
+    MainDestination(MainTab.PLAN, "Plan", Icons.Outlined.CalendarMonth),
+    MainDestination(MainTab.NET_WORTH, "Net worth", Icons.Outlined.AccountBalance),
+    MainDestination(MainTab.MORE, "More", Icons.Outlined.GridView),
+)
 
-@Deprecated("Old design system. Use `:ivy-design` and Material3")
+internal fun mainNavigationRailWidth(width: Dp): Dp = when {
+    width < 600.dp -> 0.dp
+    width < 1100.dp -> 96.dp
+    else -> 200.dp
+}
+internal fun mainBottomNavigationHeight(fontScale: Float): Dp = if (fontScale > 1.3f) 112.dp else 80.dp
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BoxWithConstraintsScope.BottomBar(
-    tab: MainTab,
-    selectTab: (MainTab) -> Unit,
-
-    onAddIncome: () -> Unit,
-    onAddExpense: () -> Unit,
-    onAddTransfer: () -> Unit,
-    onAddPlannedPayment: () -> Unit,
-
+    tab: MainTab, selectTab: (MainTab) -> Unit,
+    onAddIncome: () -> Unit, onAddExpense: () -> Unit,
+    onAddTransfer: () -> Unit, onAddPlannedPayment: () -> Unit,
     showAddAccountModal: () -> Unit,
 ) {
-    if (adaptiveWindowClass(maxWidth) != AdaptiveWindowClass.COMPACT) {
-        AdaptiveMainRail(
-            windowClass = adaptiveWindowClass(maxWidth),
-            tab = tab,
-            selectTab = selectTab,
-            onAddIncome = onAddIncome,
-            onAddExpense = onAddExpense,
-            onAddTransfer = onAddTransfer,
-            onAddPlannedPayment = onAddPlannedPayment,
-            showAddAccountModal = showAddAccountModal,
-        )
-        return
-    }
-
-    val ivyContext = ivyWalletCtx()
-
     var expanded by rememberSaveable { mutableStateOf(false) }
-
-    val modalId = remember { UUID.randomUUID() }
-
-    AddModalBackHandling(
-        modalId = modalId,
-        visible = expanded
-    ) {
-        expanded = false
-    }
-
-    val screenHeightDp = densityScope { ivyContext.screenHeight.toDp() }
-    val expandedBackgroundOffset by animateDpAsState(
-        targetValue = if (expanded) 0.dp else screenHeightDp,
-        animationSpec = springBounceFast()
-    )
-
-    val fabRotation by animateFloatAsState(
-        targetValue = if (expanded) 45f else 0f,
-        animationSpec = springBounceFast()
-    )
-
-    val buttonsShownPercent by animateFloatAsState(
-        targetValue = if (expanded) 1f else 0f,
-        animationSpec = springBounceFast()
-    )
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .align(Alignment.BottomCenter)
-            .background(pureBlur())
-            .alpha(1f - buttonsShownPercent)
-            .navigationBarsPadding()
-            .clickableNoIndication(rememberInteractionSource()) {
-                // consume click
-            },
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Tab(
-            icon = R.drawable.ic_home,
-            name = stringResource(R.string.home),
-            selected = tab == MainTab.HOME,
-            selectedColor = Ivy
-        ) {
-            selectTab(MainTab.HOME)
-        }
-
-        Spacer(Modifier.width(FAB_BUTTON_SIZE))
-
-        Tab(
-            icon = R.drawable.ic_accounts,
-            name = stringResource(R.string.accounts),
-            selected = tab == MainTab.ACCOUNTS,
-            selectedColor = Green
-        ) {
-            selectTab(MainTab.ACCOUNTS)
-        }
-    }
-
-    if (expandedBackgroundOffset < screenHeightDp) {
-        Spacer(
-            modifier = Modifier
-                .fillMaxSize()
-                .offset(y = expandedBackgroundOffset)
-                .background(UI.colors.pure.copy(alpha = 0.95f))
-                .clickableNoIndication(rememberInteractionSource()) {
-                    // consume click, do nothing
-                }
-                .zIndex(100f)
-        )
-    }
-
-    // ------------------------------------ BUTTONS--------------------------------------------------
-    val fabStartX = ivyContext.screenWidth / 2 - FAB_BUTTON_SIZE.toDensityPx() / 2
-    val fabStartY = ivyContext.screenHeight - navigationBarInset() -
-            30.dp.toDensityPx() - FAB_BUTTON_SIZE.toDensityPx()
-
-    TransactionButtons(
-        buttonsShownPercent = buttonsShownPercent,
-
-        fabStartX = fabStartX,
-        fabStartY = fabStartY,
-
-        onAddIncome = onAddIncome,
-        onAddExpense = onAddExpense,
-        onAddTransfer = onAddTransfer,
-        onAddPlannedPayment = onAddPlannedPayment
-    )
-
-    var dragOffset by remember {
-        mutableStateOf(Offset.Zero)
-    }
-    // + & x button
-    IvyCircleButton(
-        modifier = Modifier
-            .layout { measurable, constraints ->
-                val placeable = measurable.measure(constraints)
-                layout(placeable.width, placeable.height) {
-                    placeable.place(
-                        x = fabStartX.roundToInt(),
-                        y = fabStartY.roundToInt()
-                    )
-                }
-            }
-            .size(FAB_BUTTON_SIZE)
-            .rotate(fabRotation)
-            .zIndex(200f)
-            .thenIf(tab == MainTab.HOME) {
-                pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragCancel = {
-                            dragOffset = Offset.Zero
-                        },
-                        onDragEnd = {
-                            dragOffset = Offset.Zero
-                        },
-                        onDrag = { _, dragAmount ->
-                            dragOffset += dragAmount
-
-                            val horizontalThreshold = 40
-                            val verticalThreshold = 60
-
-                            when {
-                                abs(dragOffset.x) < horizontalThreshold &&
-                                        dragOffset.y < -verticalThreshold -> {
-                                    // swipe up
-                                    dragOffset = Offset.Zero // prevent double open of the screen
-                                    onAddExpense()
-                                }
-
-                                dragOffset.x < -horizontalThreshold &&
-                                        dragOffset.y < -verticalThreshold -> {
-                                    // swipe up left
-                                    dragOffset = Offset.Zero // prevent double open of the screen
-                                    onAddIncome()
-                                }
-
-                                dragOffset.x > horizontalThreshold &&
-                                        dragOffset.y < -verticalThreshold -> {
-                                    // swipe up right
-                                    dragOffset = Offset.Zero // prevent double open of the screen
-                                    onAddTransfer()
-                                }
+    val rail = mainNavigationRailWidth(maxWidth)
+    val bottomHeight = mainBottomNavigationHeight(LocalDensity.current.fontScale)
+    MainNavigation(tab, selectTab, rail, Modifier.align(if (rail == 0.dp) Alignment.BottomCenter else Alignment.CenterStart))
+    val expense by rememberUpdatedState(onAddExpense)
+    val income by rememberUpdatedState(onAddIncome)
+    val transfer by rememberUpdatedState(onAddTransfer)
+    if (tab == MainTab.HOME || tab == MainTab.ACCOUNTS) {
+        FloatingActionButton(
+            onClick = { if (tab == MainTab.ACCOUNTS) showAddAccountModal() else expanded = true },
+            modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 24.dp, bottom = if (rail == 0.dp) bottomHeight + 16.dp else 24.dp)
+                .testTag("fab_add").pointerInput(tab) {
+                    if (tab == MainTab.HOME) {
+                        var offset = Offset.Zero
+                        var triggered = false
+                        detectDragGestures(onDragStart = { offset = Offset.Zero; triggered = false }, onDragEnd = { offset = Offset.Zero }, onDragCancel = { offset = Offset.Zero }) { change, movement ->
+                            change.consume(); offset += movement
+                            if (!triggered && offset.y < -60) {
+                                triggered = true
+                                when { abs(offset.x) < 40 -> expense(); offset.x < 0 -> income(); else -> transfer() }
                             }
                         }
-                    )
+                    }
+                },
+            containerColor = MaterialTheme.colorScheme.primary,
+        ) { Icon(Icons.Outlined.Add, if (tab == MainTab.ACCOUNTS) "Add account" else "Add income, expense, transfer or planned payment") }
+    }
+    if (expanded) ModalBottomSheet(onDismissRequest = { expanded = false }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).navigationBarsPadding().padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Add to your wallet", style = MaterialTheme.typography.headlineSmall)
+            Text("Choose what happened. Transfers move money between your accounts.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            listOf(
+                Triple("Expense", "Money you spent", onAddExpense),
+                Triple("Income", "Money you received", onAddIncome),
+                Triple("Transfer", "Move money between your accounts", onAddTransfer),
+                Triple("Planned payment", "Set up a bill or a future payment", onAddPlannedPayment),
+            ).forEach { (title, description, action) ->
+                OutlinedCard(onClick = { expanded = false; action() }, modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) { Text(title, style = MaterialTheme.typography.titleMedium); Text(description, style = MaterialTheme.typography.bodyMedium) }
                 }
             }
-            .testTag("fab_add"),
-        backgroundPadding = 8.dp,
-        icon = R.drawable.ic_add,
-        backgroundGradient = when (tab) {
-            MainTab.HOME -> {
-                if (!expanded) GradientIvy else Gradient.solid(UI.colors.gray)
-            }
-
-            MainTab.ACCOUNTS -> {
-                GradientGreen
-            }
-        },
-        hasShadow = !expanded,
-        tint = when (tab) {
-            MainTab.HOME -> White
-            MainTab.ACCOUNTS -> White
-        }
-    ) {
-        when (tab) {
-            MainTab.HOME -> {
-                expanded = !expanded
-            }
-
-            MainTab.ACCOUNTS -> {
-                showAddAccountModal()
-            }
         }
     }
 }
 
 @Composable
-private fun BoxWithConstraintsScope.AdaptiveMainRail(
-    windowClass: AdaptiveWindowClass,
-    tab: MainTab,
-    selectTab: (MainTab) -> Unit,
-    onAddIncome: () -> Unit,
-    onAddExpense: () -> Unit,
-    onAddTransfer: () -> Unit,
-    onAddPlannedPayment: () -> Unit,
-    showAddAccountModal: () -> Unit,
-) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    val railWidth = if (windowClass == AdaptiveWindowClass.EXPANDED) 112.dp else 88.dp
-
-    if (expanded && tab == MainTab.HOME) {
-        Spacer(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(UI.colors.pure.copy(alpha = 0.94f))
-                .clickableNoIndication(rememberInteractionSource()) {
-                    expanded = false
-                }
-                .zIndex(90f)
-        )
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxHeight()
-            .width(railWidth)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .background(pureBlur())
-            .zIndex(100f),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Spacer(Modifier.height(24.dp))
-        RailTab(
-            icon = R.drawable.ic_home,
-            name = stringResource(R.string.home),
-            selected = tab == MainTab.HOME,
-            selectedColor = Ivy,
-            showLabel = windowClass == AdaptiveWindowClass.EXPANDED,
-            onClick = { selectTab(MainTab.HOME) },
-        )
-        Spacer(Modifier.height(12.dp))
-        RailTab(
-            icon = R.drawable.ic_accounts,
-            name = stringResource(R.string.accounts),
-            selected = tab == MainTab.ACCOUNTS,
-            selectedColor = Green,
-            showLabel = windowClass == AdaptiveWindowClass.EXPANDED,
-            onClick = { selectTab(MainTab.ACCOUNTS) },
-        )
-        Spacer(Modifier.weight(1f))
-        Text(
-            text = "Add",
-            style = UI.typo.c.style(color = UI.colors.gray, fontWeight = FontWeight.Bold),
-        )
-        Spacer(Modifier.height(8.dp))
-        IvyCircleButton(
-            modifier = Modifier.size(FAB_BUTTON_SIZE),
-            icon = R.drawable.ic_add,
-            backgroundGradient = when (tab) {
-                MainTab.HOME -> if (expanded) Gradient.solid(UI.colors.gray) else GradientIvy
-                MainTab.ACCOUNTS -> GradientGreen
-            },
-            hasShadow = !expanded,
-            tint = White,
-        ) {
-            if (tab == MainTab.HOME) {
-                expanded = !expanded
-            } else {
-                showAddAccountModal()
-            }
-        }
-        Spacer(Modifier.height(24.dp))
-    }
-
-    if (expanded && tab == MainTab.HOME) {
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 28.dp, bottom = 28.dp)
-                .navigationBarsPadding()
-                .widthIn(max = 260.dp)
-                .zIndex(200f),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            horizontalAlignment = Alignment.End,
-        ) {
-            IvyOutlinedButton(
-                iconStart = R.drawable.ic_planned_payments,
-                text = stringResource(R.string.add_planned_payment),
-                solidBackground = true,
-            ) {
-                expanded = false
-                onAddPlannedPayment()
-            }
-            IvyOutlinedButton(
-                iconStart = R.drawable.ic_transfer,
-                text = stringResource(R.string.transfer),
-                solidBackground = true,
-            ) {
-                expanded = false
-                onAddTransfer()
-            }
-            IvyOutlinedButton(
-                iconStart = R.drawable.ic_income,
-                text = stringResource(R.string.add_income),
-                solidBackground = true,
-            ) {
-                expanded = false
-                onAddIncome()
-            }
-            IvyOutlinedButton(
-                iconStart = R.drawable.ic_expense,
-                text = stringResource(R.string.add_expense),
-                solidBackground = true,
-            ) {
-                expanded = false
-                onAddExpense()
-            }
-        }
-    }
-}
-
-@Composable
-private fun RailTab(
-    @DrawableRes icon: Int,
-    name: String,
-    selected: Boolean,
-    selectedColor: Color,
-    showLabel: Boolean,
-    onClick: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(UI.shapes.rFull)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 10.dp)
-            .testTag(name.lowercase()),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        IvyIcon(
-            icon = icon,
-            tint = if (selected) selectedColor else UI.colors.pureInverse,
-        )
-        if (showLabel) {
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = name,
-                textAlign = TextAlign.Center,
-                style = UI.typo.c.style(
-                    fontWeight = FontWeight.Bold,
-                    color = if (selected) selectedColor else UI.colors.pureInverse,
-                ),
-            )
-        }
-    }
-}
-
-@Composable
-private fun TransactionButtons(
-    buttonsShownPercent: Float,
-
-    fabStartX: Float,
-    fabStartY: Float,
-
-    onAddIncome: () -> Unit,
-    onAddExpense: () -> Unit,
-    onAddTransfer: () -> Unit,
-    onAddPlannedPayment: () -> Unit,
-) {
-    val ivyContext = ivyWalletCtx()
-
-    val bH = 48.dp
-    val bV = 20.dp // 24.dp
-    val bCenterV = 74.dp // 80.dp
-
-    if (buttonsShownPercent > 0.01f) {
-        val buttonLeftX = bH.toDensityPx()
-        val buttonRightX = ivyContext.screenWidth - bH.toDensityPx() - FAB_BUTTON_SIZE.toDensityPx()
-
-        val sideButtonsY = fabStartY - bV.toDensityPx() - FAB_BUTTON_SIZE.toDensityPx()
-        val buttonCenterY = fabStartY - bCenterV.toDensityPx() - FAB_BUTTON_SIZE.toDensityPx()
-
-        val clickAreaWidth = ivyContext.screenWidth / 3
-
-        IvyOutlinedButton(
-            modifier = Modifier
-                .layout { measurable, constraints ->
-                    val placealbe = measurable.measure(constraints)
-                    layout(placealbe.width, placealbe.height) {
-                        placealbe.place(
-                            x = ivyContext.screenWidth / 2 - placealbe.width / 2,
-                            y = buttonCenterY.roundToInt() - 48.dp.roundToPx() - placealbe.height - FAB_BUTTON_SIZE.roundToPx()
-                        )
+internal fun MainNavigation(tab: MainTab, selectTab: (MainTab) -> Unit, railWidth: Dp, modifier: Modifier = Modifier) {
+    if (railWidth == 0.dp) {
+        if (LocalDensity.current.fontScale > 1.3f) {
+            // Shifting navigation gives the selected label real width at accessibility
+            // font sizes. All five targets remain visible and have spoken labels.
+            Surface(modifier.fillMaxWidth(), tonalElevation = 1.dp) {
+                Row(Modifier.fillMaxWidth().navigationBarsPadding().heightIn(min = 112.dp), verticalAlignment = Alignment.CenterVertically) {
+                    mainDestinations.forEach { item ->
+                        val active = tab == item.tab
+                        Column(Modifier.then(if (active) Modifier.weight(1f) else Modifier.width(48.dp)).heightIn(min = 104.dp)
+                            .selectable(selected = active, role = Role.Tab, onClick = { selectTab(item.tab) })
+                            .testTag("nav_${item.tab.name.lowercase()}").padding(horizontal = 4.dp, vertical = 12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)) {
+                            Icon(item.icon, if (active) null else item.label, tint = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (active) Text(item.label, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurface)
+                        }
                     }
                 }
-                .padding(horizontal = 8.dp)
-                .alpha(buttonsShownPercent)
-                .zIndex(200f),
-            iconStart = R.drawable.ic_planned_payments,
-            text = stringResource(R.string.add_planned_payment),
-            solidBackground = true
-        ) {
-            onAddPlannedPayment()
+            }
+        } else NavigationBar(modifier.fillMaxWidth().heightIn(min = 80.dp), containerColor = MaterialTheme.colorScheme.surface) {
+            mainDestinations.forEach { item ->
+                NavigationBarItem(selected = tab == item.tab, onClick = { selectTab(item.tab) },
+                    // Material's inner padding otherwise breaks "Accounts" into letters
+                    // on 320dp phones. Labels can use the whole destination slot.
+                    icon = { Icon(item.icon, null) }, label = { Text(item.label, Modifier.wrapContentWidth(unbounded = true), textAlign = TextAlign.Center) }, modifier = Modifier.testTag("nav_${item.tab.name.lowercase()}"),
+                    colors = NavigationBarItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.onSurface))
+            }
         }
-
-        // Add INCOME ------------------------------------------------------------------------------
-        AddIncomeButton(
-            buttonsShownPercent = buttonsShownPercent,
-            fabStartX = fabStartX,
-            fabStartY = fabStartY,
-            buttonLeftX = buttonLeftX,
-            sideButtonsY = sideButtonsY,
-            clickAreaWidth = clickAreaWidth,
-            onAddIncome = onAddIncome
-        )
-        // Add INCOME ------------------------------------------------------------------------------
-
-        // Add EXPENSE ------------------------------------------------------------------------------
-        AddExpenseButton(
-            buttonsShownPercent = buttonsShownPercent,
-            fabStartX = fabStartX,
-            fabStartY = fabStartY,
-            buttonCenterY = buttonCenterY,
-            clickAreaWidth = clickAreaWidth,
-            onAddExpense = onAddExpense
-        )
-        // Add EXPENSE ------------------------------------------------------------------------------
-
-        // Add TRANSFER ----------------------------------------------------------------------------
-        AddTransferButton(
-            buttonsShownPercent = buttonsShownPercent,
-            fabStartX = fabStartX,
-            fabStartY = fabStartY,
-            buttonRightX = buttonRightX,
-            sideButtonsY = sideButtonsY,
-            clickAreaWidth = clickAreaWidth,
-            onAddTransfer = onAddTransfer
-        )
-        // Add TRANSFER ----------------------------------------------------------------------------
-    }
-}
-
-@Composable
-private fun AddIncomeButton(
-    buttonsShownPercent: Float,
-    fabStartX: Float,
-    fabStartY: Float,
-    buttonLeftX: Float,
-    sideButtonsY: Float,
-    clickAreaWidth: Int,
-    onAddIncome: () -> Unit,
-) {
-    IvyCircleButton(
-        modifier = Modifier
-            .layout { measurable, constraints ->
-                val placeable = measurable.measure(constraints)
-
-                val x = lerp(fabStartX, buttonLeftX, buttonsShownPercent)
-                val y = lerp(
-                    fabStartY,
-                    sideButtonsY - FAB_BUTTON_SIZE.roundToPx(),
-                    buttonsShownPercent
-                )
-
-                layout(placeable.width, placeable.height) {
-                    placeable.place(
-                        x = x.roundToInt(),
-                        y = y.roundToInt()
-                    )
+    } else {
+        Surface(modifier.width(railWidth).fillMaxHeight(), tonalElevation = 1.dp) {
+            Column(Modifier.statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Image(painterResource(com.ivy.ui.R.drawable.jvy_wallet_logo), "Jvy Wallet", Modifier.padding(vertical = 12.dp).size(44.dp))
+                if (railWidth >= 200.dp) Text("Jvy Wallet", style = MaterialTheme.typography.titleMedium)
+                mainDestinations.forEach { item ->
+                    Surface(onClick = { selectTab(item.tab) }, shape = MaterialTheme.shapes.large,
+                        color = if (tab == item.tab) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface,
+                        contentColor = if (tab == item.tab) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).testTag("nav_${item.tab.name.lowercase()}").semantics { role = Role.Tab; selected = tab == item.tab }) {
+                        if (railWidth >= 200.dp) Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Icon(item.icon, null); Text(item.label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
+                        } else Column(Modifier.padding(vertical = 8.dp, horizontal = 2.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Icon(item.icon, null); Text(item.label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
                 }
             }
-            .size(FAB_BUTTON_SIZE)
-            .zIndex(200f),
-        icon = R.drawable.ic_income,
-        backgroundGradient = GradientGreen,
-        tint = White,
-        onClick = onAddIncome
-    )
-
-    Text(
-        modifier = Modifier
-            .width(FAB_BUTTON_SIZE + 16.dp)
-            .layout { measurable, constraints ->
-                val placeable = measurable.measure(constraints)
-                layout(placeable.width, placeable.height) {
-                    placeable.place(
-                        x = buttonLeftX.roundToInt() - 8.dp.roundToPx(),
-                        y = (sideButtonsY + 12.dp.toPx()).roundToInt()
-                    )
-                }
-            }
-            .alpha(buttonsShownPercent)
-            .clickableNoIndication(rememberInteractionSource()) {
-                onAddIncome()
-            }
-            .zIndex(200f),
-        text = stringResource(R.string.add_income_uppercase),
-        style = UI.typo.c.style(
-            color = UI.colors.pureInverse,
-            fontWeight = FontWeight.ExtraBold,
-            textAlign = TextAlign.Center
-        )
-    )
-
-    // Click area
-    Spacer(
-        modifier = Modifier
-            .size(
-                width = clickAreaWidth.toDensityDp(),
-                height = TRN_BUTTON_CLICK_AREA_HEIGHT
-            )
-            .layout { measurable, constraints ->
-                val placeable = measurable.measure(constraints)
-
-                layout(placeable.width, placeable.height) {
-                    placeable.place(
-                        x = 0,
-                        y = sideButtonsY.roundToInt() - FAB_BUTTON_SIZE.roundToPx() - 16.dp.roundToPx()
-                    )
-                }
-            }
-            .zIndex(199f)
-            .clickableNoIndication(rememberInteractionSource()) {
-                onAddIncome()
-            }
-    )
-}
-
-@Composable
-private fun AddExpenseButton(
-    buttonsShownPercent: Float,
-    fabStartX: Float,
-    fabStartY: Float,
-    buttonCenterY: Float,
-    clickAreaWidth: Int,
-    onAddExpense: () -> Unit,
-) {
-    IvyCircleButton(
-        modifier = Modifier
-            .layout { measurable, constraints ->
-                val placeable = measurable.measure(constraints)
-
-                val y =
-                    lerp(
-                        fabStartY,
-                        buttonCenterY - FAB_BUTTON_SIZE.roundToPx(),
-                        buttonsShownPercent
-                    )
-
-                layout(placeable.width, placeable.height) {
-                    placeable.place(
-                        x = fabStartX.roundToInt(),
-                        y = y.roundToInt()
-                    )
-                }
-            }
-            .size(FAB_BUTTON_SIZE)
-            .zIndex(200f),
-        icon = R.drawable.ic_expense,
-        backgroundGradient = gradientExpenses(),
-        horizontalGradient = false,
-        tint = White,
-        onClick = onAddExpense
-    )
-
-    Text(
-        modifier = Modifier
-            .width(FAB_BUTTON_SIZE + 16.dp)
-            .layout { measurable, constraints ->
-                val placeable = measurable.measure(constraints)
-                layout(placeable.width, placeable.height) {
-                    placeable.place(
-                        x = fabStartX.roundToInt() - 8.dp.roundToPx(),
-                        y = (buttonCenterY + 12.dp.toPx()).roundToInt()
-                    )
-                }
-            }
-            .alpha(buttonsShownPercent)
-            .clickableNoIndication(rememberInteractionSource()) {
-                onAddExpense()
-            }
-            .zIndex(200f),
-        text = stringResource(R.string.add_expense_uppercase),
-        style = UI.typo.c.style(
-            color = UI.colors.pureInverse,
-            fontWeight = FontWeight.ExtraBold,
-            textAlign = TextAlign.Center
-        )
-    )
-
-    // Click area
-    Spacer(
-        modifier = Modifier
-            .size(
-                width = clickAreaWidth.toDensityDp(),
-                height = TRN_BUTTON_CLICK_AREA_HEIGHT
-            )
-            .layout { measurable, constraints ->
-                val placeable = measurable.measure(constraints)
-
-                layout(placeable.width, placeable.height) {
-                    placeable.place(
-                        x = clickAreaWidth,
-                        y = buttonCenterY.roundToInt() - FAB_BUTTON_SIZE.roundToPx() - 16.dp.roundToPx()
-                    )
-                }
-            }
-            .zIndex(199f)
-            .clickableNoIndication(rememberInteractionSource()) {
-                onAddExpense()
-            }
-    )
-}
-
-@Composable
-private fun AddTransferButton(
-    buttonsShownPercent: Float,
-    fabStartX: Float,
-    fabStartY: Float,
-    buttonRightX: Float,
-    sideButtonsY: Float,
-    clickAreaWidth: Int,
-    onAddTransfer: () -> Unit,
-) {
-    IvyCircleButton(
-        modifier = Modifier
-            .layout { measurable, constraints ->
-                val placeable = measurable.measure(constraints)
-
-                val x = lerp(fabStartX, buttonRightX, buttonsShownPercent)
-                val y = lerp(
-                    fabStartY,
-                    sideButtonsY - FAB_BUTTON_SIZE.roundToPx(),
-                    buttonsShownPercent
-                )
-
-                layout(placeable.width, placeable.height) {
-                    placeable.place(
-                        x = x.roundToInt(),
-                        y = y.roundToInt()
-                    )
-                }
-            }
-            .size(FAB_BUTTON_SIZE)
-            .zIndex(200f),
-        icon = R.drawable.ic_transfer,
-        backgroundGradient = GradientIvy,
-        tint = White,
-        onClick = onAddTransfer
-    )
-
-    Text(
-        modifier = Modifier
-            .width(FAB_BUTTON_SIZE + 16.dp)
-            .layout { measurable, constraints ->
-                val placeable = measurable.measure(constraints)
-                layout(placeable.width, placeable.height) {
-                    placeable.place(
-                        x = buttonRightX.roundToInt() - 8.dp.roundToPx(),
-                        y = (sideButtonsY + 12.dp.toPx()).roundToInt()
-                    )
-                }
-            }
-            .alpha(buttonsShownPercent)
-            .clickableNoIndication(rememberInteractionSource()) {
-                onAddTransfer()
-            }
-            .zIndex(200f),
-        text = stringResource(R.string.account_transfer),
-        style = UI.typo.c.style(
-            color = UI.colors.pureInverse,
-            fontWeight = FontWeight.ExtraBold,
-            textAlign = TextAlign.Center
-        )
-    )
-
-    // Click area
-    Spacer(
-        modifier = Modifier
-            .size(
-                width = clickAreaWidth.toDensityDp(),
-                height = TRN_BUTTON_CLICK_AREA_HEIGHT
-            )
-            .layout { measurable, constraints ->
-                val placeable = measurable.measure(constraints)
-
-                layout(placeable.width, placeable.height) {
-                    placeable.place(
-                        x = 2 * clickAreaWidth,
-                        y = sideButtonsY.roundToInt() - FAB_BUTTON_SIZE.roundToPx() - 16.dp.roundToPx()
-                    )
-                }
-            }
-            .zIndex(199f)
-            .clickableNoIndication(rememberInteractionSource()) {
-                onAddTransfer()
-            }
-    )
-}
-
-@Composable
-private fun RowScope.Tab(
-    @DrawableRes icon: Int,
-    name: String,
-    selected: Boolean,
-    selectedColor: Color,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .weight(1f)
-            .clip(UI.shapes.rFull)
-            .clickable(onClick = onClick)
-            .padding(top = 12.dp, bottom = 16.dp)
-            .testTag(name.lowercase()),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IvyIcon(
-            icon = icon,
-            tint = if (selected) selectedColor else UI.colors.pureInverse
-        )
-
-        if (selected) {
-            Spacer(modifier = Modifier.width(4.dp))
-
-            Text(
-                text = name,
-                style = UI.typo.c.style(
-                    fontWeight = FontWeight.Bold,
-                    color = selectedColor
-                )
-            )
         }
     }
 }

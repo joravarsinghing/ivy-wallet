@@ -28,17 +28,6 @@ private tailrec fun Context.activity(): AppCompatActivity? = when (this) {
 }
 
 @Composable
-private fun ProtectCredentials(vm: SecurityViewModel) {
-    val activity = LocalContext.current.activity()
-    DisposableEffect(activity) {
-        activity?.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
-        onDispose {
-            if (!vm.session.settings.value.enabled) activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
-        }
-    }
-}
-
-@Composable
 private fun biometricRequest(vm: SecurityViewModel, settings: Boolean, onVerified: () -> Unit = {}): (Boolean) -> Unit {
     val context = LocalContext.current
     val activity = context.activity()
@@ -71,58 +60,47 @@ private fun biometricRequest(vm: SecurityViewModel, settings: Boolean, onVerifie
 @Composable
 fun SecurityLockScreen() {
     val vm: SecurityViewModel = viewModel()
-    ProtectCredentials(vm)
     val settings by vm.session.settings.collectAsState()
     val storageError by vm.session.storageError.collectAsState()
-    var secret by remember { mutableStateOf("") }
-    var pin by remember { mutableStateOf("") }
-    var confirmation by remember { mutableStateOf("") }
     val biometric = biometricRequest(vm, false)
     LaunchedEffect(vm.session.generation) {
         if (settings.permitsBiometric && vm.session.requestGeneration == null) biometric(false)
     }
-    Column(Modifier.fillMaxSize().systemBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("Jvy Wallet is locked", style = MaterialTheme.typography.headlineSmall)
-        Text("Your financial data stays private. Unlock to continue where you left off.")
-        if (vm.recoveryVerified) {
-            SecretField("New six-digit PIN", pin, { pin = it })
-            SecretField("Confirm PIN", confirmation, { confirmation = it })
-            Button(onClick = { vm.configure(UnlockMode.PIN, pin, confirmation) }, enabled = !vm.busy) { Text("Set new PIN") }
-        } else {
-            if (settings.permitsPin || vm.recovering) {
-                SecretField(if (vm.recovering) "Recovery code" else "Jvy PIN", secret, { secret = it }, vm.recovering)
-                Button(onClick = { vm.verify(secret, false); secret = "" }, enabled = !vm.busy) { Text(if (vm.recovering) "Recover access" else "Unlock with PIN") }
-            }
-            if (settings.permitsBiometric && !vm.recovering) Button(onClick = { biometric(false) }, enabled = !vm.busy) { Text(if (settings.mode == UnlockMode.LEGACY_SYSTEM) "Use device authentication" else "Use biometrics") }
-            if (settings.hasRecovery) TextButton(onClick = { vm.useRecovery(!vm.recovering); secret = "" }) { Text(if (vm.recovering) "Back to unlock" else "Forgot PIN / use recovery code") }
-        }
-        if (vm.busy) CircularProgressIndicator()
-        Text(vm.message, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        storageError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        Text("Rotating or resizing keeps your session. Device lock ends it immediately.", style = MaterialTheme.typography.bodySmall)
-    }
+    SecurityUnlockContent(settings, vm.busy, vm.message, storageError, vm.recovering, vm.recoveryVerified,
+        onBiometric = { biometric(false) }, onVerify = { vm.verify(it, false) },
+        onRecovery = vm::useRecovery, onResetPin = { pin, confirmation -> vm.configure(UnlockMode.PIN, pin, confirmation) })
 }
 
 @Composable
 fun SecuritySettingsScreen() {
     val vm: SecurityViewModel = viewModel()
-    ProtectCredentials(vm)
     val settings by vm.session.settings.collectAsState()
+    val capturePreference by vm.capturePreferences.allowed.collectAsState()
     val nav = navigation()
-    var selected by remember { mutableStateOf(UnlockMode.PIN) }
+    var selected by remember(settings.mode) { mutableStateOf(if (settings.mode == UnlockMode.LEGACY_SYSTEM) UnlockMode.EITHER else settings.mode) }
     var pin by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf("") }
     var current by remember { mutableStateOf("") }
     var biometricVerified by remember { mutableStateOf(false) }
     val biometric = biometricRequest(vm, true) { if (vm.promptBiometricOnly) biometricVerified = true }
     Surface(Modifier.fillMaxSize()) {
-    Column(Modifier.fillMaxSize().systemBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.TopCenter) {
+    Column(Modifier.widthIn(max = 640.dp).fillMaxWidth().systemBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         TextButton(onClick = { nav.back() }) { Text("Back") }
         Text("Security", style = MaterialTheme.typography.headlineMedium)
-        Text("Current: ${settings.mode.label()}")
-        Text("Lock after one minute in the background, or immediately when the device locks.")
+        Text("Your wallet, your privacy", style = MaterialTheme.typography.titleMedium)
+        ScreenCaptureSetting(allowed = capturePreference ?: !settings.enabled, onChange = vm::setScreenCapture)
+        HorizontalDivider()
+        Text("How you unlock", style = MaterialTheme.typography.titleLarge)
+        Text("Now using: ${settings.mode.label()}")
+        Text("Jvy locks after a minute away, or as soon as your phone locks. Rotating or resizing does not ask you to unlock again.", style = MaterialTheme.typography.bodyMedium)
         listOf(UnlockMode.OFF, UnlockMode.PIN, UnlockMode.BIOMETRIC, UnlockMode.EITHER).forEach { mode ->
-            FilterChip(selected = selected == mode, onClick = { selected = mode }, label = { Text(mode.label()) })
+            OutlinedCard(onClick = { selected = mode }, modifier = Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    RadioButton(selected == mode, { selected = mode })
+                    Column(Modifier.weight(1f)) { Text(mode.label(), style = MaterialTheme.typography.titleSmall); Text(mode.description(), style = MaterialTheme.typography.bodySmall) }
+                }
+            }
         }
         if (settings.enabled && !vm.verifiedForSettings) {
             Text("Authenticate to change protection.")
@@ -143,6 +121,9 @@ fun SecuritySettingsScreen() {
         Button(onClick = { vm.configure(if (vm.recoveryVerified) UnlockMode.PIN else selected, pin, confirmation, biometricVerified); pin = ""; confirmation = "" }, enabled = !vm.busy) { Text("Save security settings") }
         Text(vm.message)
         if (vm.busy) CircularProgressIndicator()
+        Text("Recovery codes", style = MaterialTheme.typography.titleMedium)
+        Text(if (settings.hasRecovery) "You have a recovery code. Keep it outside this app. Saving a new unlock method replaces it with a new code shown once." else "No recovery code is set up yet. Choose a Jvy PIN or biometrics and save your settings to create one. Your phone's PIN is not a Jvy PIN.")
+    }
     }
     }
 }
@@ -156,7 +137,7 @@ fun SecurityRecoveryHost() {
 }
 
 @Composable
-private fun SecretField(label: String, value: String, change: (String) -> Unit, recovery: Boolean = false) {
+internal fun SecretField(label: String, value: String, change: (String) -> Unit, recovery: Boolean = false) {
     OutlinedTextField(value = value, onValueChange = { change(if (recovery) it.take(40) else it.filter(Char::isDigit).take(6)) },
         label = { Text(label) }, singleLine = true, visualTransformation = PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = if (recovery) KeyboardType.Password else KeyboardType.NumberPassword), modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth())
@@ -165,8 +146,8 @@ private fun SecretField(label: String, value: String, change: (String) -> Unit, 
 @Composable
 private fun RecoveryDialog(vm: SecurityViewModel) {
     vm.recoveryCode?.let { code ->
-        AlertDialog(onDismissRequest = {}, title = { Text("Save your recovery code") },
-            text = { Column(verticalArrangement = Arrangement.spacedBy(16.dp)) { Text(code); Text("Store this code somewhere safe. It can reset your Jvy PIN without deleting your financial data. This screen is shown once.") } },
+        AlertDialog(onDismissRequest = {}, properties = androidx.compose.ui.window.DialogProperties(securePolicy = androidx.compose.ui.window.SecureFlagPolicy.SecureOn), title = { Text("Save your recovery code") },
+            text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) { Text(code); Text("Store this code somewhere safe. It can reset your Jvy PIN without deleting your financial data. This screen is shown once.") } },
             confirmButton = { TextButton(onClick = vm::dismissRecovery) { Text("I saved this code") } })
     }
 }
@@ -177,4 +158,12 @@ private fun UnlockMode.label() = when (this) {
     UnlockMode.PIN -> "Jvy PIN"
     UnlockMode.BIOMETRIC -> "Biometrics"
     UnlockMode.EITHER -> "PIN or biometrics"
+}
+
+private fun UnlockMode.description() = when (this) {
+    UnlockMode.OFF -> "Open Jvy without an app lock."
+    UnlockMode.LEGACY_SYSTEM -> "Your existing Android fingerprint, face, or device PIN."
+    UnlockMode.PIN -> "Use a separate six-digit PIN just for Jvy."
+    UnlockMode.BIOMETRIC -> "Use your enrolled fingerprint or face, with a recovery code as backup."
+    UnlockMode.EITHER -> "Choose fingerprint/face or your Jvy PIN each time."
 }

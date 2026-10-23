@@ -16,6 +16,7 @@ import javax.inject.Inject
 class SecurityViewModel @Inject constructor(
     val session: AuthSessionController,
     private val store: SecurityStore,
+    val capturePreferences: ScreenCapturePreferences,
 ) : ViewModel() {
     var message by mutableStateOf("")
         private set
@@ -123,6 +124,11 @@ class SecurityViewModel @Inject constructor(
         }
     }
     fun dismissRecovery() { recoveryCode = null; message = "Recovery code saved." }
+    fun setScreenCapture(allowed: Boolean) {
+        // Settings cannot weaken even presentation privacy from behind the lock screen.
+        if (session.locked.value != false) return
+        capturePreferences.setAllowed(allowed)
+    }
     override fun onCleared() {
         promptGeneration?.let { session.finishAuthentication(it, false) }
         super.onCleared()

@@ -3,6 +3,12 @@ package com.ivy.main
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
@@ -60,9 +66,20 @@ private fun BoxWithConstraintsScope.UI(
     selectTab: (MainTab) -> Unit,
     onCreateAccount: (CreateAccountData) -> Unit,
 ) {
-    when (tab) {
-        MainTab.HOME -> HomeTab()
-        MainTab.ACCOUNTS -> AccountsTab()
+    val savedTabs = rememberSaveableStateHolder()
+    val rail = mainNavigationRailWidth(maxWidth)
+    // Reserve real space for the rail. The previous overlaid rail obscured content
+    // on folding/desktop windows rather than participating in layout.
+    BoxWithConstraints(Modifier.fillMaxSize().padding(start = rail)) {
+        savedTabs.SaveableStateProvider(tab.name) {
+            when (tab) {
+                MainTab.HOME -> HomeTab()
+                MainTab.ACCOUNTS -> AccountsTab()
+                MainTab.PLAN -> MainToolsHub(planning = true)
+                MainTab.NET_WORTH -> com.ivy.networth.NetWorthTab()
+                MainTab.MORE -> MainToolsHub(planning = false)
+            }
+        }
     }
 
     var accountModalData: AccountModalData? by remember { mutableStateOf(null) }

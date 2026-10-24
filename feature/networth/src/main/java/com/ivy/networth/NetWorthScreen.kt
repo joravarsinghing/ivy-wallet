@@ -33,6 +33,12 @@ import java.math.RoundingMode
 import java.text.DecimalFormat
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import androidx.compose.ui.platform.LocalDensity
+import com.ivy.design.system.JvyFinanceColors
+import com.ivy.design.system.JvyTypography
+import com.ivy.design.system.JvyButton as Button
+import com.ivy.design.system.JvyOutlinedButton as OutlinedButton
+import com.ivy.design.system.JvyTextButton as TextButton
 
 internal fun money(value: BigDecimal?, currency: String, hidden: Boolean): String = when {
     hidden -> "••••"
@@ -47,31 +53,32 @@ internal fun WealthKind.title() = when (this) {
     WealthKind.OTHER_DEBT -> "Another debt"
     else -> name.lowercase().split('_').joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
 }
-internal val WealthKind.isDebt get() = this in setOf(WealthKind.CREDIT_CARD, WealthKind.MORTGAGE, WealthKind.PERSONAL_LOAN, WealthKind.VEHICLE_LOAN, WealthKind.STUDENT_LOAN, WealthKind.BORROWED, WealthKind.OTHER_DEBT)
 
-/** The legacy mint container uses white text; use the higher-contrast brand pair. */
+/** Semantic mint selection with a readable light/dark foreground. */
 @Composable
 internal fun wealthChipColors() = FilterChipDefaults.filterChipColors(
-    selectedContainerColor = MaterialTheme.colorScheme.primary,
-    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+    selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+    selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
 )
 
 @Composable
 fun NetWorthScreen() {
     val vm: NetWorthViewModel = com.ivy.navigation.screenScopedViewModel()
     val nav = navigation()
-    Surface(Modifier.fillMaxSize()) { NetWorthScreenContent(vm, { nav.back() }) }
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { NetWorthScreenContent(vm, { nav.back() }) }
 }
 
 /** The main-shell tab reuses this feature rather than creating a second calculator. */
 @Composable
 fun NetWorthTab() {
     val vm: NetWorthViewModel = viewModel(key = "main-net-worth")
-    Surface(Modifier.fillMaxSize()) { NetWorthScreenContent(vm, {}, embedded = true) }
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { NetWorthScreenContent(vm, {}, embedded = true) }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun NetWorthScreenContent(vm: NetWorthViewModel, onBack: () -> Unit, initialTab: Int = 0, embedded: Boolean = false) {
+@androidx.annotation.VisibleForTesting(otherwise = androidx.annotation.VisibleForTesting.PRIVATE)
+fun NetWorthScreenContent(vm: NetWorthViewModel, onBack: () -> Unit, initialTab: Int = 0, embedded: Boolean = false) {
     var tab by rememberSaveable { mutableIntStateOf(initialTab) }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     var editorId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -88,6 +95,7 @@ internal fun NetWorthScreenContent(vm: NetWorthViewModel, onBack: () -> Unit, in
     var exportError by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val largeText = LocalDensity.current.fontScale > 1.3f
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if (uri != null) scope.launch {
             try { withContext(Dispatchers.IO) { context.contentResolver.openOutputStream(uri)?.bufferedWriter(Charsets.UTF_8)?.use { it.write(vm.csv(exportHistory)) } ?: error("Cannot open file") } }
@@ -100,9 +108,10 @@ internal fun NetWorthScreenContent(vm: NetWorthViewModel, onBack: () -> Unit, in
     val candidate = workspace?.candidates?.firstOrNull { "${it.source}:${it.id}" == candidateKey }
     BoxWithConstraints(Modifier.fillMaxSize().systemBarsPadding().imePadding()) {
         val expanded = maxWidth >= 840.dp
-        Row(Modifier.fillMaxSize()) {
+        val wrapControls = largeText || maxWidth < 360.dp
+        Row(Modifier.widthIn(max = 1280.dp).fillMaxSize().align(Alignment.TopCenter)) {
             LazyColumn(Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 24.dp, bottom = if (embedded) 144.dp else 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                item {
+                item(key = "heading", contentType = "heading") {
                     if (!embedded) TextButton(onClick = onBack) { Text("Back") }
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
@@ -122,73 +131,75 @@ internal fun NetWorthScreenContent(vm: NetWorthViewModel, onBack: () -> Unit, in
                         }
                     }
                 }
-                item { Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("Overview", "What I own", "What I owe", "Progress").forEachIndexed { index, name -> FilterChip(selected = tab == index, onClick = { tab = index }, label = { Text(name) }, colors = wealthChipColors()) }
+                item(key = "tabs", contentType = "tabs") { FlowRow(Modifier.fillMaxWidth(), maxItemsInEachRow = if (wrapControls) 2 else 4, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("Overview", "I own", "I owe", "Progress").forEachIndexed { index, name -> FilterChip(selected = tab == index, onClick = { tab = index }, label = { Text(name) }, colors = wealthChipColors()) }
                 } }
-                if (tab == 0 && workspace != null) item { Summary(workspace.current, vm.hidden) }
-                if (tab == 0 && !vm.guideSeen) item {
+                if (tab == 0 && workspace != null) item(key = "summary", contentType = "summary") { Summary(workspace.current, vm.hidden) }
+                if (tab == 0 && !vm.guideSeen) item(key = "guide", contentType = "action") {
                     TextButton(onClick = { guide = true }, modifier = Modifier.fillMaxWidth()) { Text("New to net worth? Let me walk you through it") }
                 }
-                if (workspace?.candidates?.isNotEmpty() == true) item {
+                if (workspace?.candidates?.isNotEmpty() == true) item(key = "candidates", contentType = "review") {
                     OutlinedCard(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Start with accounts already in Jvy", style = MaterialTheme.typography.titleMedium)
                         Text("Use your existing balances instead of typing the same money or loan twice.")
                         Button(onClick = { review = true }, modifier = Modifier.fillMaxWidth()) { Text("Check my existing accounts & loans") }
                     } }
                 }
-                item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { adding = true; addDebt = false }, enabled = workspace != null && !vm.loading, modifier = Modifier.weight(1f)) { Text("Add what I own") }
-                    Button(onClick = { adding = true; addDebt = true }, enabled = workspace != null && !vm.loading, modifier = Modifier.weight(1f)) { Text("Add what I owe") }
+                item(key = "add", contentType = "actions") { FlowRow(Modifier.fillMaxWidth(), maxItemsInEachRow = if (wrapControls) 1 else 2, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { adding = true; addDebt = false }, enabled = workspace != null && !vm.loading, modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary, contentColor = MaterialTheme.colorScheme.onSecondary)) { Text("Add what I own") }
+                    OutlinedButton(onClick = { adding = true; addDebt = true }, enabled = workspace != null && !vm.loading, modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.tertiary)) { Text("Add what I owe") }
                 } }
-                item { OutlinedButton(onClick = { review = true }) { Text("Use accounts & loans I already track") } }
-                if (vm.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
-                (vm.error ?: exportError)?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error); TextButton(onClick = vm::load) { Text("Retry") } } }
-                if (workspace == null && !vm.loading) item { Text("Add what you own and what you owe, or link existing accounts and loans.") }
+                if (workspace?.candidates?.isEmpty() == true) item(key = "review-linked", contentType = "action") { TextButton(onClick = { review = true }) { Text("Review accounts & loans already linked") } }
+                if (vm.loading) item(key = "loading", contentType = "loading") { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+                (vm.error ?: exportError)?.let { message -> item(key = "error", contentType = "message") { Text(message, color = MaterialTheme.colorScheme.error); TextButton(onClick = vm::load) { Text("Retry") } } }
+                if (workspace == null && !vm.loading) item(key = "empty", contentType = "message") { Text("Add what you own and what you owe, or link existing accounts and loans.") }
                 if (workspace != null) {
-                    item { Text("Your picture on ${vm.date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))} · ${workspace.current.currency}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    item(key = "as-of", contentType = "caption") { Text("Your picture on ${vm.date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))} · ${workspace.current.currency}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     when (tab) {
                         0 -> {
-                            item { TextButton(onClick = { rates = true }) { Text("Currency and exchange rates · ${workspace.current.currency}") } }
-                            if (workspace.current.issues.isNotEmpty()) item {
+                            if (workspace.current.issues.isNotEmpty()) item(key = "issues", contentType = "message") {
                                 Text("Let's finish your picture", style = MaterialTheme.typography.titleMedium)
                                 Text("${workspace.current.issues.size} thing(s) still need a value, currency rate or review. Your total is only an estimate so far.")
                                 workspace.current.issues.take(5).forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
                             }
-                            item { HelpHeading("Where your value comes from", WealthHelp.ASSETS) }
+                            item(key = "allocation-heading", contentType = "help-heading") { HelpHeading("Where your value comes from", WealthHelp.ASSETS) }
                             val allocation = workspace.current.lines.filter { it.item.parentId == null && it.included && (it.reportingAmount?.signum() ?: -1) >= 0 }.groupBy { it.item.kind }
-                            items(allocation.entries.toList(), key = { it.key.name }) { entry ->
+                            items(allocation.entries.toList(), key = { "allocation-${it.key.name}" }, contentType = { "allocation" }) { entry ->
                                 val amount = entry.value.mapNotNull { it.reportingAmount }.fold(BigDecimal.ZERO, BigDecimal::add)
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(entry.key.title()); Text(money(amount, workspace.current.currency, vm.hidden)) }
+                                WealthAllocationRow(entry.key, amount, workspace.current.assets, workspace.current.currency, vm.hidden)
                             }
-                            item { HelpHeading("What changed since last month", WealthHelp.HISTORY) }
-                            if (workspace.changes.isEmpty()) item { Text("Keep your values up to date. Once we have a complete picture for this month and last month, you'll see what changed.", style = MaterialTheme.typography.bodySmall) }
-                            items(workspace.changes) { change ->
-                                Column { Text(change.label); Text(money(change.amount, workspace.current.currency, vm.hidden)) }
+                            item(key = "changes-heading", contentType = "help-heading") { HelpHeading("What changed since last month", WealthHelp.HISTORY) }
+                            if (workspace.changes.isEmpty()) item(key = "changes-empty", contentType = "message") { Text("Keep your values up to date. Once we have a complete picture for this month and last month, you'll see what changed.", style = MaterialTheme.typography.bodySmall) }
+                            items(workspace.changes, key = { "change-${it.label}" }, contentType = { "change" }) { change ->
+                                Column { Text(change.label); Text(money(change.amount, workspace.current.currency, vm.hidden), style = JvyTypography.AmountSmall) }
                             }
-                            item { Text("Cash used to repay principal reduces both cash and debt. These movements offset; only interest, fees or other changes reduce net worth.", style = MaterialTheme.typography.bodySmall) }
+                            item(key = "principal-explainer", contentType = "message") { Text("Cash used to repay principal reduces both cash and debt. These movements offset; only interest, fees or other changes reduce net worth.", style = MaterialTheme.typography.bodySmall) }
                         }
                         1, 2 -> {
                             val lines = workspace.current.lines.filter { it.item.parentId == null && (if (tab == 2) (it.reportingAmount?.signum() ?: if (it.item.kind.isDebt) -1 else 1) < 0 else (it.reportingAmount?.signum() ?: if (it.item.kind.isDebt) -1 else 1) >= 0) }
-                            item { HelpHeading(if (tab == 1) "Money and things you own" else "Debts still left to repay", if (tab == 1) WealthHelp.ASSETS else WealthHelp.DEBTS) }
-                            if (lines.isEmpty()) item { Text(if (tab == 1) "Start with cash or savings, then add investments, your home, a car or gold. Use an existing account instead of adding the same money twice." else "Add the amount left on credit cards, loans or a mortgage — not the monthly payment. No debts? Confirm that in your account review.") }
-                            items(lines, key = { it.item.id }) { line -> ItemRow(line, workspace.current.currency, vm.hidden) { selected = line.item.id } }
+                            item(key = "positions-heading-$tab", contentType = "help-heading") { HelpHeading(if (tab == 1) "Money and things you own" else "Debts still left to repay", if (tab == 1) WealthHelp.ASSETS else WealthHelp.DEBTS) }
+                            if (lines.isEmpty()) item(key = "positions-empty-$tab", contentType = "message") { Text(if (tab == 1) "Start with cash or savings, then add investments, your home, a car or gold. Use an existing account instead of adding the same money twice." else "Add the amount left on credit cards, loans or a mortgage — not the monthly payment. No debts? Confirm that in your account review.") }
+                            items(lines, key = { "position-${it.item.id}" }, contentType = { "position" }) { line -> ItemRow(line, workspace.current.currency, vm.hidden) { selected = line.item.id } }
                         }
                         3 -> {
-                            item { HelpHeading("Your progress over time", WealthHelp.HISTORY) }
-                            item { Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(3, 6, 12, 24, 0).forEach { m -> FilterChip(selected = vm.months == m, onClick = { vm.range(m) }, label = { Text(if (m == 0) "All" else "$m months") }, colors = wealthChipColors()) } } }
-                            item { WealthChart(workspace.history, workspace.current.currency, vm.hidden) }
-                            item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Date"); Text("Net worth") } }
-                            items(workspace.history, key = { it.date.toString() }) { point ->
-                                Column { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(point.date.toString()); Text(if (point.result.lines.isEmpty()) "No observations" else money(point.result.netWorth, point.result.currency, vm.hidden)) }
+                            item(key = "history-heading", contentType = "help-heading") { HelpHeading("Your progress over time", WealthHelp.HISTORY) }
+                            item(key = "history-range", contentType = "tabs") { Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(3, 6, 12, 24, 0).forEach { m -> FilterChip(selected = vm.months == m, onClick = { vm.range(m) }, label = { Text(if (m == 0) "All" else "$m months") }, colors = wealthChipColors()) } } }
+                            item(key = "history-chart", contentType = "chart") { WealthChart(workspace.history, workspace.current.currency, vm.hidden) }
+                            items(workspace.history, key = { "history-${it.date}" }, contentType = { "history" }) { point ->
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(point.date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(if (point.result.lines.isEmpty()) "No observations" else money(point.result.netWorth, point.result.currency, vm.hidden), style = JvyTypography.AmountSmall)
                                     if (!point.result.complete && point.result.lines.isNotEmpty()) Text("Known subtotal · incomplete", style = MaterialTheme.typography.bodySmall)
                                 }
                             }
-                            if (!workspace.legacyHistory.isNullOrBlank()) item { Text("Earlier account-only history is retained in your backup. Its original currency and valuation sources were not recorded, so it is not mixed into this chart.", style = MaterialTheme.typography.bodySmall) }
+                            if (!workspace.legacyHistory.isNullOrBlank()) item(key = "legacy-history", contentType = "message") { Text("Earlier account-only history is retained in your backup. Its original currency and valuation sources were not recorded, so it is not mixed into this chart.", style = MaterialTheme.typography.bodySmall) }
                             val revisions = workspace.data.snapshots.count { it.supersedesId != null }
-                            if (revisions > 0) item { Text("$revisions historical calculation revision(s) retained with their original inputs.") }
+                            if (revisions > 0) item(key = "revisions", contentType = "message") { Text("$revisions historical calculation revision(s) retained with their original inputs.") }
                         }
                     }
-                    item { Spacer(Modifier.height(32.dp)) }
+                    item(key = "footer", contentType = "spacer") { Spacer(Modifier.height(32.dp)) }
                 }
             }
             if (expanded) {
@@ -210,7 +221,7 @@ internal fun NetWorthScreenContent(vm: NetWorthViewModel, onBack: () -> Unit, in
         }
     }
     if (review && workspace != null) WealthDialog({ review = false }) {
-        val previous = workspace.data.reviews.filter { it.effectiveDate <= vm.date.toString() }.maxByOrNull { java.time.Instant.parse(it.recordedAt) }
+        val previous = workspace.data.reviews.reviewOn(vm.date.toString())
         var ownReviewed by rememberSaveable { mutableStateOf(previous?.assetsReviewed == true) }
         var oweReviewed by rememberSaveable { mutableStateOf(previous?.debtsReviewed == true) }
         Text("Start with what you already track", style = MaterialTheme.typography.titleLarge)
@@ -241,28 +252,12 @@ internal fun NetWorthScreenContent(vm: NetWorthViewModel, onBack: () -> Unit, in
 
 @Composable
 internal fun Summary(result: WealthResult, hidden: Boolean) {
-    ElevatedCard(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        HelpHeading(if (result.complete) "Your net worth" else "Your estimate so far", WealthHelp.NET_WORTH)
-        Text(if (result.lines.isEmpty()) "Let's find your starting point" else money(result.netWorth, result.currency, hidden), style = MaterialTheme.typography.headlineMedium)
-        if (result.lines.isNotEmpty()) {
-            Text("What you own  ${money(result.assets, result.currency, hidden)}")
-            Text("Minus what you owe  ${money(result.liabilities, result.currency, hidden)}")
-        } else Text("Start with an account, an estimate of something you own, or a debt. Nothing added yet does not mean you own nothing.")
-        Text(if (result.complete) "Your reviewed picture on ${result.asOf.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))}. This is not your available spending money." else "Not finished yet. Add missing items, check their values and review your accounts. Unknown amounts are not treated as zero.", style = MaterialTheme.typography.bodySmall)
-        val needsReview = result.lines.count { it.included && it.warning != null }
-        if (needsReview > 0) Text("$needsReview valuation(s) or rates need review", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-    } }
+    WealthSummary(result, hidden)
 }
 
 @Composable
 private fun ItemRow(line: WealthLine, currency: String, hidden: Boolean, click: () -> Unit) {
-    OutlinedCard(Modifier.fillMaxWidth().clickable(onClick = click)) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(line.item.name, style = MaterialTheme.typography.titleMedium)
-        val source = when (line.item.source) { WealthSource.ACCOUNT -> "Linked wallet balance"; WealthSource.LOAN -> "Linked loan"; WealthSource.MANUAL -> "Your estimate"; WealthSource.HOLDINGS -> "Investment group" }
-        Text("${line.item.kind.title()} · $source", style = MaterialTheme.typography.bodySmall)
-        Text(if (!line.included) "Excluded / archived" else money(line.reportingAmount?.abs(), currency, hidden))
-        (line.issue ?: line.warning)?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-    } }
+    WealthPositionRow(line, currency, hidden, click)
 }
 
 @Composable
@@ -272,14 +267,15 @@ private fun ItemDetail(line: WealthLine, workspace: WealthWorkspace, vm: NetWort
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(line.item.name, style = MaterialTheme.typography.titleLarge)
         Text(line.item.kind.title())
-        Text(money(line.reportingAmount, workspace.current.currency, vm.hidden), style = MaterialTheme.typography.headlineSmall)
+        Text(money(line.reportingAmount, workspace.current.currency, vm.hidden), style = JvyTypography.Amount)
         Text(if ((line.reportingAmount?.signum() ?: 0) < 0) "This debt is subtracted from your total." else "This is the amount counted in your total.")
         val policy = workspace.data.policies.filter { it.itemId == line.item.id && it.effectiveDate <= vm.date.toString() }
             .maxWithOrNull(compareBy<WealthPolicy> { it.effectiveDate }.thenBy { java.time.Instant.parse(it.recordedAt) }.thenBy { it.id })
         Text("Last value recorded: ${line.valuationDate ?: "Not entered yet"}")
         TextButton(onClick = { calculationDetails = !calculationDetails }) { Text(if (calculationDetails) "Hide calculation details" else "How was this amount worked out?") }
         if (calculationDetails) {
-        Text("Your share before currency conversion: ${money(line.nativeAmount?.abs(), line.item.currency, vm.hidden)}")
+        Text("Your share before currency conversion", style = MaterialTheme.typography.bodySmall)
+        Text(money(line.nativeAmount?.abs(), line.item.currency, vm.hidden), style = JvyTypography.AmountSmall)
         HelpHeading("Your share: ${if (vm.hidden) "••••" else policy?.ownership ?: "Not reviewed"}%", WealthHelp.OWNERSHIP)
         line.rateId?.let { id ->
             HelpHeading("Currency conversion used", WealthHelp.CURRENCY)
@@ -297,7 +293,10 @@ private fun ItemDetail(line: WealthLine, workspace: WealthWorkspace, vm: NetWort
             Text("Jvy uses the loan balance still left to repay. Interest you've paid is a cost, not money paid off the original loan balance.", style = MaterialTheme.typography.bodySmall)
             TextButton(onClick = { nav.navigateTo(com.ivy.navigation.LoanDetailsScreen(linkedId)) }) { Text("Open loan record") }
         }
-        line.item.minimumPayment?.let { Text("Minimum payment: ${money(it.toBigDecimal(), line.item.currency, vm.hidden)}") }
+        line.item.minimumPayment?.let {
+            Text("Minimum payment", style = MaterialTheme.typography.bodySmall)
+            Text(money(it.toBigDecimal(), line.item.currency, vm.hidden), style = JvyTypography.AmountSmall)
+        }
         line.item.apr?.let { Text("Yearly interest rate: ${if (vm.hidden) "••••" else it}% · future interest is not added to today's debt") }
         Button(onClick = onEdit) { Text("Update value or details") }
         OutlinedButton(onClick = { vm.policy(line.item, !line.included) }) { Text(if (line.included) "Exclude from net worth" else "Include in net worth") }
@@ -312,11 +311,15 @@ private fun ItemDetail(line: WealthLine, workspace: WealthWorkspace, vm: NetWort
         if (line.item.kind == WealthKind.PROPERTY) {
             val debts = workspace.current.lines.filter { it.item.securedById == line.item.id && it.included }.mapNotNull { it.reportingAmount }
             val propertyValue = line.reportingAmount
-            if (debts.isNotEmpty() && propertyValue != null) Text("Home value left after linked debts (equity): ${money(debts.fold(propertyValue, BigDecimal::add), workspace.current.currency, vm.hidden)}")
+            if (debts.isNotEmpty() && propertyValue != null) {
+                Text("Home value left after linked debts (equity)", style = MaterialTheme.typography.bodySmall)
+                Text(money(debts.fold(propertyValue, BigDecimal::add), workspace.current.currency, vm.hidden), style = JvyTypography.AmountSmall)
+            }
         }
         HelpHeading("Previous estimates · full value before your share", WealthHelp.VALUE)
         workspace.data.valuations.filter { it.itemId == line.item.id }.sortedByDescending { it.effectiveDate }.take(12).forEach {
-            Text("${it.effectiveDate} · ${money(it.amount.toBigDecimal(), line.item.currency, vm.hidden)}${if (it.supersedesId != null) " · revised" else ""}")
+            Text("${it.effectiveDate}${if (it.supersedesId != null) " · revised" else ""}", style = MaterialTheme.typography.bodySmall)
+            Text(money(it.amount.toBigDecimal(), line.item.currency, vm.hidden), style = JvyTypography.AmountSmall)
         }
         if (line.item.kind in listOf(WealthKind.INVESTMENT, WealthKind.RETIREMENT, WealthKind.CRYPTO, WealthKind.GOLD)) {
             val superseded = workspace.data.valuations.mapNotNull { it.supersedesId }.toSet()
@@ -325,7 +328,8 @@ private fun ItemDetail(line: WealthLine, workspace: WealthWorkspace, vm: NetWort
             val contribution = last?.contribution; val withdrawal = last?.withdrawal
             if (last != null && contribution != null && withdrawal != null && previous != null) {
                 val movement = last.amount.toBigDecimal() - previous.amount.toBigDecimal() - contribution.toBigDecimal() + withdrawal.toBigDecimal()
-                Text("Change in value, excluding money added or taken out: ${money(movement, line.item.currency, vm.hidden)}")
+                Text("Change in value, excluding money added or taken out", style = MaterialTheme.typography.bodySmall)
+                Text(money(movement, line.item.currency, vm.hidden), style = JvyTypography.AmountSmall)
                 Text("Before adjusting for your share or currency conversion. This is not a yearly investment return.", style = MaterialTheme.typography.bodySmall)
             } else Text("Adding or withdrawing money also changes an investment's total. Enter both in More options to separate them from changes in market value.", style = MaterialTheme.typography.bodySmall)
         }
@@ -342,8 +346,8 @@ private fun WealthChart(history: List<WealthHistoryPoint>, currency: String, hid
         val min = minOf(BigDecimal.ZERO, observed.minOf { it.result.netWorth })
         val max = maxOf(BigDecimal.ZERO, observed.maxOf { it.result.netWorth })
         val span = (max - min).takeUnless { it.signum() == 0 } ?: BigDecimal.ONE
-        Text(money(max, currency, false), style = MaterialTheme.typography.bodySmall)
-        val color = MaterialTheme.colorScheme.primary
+        Text(money(max, currency, false), style = JvyTypography.AmountSmall)
+        val color = JvyFinanceColors.asset()
         val axis = MaterialTheme.colorScheme.outline
         Canvas(Modifier.fillMaxWidth().height(160.dp)) {
             fun y(value: BigDecimal) = size.height - ((value - min).divide(span, 12, RoundingMode.HALF_UP).toFloat() * size.height)
@@ -355,7 +359,7 @@ private fun WealthChart(history: List<WealthHistoryPoint>, currency: String, hid
                 previous?.let { drawLine(color, it, p, 3.dp.toPx()) }; drawCircle(color, 4.dp.toPx(), p); previous = p
             }
         }
-        Text(money(min, currency, false), style = MaterialTheme.typography.bodySmall)
+        Text(money(min, currency, false), style = JvyTypography.AmountSmall)
         Text("${history.first().date} — ${history.last().date} · missing observations remain gaps", style = MaterialTheme.typography.bodySmall)
         Text("Manual valuations carry forward from their recorded dates. Review stale values before relying on a trend.", style = MaterialTheme.typography.bodySmall)
     }

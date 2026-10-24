@@ -1,15 +1,33 @@
 param(
-    [ValidateSet("demo", "debug", "release")]
+    [ValidateSet("demo", "release")]
     [string]$Variant = "demo",
 
     [ValidateSet("patch", "minor", "major")]
-    [string]$Bump = "patch"
+    [string]$Bump = "patch",
+
+    # Only for explicitly accepted, legacy-compatible local testing. Never a public release.
+    [switch]$AllowPublicTestKey
 )
 
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $repoRoot
+
+if ($Variant -eq "demo" -and -not $AllowPublicTestKey) {
+    throw "Demo APKs use a publicly available test signing key. For an explicitly accepted legacy test update, pass -AllowPublicTestKey. Public distribution requires -Variant release and your private keystore. No APK or version was generated."
+}
+if ($Variant -eq "release") {
+    foreach ($name in @("SIGNING_STORE_PASSWORD", "SIGNING_KEY_ALIAS", "SIGNING_KEY_PASSWORD")) {
+        if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+            throw "Private release signing requires $name. Configure it securely; do not paste passwords into chat. No APK or version was generated."
+        }
+    }
+    $privateStore = if ($env:SIGNING_STORE_FILE) { $env:SIGNING_STORE_FILE } else { Join-Path $repoRoot "sign.jks" }
+    if (-not (Test-Path -LiteralPath $privateStore -PathType Leaf)) {
+        throw "Private keystore not found. Set SIGNING_STORE_FILE. No APK or version was generated."
+    }
+}
 
 # Use the same authoritative workflow on Windows and cloud/Linux hosts.
 # A process-level file lock prevents two builds allocating the same version.
@@ -81,9 +99,8 @@ $gradleArguments = @(
     "--console=plain"
     "-Pkotlin.compiler.execution.strategy=in-process"
 )
-if ($Variant -eq "demo") {
-    $gradleArguments += @("-x", ":app:uploadCrashlyticsMappingFileDemo")
-}
+# A local numbered APK build must not publish mapping files to Firebase.
+$gradleArguments += @("-x", ":app:uploadCrashlyticsMappingFile$variantTitle")
 & $gradle @gradleArguments
 
 if ($LASTEXITCODE -ne 0) {
@@ -113,6 +130,7 @@ $manifest = [ordered]@{
     version = $nextVersion
     versionCode = $nextCode
     variant = $Variant
+    signingKeyType = $(if ($Variant -eq "demo") { "legacy-public-test-only" } else { "private-release" })
     artifact = $artifactName
     sha256 = $sha256
     builtAt = (Get-Date).ToUniversalTime().ToString("o")

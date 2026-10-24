@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="jvy_decimal_input_error">Use %1$s for decimals, with up to %2$d decimal places. Check any thousands separators.</string>
     <string name="accounts">Accounts</string>
     <string name="total">Total: %1$s %2$s</string>
     <string name="month_income">INCOME THIS MONTH</string>

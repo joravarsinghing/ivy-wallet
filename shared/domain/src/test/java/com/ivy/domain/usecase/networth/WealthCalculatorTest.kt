@@ -11,7 +11,8 @@ class WealthCalculatorTest {
     private val stamp = "2026-10-21T12:00:00Z"
     private fun item(id: String, currency: String = "AED", source: WealthSource = WealthSource.MANUAL,
         convention: BalanceConvention = BalanceConvention.ASSET, parent: String? = null) =
-        WealthItem(id, id, WealthKind.OTHER_ASSET, currency, source, if (source == WealthSource.ACCOUNT || source == WealthSource.LOAN) id else null, parent, convention, "2026-01-01")
+        WealthItem(id, id, if (source == WealthSource.MANUAL && convention == BalanceConvention.POSITIVE_OWED) WealthKind.OTHER_DEBT else WealthKind.OTHER_ASSET,
+            currency, source, if (source == WealthSource.ACCOUNT || source == WealthSource.LOAN) id else null, parent, convention, "2026-01-01")
     private fun policy(id: String, included: Boolean = true, ownership: String = "100", date: String = "2026-01-01") =
         WealthPolicy("p-$id-$date-$included", id, date, included, ownership, recordedAt = stamp)
     private fun value(id: String, amount: String, date: String = "2026-01-01", quantity: String? = null, price: String? = null) =

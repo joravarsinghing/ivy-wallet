@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -67,10 +69,10 @@ private fun BoxWithConstraintsScope.UI(
     onCreateAccount: (CreateAccountData) -> Unit,
 ) {
     val savedTabs = rememberSaveableStateHolder()
-    val rail = mainNavigationRailWidth(maxWidth)
+    val rail = mainNavigationRailWidth(maxWidth, LocalDensity.current.fontScale)
     // Reserve real space for the rail. The previous overlaid rail obscured content
     // on folding/desktop windows rather than participating in layout.
-    BoxWithConstraints(Modifier.fillMaxSize().padding(start = rail)) {
+    MainContentWindow(rail) {
         savedTabs.SaveableStateProvider(tab.name) {
             when (tab) {
                 MainTab.HOME -> HomeTab()
@@ -139,6 +141,12 @@ private fun BoxWithConstraintsScope.UI(
             accountModalData = null
         }
     )
+}
+
+/** One production content boundary, also exercised with real feature content in shell tests. */
+@Composable
+internal fun MainContentWindow(railWidth: Dp, content: @Composable BoxWithConstraintsScope.() -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxSize().padding(start = railWidth), content = content)
 }
 
 @ExperimentalAnimationApi

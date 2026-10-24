@@ -25,6 +25,23 @@ jobs:
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest
 
+      - name: Verify numbered build and signing refusal contracts (no Android APK build)
+        shell: pwsh
+        run: ./scripts/test-build-jvy-apk.ps1
+
+      - name: Reject the public test key for release signing (no APK build)
+        env:
+          SIGNING_STORE_FILE: ${{ github.workspace }}/debug.jks
+          SIGNING_STORE_PASSWORD: IVY7834!DEbug
+          SIGNING_KEY_PASSWORD: IVY7834!DEbug
+          SIGNING_KEY_ALIAS: debug
+        run: |
+          if ./gradlew :app:verifyJvyReleaseSigning > signing-refusal.log 2>&1; then
+            echo "Release signing unexpectedly accepted the public test key."
+            exit 1
+          fi
+          rg -q "Public distribution with the repository's test signing certificate is prohibited" signing-refusal.log
+
 #  code_coverage:
 #    needs: test
 #    runs-on: ubuntu-latest

@@ -34,7 +34,7 @@ import java.util.Locale
 
 @RunWith(TestParameterInjector::class)
 class NetWorthPaparazziTest(@TestParameter private val window: Window) {
-    enum class Window(val width: Int, val height: Int, val font: Float = 1f) { SmallPhone(320, 640), Phone(360, 800), Fold(720, 720), DeX(1280, 800), LargeText(360, 800, 2f) }
+    enum class Window(val width: Int, val height: Int, val font: Float = 1f) { SmallPhone(320, 640), Phone(360, 800), Fold(720, 720), DeX(1280, 800), LargeText(360, 800, 2f), FoldLargeText(720, 720, 2f), Landscape(640, 360) }
     @get:Rule val paparazzi = Paparazzi(deviceConfig = DeviceConfig.PIXEL_6_PRO.copy(screenWidth = window.width, screenHeight = window.height, density = Density.MEDIUM,
         orientation = if (window.width > window.height) ScreenOrientation.LANDSCAPE else ScreenOrientation.PORTRAIT), showSystemUi = false)
 
@@ -42,10 +42,11 @@ class NetWorthPaparazziTest(@TestParameter private val window: Window) {
         Locale.setDefault(Locale.US)
         val date = LocalDate.parse("2026-10-21")
         val now = "2026-10-21T12:00:00Z"
-        val item = WealthItem("home", "Family home · a longer property name", WealthKind.PROPERTY, "AED", createdDate = "2026-01-01")
-        val data = if (empty) WealthBackup() else WealthBackup(items = listOf(item),
-            policies = listOf(WealthPolicy("policy", item.id, "2026-01-01", recordedAt = now)),
-            valuations = listOf(WealthValuation("value", item.id, "2026-01-01", "1250000.50", recordedAt = now)))
+        val item = WealthItem("home", "Family home · a longer property name", WealthKind.PROPERTY, "AED", createdDate = "2026-01-01", reviewDays = 365)
+        val debt = WealthItem("mortgage", "Home loan still to repay", WealthKind.MORTGAGE, "AED", convention = BalanceConvention.POSITIVE_OWED, createdDate = "2026-01-01", securedById = item.id, reviewDays = 365)
+        val data = if (empty) WealthBackup() else WealthBackup(items = listOf(item, debt),
+            policies = listOf(WealthPolicy("policy", item.id, "2026-01-01", recordedAt = now), WealthPolicy("debt-policy", debt.id, "2026-01-01", recordedAt = now)),
+            valuations = listOf(WealthValuation("value", item.id, "2026-01-01", "1250000.50", recordedAt = now), WealthValuation("debt-value", debt.id, "2026-01-01", "450000.00", recordedAt = now)))
         val result = WealthCalculator.calculate(data, emptyList(), date, "AED")
         val history = (5 downTo 0).map { i -> val d = date.minusMonths(i.toLong()); WealthHistoryPoint(d, WealthCalculator.calculate(data, emptyList(), d, "AED")) }
         val workspace = WealthWorkspace(data, result, emptyList(), history, emptyList(), null)
@@ -63,7 +64,7 @@ class NetWorthPaparazziTest(@TestParameter private val window: Window) {
         }
         paparazzi.snapshot {
             CompositionLocalProvider(LocalActivityResultRegistryOwner provides registry, LocalDensity provides ComposeDensity(LocalDensity.current.density, window.font)) {
-                IvyMaterial3Theme(dark = window == Window.Fold, isTrueBlack = false) {
+                IvyMaterial3Theme(dark = window == Window.Fold || window == Window.FoldLargeText, isTrueBlack = false) {
                     Surface { NetWorthScreenContent(vm, {}, initialTab = tab) }
                 }
             }
@@ -73,13 +74,15 @@ class NetWorthPaparazziTest(@TestParameter private val window: Window) {
     @Test fun history() = snapshot(3)
     @Test fun hiddenBalances() = snapshot(0, hidden = true)
     @Test fun emptyAssets() = snapshot(1, empty = true)
+    @Test fun ownedItems() = snapshot(1)
+    @Test fun debts() = snapshot(2)
     @Test fun firstVisitOverview() = snapshot(0, empty = true)
     @Test fun guideStart() = guide(0)
     @Test fun guideFinish() = guide(3)
     private fun guide(step: Int) {
         paparazzi.snapshot {
             CompositionLocalProvider(LocalDensity provides ComposeDensity(LocalDensity.current.density, window.font)) {
-                IvyMaterial3Theme(dark = window == Window.Fold, isTrueBlack = false) {
+                IvyMaterial3Theme(dark = window == Window.Fold || window == Window.FoldLargeText, isTrueBlack = false) {
                     Surface(Modifier.fillMaxSize()) {
                         Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
                             Surface(Modifier.widthIn(max = 640.dp).fillMaxWidth(), shape = androidx.compose.material3.MaterialTheme.shapes.large) {

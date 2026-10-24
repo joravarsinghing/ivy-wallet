@@ -98,7 +98,7 @@ class WealthWorkspaceUseCase @Inject constructor(
         val undecided = candidates.filter { candidate -> data.items.none { it.source == candidate.source && it.sourceId == candidate.id } }
         fun result(day: LocalDate): WealthResult {
             val calculated = WealthCalculator.calculate(data, sourceValues(day), day, currency)
-            val review = data.reviews.filter { it.effectiveDate <= day.toString() }.maxByOrNull { Instant.parse(it.recordedAt) }
+            val review = data.reviews.reviewOn(day.toString())
             val coverage = if (review?.assetsReviewed == true && review.debtsReviewed) emptyList() else listOf("Confirm that assets and debts have been reviewed")
             return calculated.copy(issues = calculated.issues + undecided.map { "Review inclusion: ${it.name}" } + coverage)
         }

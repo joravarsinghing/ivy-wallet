@@ -15,10 +15,14 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.ivy.data.model.wealth.*
 import com.ivy.domain.usecase.networth.WealthCandidate
+import com.ivy.design.system.JvyTypography
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
+import com.ivy.design.system.JvyButton as Button
+import com.ivy.design.system.JvyOutlinedButton as OutlinedButton
+import com.ivy.design.system.JvyTextButton as TextButton
 
 @Composable
 internal fun WealthDialog(close: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
@@ -60,7 +64,7 @@ internal fun WealthItemEditor(vm: NetWorthViewModel, existing: WealthItem?, cand
     var advanced by rememberSaveable { mutableStateOf(false) }
     var categoryMenu by remember { mutableStateOf(false) }
     var useQuantity by rememberSaveable { mutableStateOf(last?.quantity != null) }
-    val isDebtEntry = existing?.kind?.isDebt ?: candidate?.kind?.isDebt ?: debt
+    val isDebtEntry = kind.isDebt
     WealthDialog(onClose) {
         Text(if (existing != null) "Update ${existing.name}" else if (isDebtEntry) "Add something I owe" else "Add something I own", style = MaterialTheme.typography.titleLarge)
         Text(if (candidate != null) "This stays linked to your wallet. Jvy uses the balance you already track — you won't enter the same money twice." else "This is a value for your bigger financial picture. It won't add income, spending or a transaction to your wallet.", style = MaterialTheme.typography.bodyMedium)
@@ -73,7 +77,10 @@ internal fun WealthItemEditor(vm: NetWorthViewModel, existing: WealthItem?, cand
                     DropdownMenuItem(text = { Text(choice.title()) }, onClick = {
                         kind = choice; categoryMenu = false
                         if (choice == WealthKind.GOLD && unit !in listOf("grams", "troy ounces")) unit = "grams"
-                        if (existing == null && candidate == null) convention = if (choice.isDebt) BalanceConvention.POSITIVE_OWED else BalanceConvention.ASSET
+                        if (source == WealthSource.MANUAL || source == WealthSource.HOLDINGS) {
+                            convention = if (choice.isDebt) BalanceConvention.POSITIVE_OWED else BalanceConvention.ASSET
+                            if (choice.isDebt && source == WealthSource.HOLDINGS) source = WealthSource.MANUAL
+                        }
                     })
                 }
             }
@@ -125,7 +132,7 @@ internal fun WealthItemEditor(vm: NetWorthViewModel, existing: WealthItem?, cand
         DecimalField("My ownership share % · usually 100", ownership, { ownership = it }, 4)
         if (candidate == null && (existing == null || existing.source in listOf(WealthSource.MANUAL, WealthSource.HOLDINGS))) {
             HelpHeading("Investment groups (optional)", WealthHelp.DUPLICATES)
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (!kind.isDebt && parentId == null) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = source == WealthSource.MANUAL, onClick = { source = WealthSource.MANUAL }, label = { Text("Use this item's value") }, colors = wealthChipColors())
                 FilterChip(selected = source == WealthSource.HOLDINGS, onClick = { source = WealthSource.HOLDINGS }, label = { Text("Add up items in a group") }, colors = wealthChipColors())
             }
@@ -166,6 +173,7 @@ internal fun WealthItemEditor(vm: NetWorthViewModel, existing: WealthItem?, cand
         }
         Row { Checkbox(included, { included = it }); Text("Count this in my net worth", Modifier.padding(top = 12.dp)) }
         (localError ?: vm.error)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        if (existing != null) Text("Changes to type or valuation method start on the chosen date. The earlier setup is kept in your history.", style = MaterialTheme.typography.bodySmall)
         Button(onClick = {
             try {
                 val day = LocalDate.parse(date)
@@ -219,9 +227,5 @@ internal fun FxEditor(vm: NetWorthViewModel, currentCurrency: String, close: () 
 
 @Composable
 private fun DecimalField(label: String, value: String, change: (String) -> Unit, precision: Int = 2) {
-    OutlinedTextField(value, { candidate ->
-        val raw = candidate.replace(",", "")
-        if (raw.matches(Regex("[0-9]{0,24}(\\.[0-9]{0,$precision})?"))) change(raw)
-    }, label = { Text(label) }, visualTransformation = com.ivy.ui.money.GroupedDecimalInput,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.fillMaxWidth())
+    com.ivy.ui.money.JvyDecimalField(label, value, change, precision = precision)
 }

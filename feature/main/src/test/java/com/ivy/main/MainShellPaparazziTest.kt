@@ -21,17 +21,17 @@ import org.junit.runner.RunWith
 
 @RunWith(TestParameterInjector::class)
 class MainShellPaparazziTest(@TestParameter private val window: Window) {
-    enum class Window(val width: Int, val height: Int, val font: Float = 1f) { SmallPhone(320, 640), Phone(360, 800), Fold(720, 720), DeX(1280, 800), LargeText(360, 800, 2f) }
+    enum class Window(val width: Int, val height: Int, val font: Float = 1f) { SmallPhone(320, 640), Phone(360, 800), Fold(720, 720), DeX(1280, 800), LargeText(360, 800, 2f), FoldLargeText(720, 720, 2f), Landscape(640, 360) }
     @get:Rule val paparazzi = Paparazzi(deviceConfig = DeviceConfig.PIXEL_6_PRO.copy(screenWidth = window.width, screenHeight = window.height,
         density = ScreenDensity.MEDIUM, orientation = if (window.width > window.height) ScreenOrientation.LANDSCAPE else ScreenOrientation.PORTRAIT), showSystemUi = false)
     private fun snapshot(planning: Boolean) {
         paparazzi.snapshot {
             CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, window.font)) {
-                IvyMaterial3Theme(dark = window == Window.Fold, isTrueBlack = false) {
+                IvyMaterial3Theme(dark = window == Window.Fold || window == Window.FoldLargeText, isTrueBlack = false) {
                     Surface(Modifier.fillMaxSize()) {
                         BoxWithConstraints(Modifier.fillMaxSize()) {
-                            val rail = mainNavigationRailWidth(maxWidth)
-                            Box(Modifier.fillMaxSize().padding(start = rail)) { MainToolsHubContent(planning, {}) }
+                            val rail = mainNavigationRailWidth(maxWidth, LocalDensity.current.fontScale)
+                            MainContentWindow(rail) { MainToolsHubContent(planning, {}) }
                             MainNavigation(if (planning) MainTab.PLAN else MainTab.MORE, {}, rail,
                                 Modifier.align(if (rail.value == 0f) Alignment.BottomCenter else Alignment.CenterStart))
                         }

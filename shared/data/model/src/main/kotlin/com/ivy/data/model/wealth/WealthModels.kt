@@ -9,6 +9,9 @@ enum class WealthSource { MANUAL, ACCOUNT, LOAN, HOLDINGS }
 @Serializable
 enum class BalanceConvention { ASSET, POSITIVE_OWED, NEGATIVE_OWED }
 
+val WealthKind.isDebt: Boolean get() = this in setOf(WealthKind.CREDIT_CARD, WealthKind.MORTGAGE,
+    WealthKind.PERSONAL_LOAN, WealthKind.VEHICLE_LOAN, WealthKind.STUDENT_LOAN, WealthKind.BORROWED, WealthKind.OTHER_DEBT)
+
 /** Exact amounts are serialized as decimal strings, never floating point. */
 @Serializable
 data class WealthItem(

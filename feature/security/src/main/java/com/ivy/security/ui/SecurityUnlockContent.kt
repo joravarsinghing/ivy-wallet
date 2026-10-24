@@ -18,6 +18,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ivy.security.SecuritySettings
 import com.ivy.security.UnlockMode
+import com.ivy.design.system.JvyLogo
+import com.ivy.design.system.JvyButton as Button
+import com.ivy.design.system.JvyOutlinedButton as OutlinedButton
+import com.ivy.design.system.JvyTextButton as TextButton
 
 /** Presentation only: the session controller remains the sole authority to unlock. */
 @Composable
@@ -36,7 +40,7 @@ internal fun SecurityUnlockContent(
         Box(Modifier.fillMaxSize().systemBarsPadding().imePadding(), contentAlignment = Alignment.Center) {
             Column(Modifier.widthIn(max = 440.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Image(painterResource(com.ivy.ui.R.drawable.jvy_wallet_logo), contentDescription = "Jvy Wallet logo", modifier = Modifier.size(88.dp))
+                JvyLogo(Modifier.size(88.dp))
                 Text("Jvy Wallet", style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Outlined.Lock, null, Modifier.size(18.dp))
@@ -74,7 +78,7 @@ internal fun SecurityUnlockContent(
         text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (settings.mode == UnlockMode.LEGACY_SYSTEM) Text("Tap Use fingerprint or phone PIN. In Android's prompt, choose your phone PIN, password or pattern if fingerprint recognition does not work.")
             if (settings.permitsPin) Text("Your Jvy PIN is the six-digit PIN you chose in Jvy, not necessarily your phone's PIN.")
-            Text(if (settings.hasRecovery) "Your saved recovery code lets you choose a new Jvy PIN without removing your data." else "This older unlock setup has no Jvy recovery code. After unlocking, open Security to add a Jvy PIN and save a recovery code.")
+            Text(if (settings.hasRecovery) "Your saved recovery code lets you choose a new Jvy PIN without removing your data." else "This unlock setup has no Jvy backup code yet. After unlocking, open Security, verify your current method and create a backup code. You can keep using fingerprint.")
             Text("There is no hidden bypass. Do not uninstall Jvy or clear its storage to troubleshoot: local entries could be lost. Try your enrolled method or saved recovery code first.")
         } }, confirmButton = { TextButton(onClick = { help = false }) { Text("Got it") } },
         dismissButton = if (settings.hasRecovery && !recoveryVerified) ({ TextButton(onClick = { help = false; onRecovery(true) }) { Text("Use recovery code") } }) else null)

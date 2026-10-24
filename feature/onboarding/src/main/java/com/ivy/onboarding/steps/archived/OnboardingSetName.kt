@@ -76,16 +76,13 @@ fun OnboardingSetName(
     ) {
         Spacer(Modifier.height(40.dp))
 
-        Image(
+        com.ivy.design.system.JvyLogo(
             modifier = Modifier
                 .padding(start = 32.dp)
                 .size(
                     width = 56.dp,
                     height = 48.dp
                 ),
-            painter = painterResource(id = R.drawable.jvy_wallet_logo),
-            contentScale = ContentScale.FillBounds,
-            contentDescription = "Jvy Wallet logo"
         )
 
         Spacer(Modifier.height(40.dp))

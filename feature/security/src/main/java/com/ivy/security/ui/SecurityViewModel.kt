@@ -124,6 +124,36 @@ class SecurityViewModel @Inject constructor(
         }
     }
     fun dismissRecovery() { recoveryCode = null; message = "Recovery code saved." }
+    fun generateRecoveryCode() {
+        if (busy || recoveryCode != null) return
+        if (!session.settings.value.enabled) {
+            message = "Enable an app lock before creating a backup code."
+            return
+        }
+        // Recovery proof is restricted to choosing a new PIN, never credential rotation.
+        if (session.locked.value != false || session.deviceLocked || recoveryVerified || !proofValid()) {
+            verifiedForSettings = false
+            message = "Verify your current unlock method above, then create a backup code."
+            return
+        }
+        busy = true
+        val authorizedGeneration = session.generation
+        viewModelScope.launch {
+            try {
+                // Do not lose the result to cancellation after the atomic credential write.
+                recoveryCode = withContext(NonCancellable) {
+                    try { store.generateRecoveryCode() }
+                    finally { session.refresh(authorizedGeneration = authorizedGeneration) }
+                }
+                message = "Save your new backup code. Your unlock method has not changed."
+            } catch (_: Exception) { message = "Could not create a backup code. Try again." }
+            finally {
+                verifiedForSettings = false
+                proofGeneration = null
+                busy = false
+            }
+        }
+    }
     fun setScreenCapture(allowed: Boolean) {
         // Settings cannot weaken even presentation privacy from behind the lock screen.
         if (session.locked.value != false) return

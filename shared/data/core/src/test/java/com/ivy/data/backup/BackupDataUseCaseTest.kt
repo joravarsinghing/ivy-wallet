@@ -226,6 +226,50 @@ class BackupDataUseCaseTest {
     }
 
     @Test
+    fun `restoring same name foreign account preserves both currencies and ledger references`() = runTest {
+        val usd = AccountEntity("Cash", "USD", 0)
+        val eur = AccountEntity("Cash", "EUR", 0)
+        val accounts = FakeAccountDao().also { it.save(usd) }
+        val oldTransaction = com.ivy.data.db.entity.TransactionEntity(usd.id, com.ivy.base.model.TransactionType.INCOME, 100.0)
+        val newTransaction = oldTransaction.copy(accountId = eur.id, amount = 20.0, id = java.util.UUID.randomUUID())
+        val transactions = FakeTransactionDao().also { it.save(oldTransaction) }
+        val useCase = newBackupDataUseCase(accountDao = accounts, transactionDao = transactions)
+        useCase.importJson(KotlinxSerializationModule.provideJson().encodeToString(IvyWalletCompleteData(accounts = listOf(eur), transactions = listOf(newTransaction))))
+        accounts.findAll().associate { it.id to it.currency } shouldBe mapOf(usd.id to "USD", eur.id to "EUR")
+        transactions.findAll().associate { it.id to it.accountId } shouldBe mapOf(oldTransaction.id to usd.id, newTransaction.id to eur.id)
+    }
+
+    @Test
+    fun `same account ID currency conflict is rejected before transaction writes`() = runTest {
+        val usd = AccountEntity("Cash", "USD", 0)
+        val accounts = FakeAccountDao().also { it.save(usd) }
+        val transactions = FakeTransactionDao()
+        val useCase = newBackupDataUseCase(accountDao = accounts, transactionDao = transactions)
+        val data = IvyWalletCompleteData(accounts = listOf(usd.copy(currency = "EUR")), transactions = listOf(
+            com.ivy.data.db.entity.TransactionEntity(usd.id, com.ivy.base.model.TransactionType.INCOME, 100.0)))
+        var rejected = false
+        try { useCase.importJson(KotlinxSerializationModule.provideJson().encodeToString(data)) }
+        catch (_: IllegalArgumentException) { rejected = true }
+        rejected shouldBe true
+        accounts.findAll().single().currency shouldBe "USD"
+        transactions.findAll().size shouldBe 0
+    }
+
+    @Test
+    fun `imported base currency cannot reinterpret existing implicit accounts`() = runTest {
+        val usd = AccountEntity("Cash", null, 0)
+        val eur = AccountEntity("Cash", null, 0)
+        val accounts = FakeAccountDao().also { it.save(usd) }
+        val settings = FakeSettingsDao().also { it.save(com.ivy.data.db.entity.SettingsEntity(com.ivy.base.legacy.Theme.LIGHT, "USD", 0.0, "")) }
+        val useCase = newBackupDataUseCase(accountDao = accounts, settingsDao = settings)
+        val data = IvyWalletCompleteData(accounts = listOf(eur), settings = listOf(
+            com.ivy.data.db.entity.SettingsEntity(com.ivy.base.legacy.Theme.LIGHT, "EUR", 0.0, "")))
+        useCase.importJson(KotlinxSerializationModule.provideJson().encodeToString(data))
+        accounts.findAll().associate { it.id to it.currency } shouldBe mapOf(usd.id to "USD", eur.id to "EUR")
+        settings.findFirst().currency shouldBe "EUR"
+    }
+
+    @Test
     fun `legacy backup without optional planning fields preserves existing planning data`() = runTest {
         val planning = PlanningStore()
         val goal = GoalEntity("Keep me", GoalKind.CUSTOM, 10.0, createdAt = fixtureTime)

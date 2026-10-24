@@ -325,10 +325,10 @@ Before changing imports, balances, money calculations, reservations or chart buc
 **Build a numbered release APK** (Windows, from the repo root)
 
 ```powershell
-.\scripts\build-jvy-apk.ps1
+.\scripts\build-jvy-apk.ps1 -Variant release
 ```
 
-This produces artifacts like `Jvy_wallet_v0.2.5.apk` in `artifacts/apk/`, records the Android `versionCode`, and writes a checksum manifest beside the APK. Don't distribute the raw Gradle output filename. Full rules: [APK generation standard](docs/standards/APK-GENERATION.md).
+With your private signing credentials configured, this produces artifacts like `Jvy_wallet_v0.2.5.apk` in `artifacts/apk/`, records the Android `versionCode`, and writes a checksum manifest beside the APK. Legacy-compatible test updates require explicit `-Variant demo -AllowPublicTestKey` acknowledgement and are not production releases. Don't distribute the raw Gradle output filename. Full rules and signing/migration constraints: [APK generation standard](docs/standards/APK-GENERATION.md).
 
 ---
 
@@ -337,7 +337,7 @@ This produces artifacts like `Jvy_wallet_v0.2.5.apk` in `artifacts/apk/`, record
 Contributions are welcome, from bug reports to pull requests.
 
 1. Read the [Contributing guide](CONTRIBUTING.md) and [Developer guidelines](docs/guidelines/README.md).
-2. Read the [Mobile UI standards](docs/guidelines/Mobile-UI-Standards.md) before touching any screen. They cover gutters, safe areas, density, money formatting, trend semantics, logo variants, reports and hidden balances.
+2. Read the [Jvy design language](docs/design/JVY-DESIGN-LANGUAGE.md) and [Mobile UI standards](docs/guidelines/Mobile-UI-Standards.md) before touching any screen. The shared Raleway/Open Sans typography, shapes, logo, navigation and responsive/accessibility rules are mandatory for every new or modified feature.
 3. Open an issue or draft PR early, and include reproducible steps and screenshots.
 
 > [!WARNING]
@@ -348,10 +348,12 @@ Contributions are welcome, from bug reports to pull requests.
 
 - [Roadmap status](ROADMAP_STATUS.md)
 - [Developer guidelines](docs/guidelines/README.md)
+- [Jvy design language — mandatory UI tokens and patterns](docs/design/JVY-DESIGN-LANGUAGE.md)
 - [Mobile UI standards](docs/guidelines/Mobile-UI-Standards.md)
 - [Goal and saving-pool plan](docs/plans/001-goals-and-saving-pools.md)
 - [Dashboard research notes](docs/recon/BUDGETBAKERS-UI-REFERENCE-AND-JVY-MASHUP.md)
 - [APK generation standard](docs/standards/APK-GENERATION.md)
+- [Audit hardening and remaining release checks](docs/standards/AUDIT-HARDENING.md)
 - [Agent instructions](AGENTS.md)
 - [Contributing guide](CONTRIBUTING.md)
 

@@ -100,6 +100,16 @@ class SecurityStore @Inject constructor(
         legacyPrefs.putBoolean(SharedPrefs.APP_LOCK_ENABLED, mode != UnlockMode.OFF)
         recovery
     } }
+    /** Rotate only the recovery credential. Never change the existing mode, PIN or throttle. */
+    suspend fun generateRecoveryCode(): String = withContext(Dispatchers.IO) { mutex.withLock {
+        val record = read()
+        require(UnlockMode.valueOf(record.getString("mode")) != UnlockMode.OFF) { "Enable an app lock first." }
+        val code = PinCrypto.recoveryCode()
+        val chars = PinCrypto.normalizeRecovery(code).toCharArray()
+        try { install(record, "recovery", chars) } finally { chars.fill('\u0000') }
+        write(record)
+        code
+    } }
     suspend fun verify(value: String, recovery: Boolean = false): CredentialResult = withContext(Dispatchers.IO) { mutex.withLock {
         val record = read()
         val now = SystemClock.elapsedRealtime()

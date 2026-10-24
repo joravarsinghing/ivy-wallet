@@ -25,10 +25,16 @@ function Assert-True([bool]$condition, [string]$description) {
     if (-not $condition) { throw "FAILED: $description. Fixture: $fixtureRoot" }
     Write-Host "PASS: $description"
 }
-function Invoke-Fixture([string]$bump = "patch") {
+function Invoke-Fixture([string]$bump = "patch", [bool]$acknowledgeTestKey = $true, [string]$variant = "demo") {
     $process = [System.Diagnostics.ProcessStartInfo]::new($pwsh)
-    foreach ($argument in @("-NoProfile", "-File", $fixtureScript, "-Bump", $bump)) {
+    foreach ($argument in @("-NoProfile", "-File", $fixtureScript, "-Bump", $bump, "-Variant", $variant)) {
         $process.ArgumentList.Add($argument)
+    }
+    if ($acknowledgeTestKey) { $process.ArgumentList.Add("-AllowPublicTestKey") }
+    if ($variant -eq "release") {
+        foreach ($name in @("SIGNING_STORE_FILE", "SIGNING_STORE_PASSWORD", "SIGNING_KEY_ALIAS", "SIGNING_KEY_PASSWORD")) {
+            $process.Environment.Remove($name) | Out-Null
+        }
     }
     $process.UseShellExecute = $false
     $process.RedirectStandardOutput = $true
@@ -38,7 +44,7 @@ function Invoke-Fixture([string]$bump = "patch") {
     $errorTask = $child.StandardError.ReadToEndAsync()
     $child.WaitForExit()
     $null = $outputTask.GetAwaiter().GetResult()
-    $null = $errorTask.GetAwaiter().GetResult()
+    $script:lastFixtureError = $errorTask.GetAwaiter().GetResult()
     return $child.ExitCode
 }
 
@@ -46,6 +52,12 @@ $previousExit = $env:JVY_CONTRACT_EXIT
 try {
     Reset-Version
     $baseline = Get-Content -LiteralPath $versionFile -Raw
+    Assert-True ((Invoke-Fixture "patch" $false) -ne 0) "Demo signing requires explicit public test-key acknowledgement"
+    Assert-True ($script:lastFixtureError -match "publicly available test signing key") "The public-key blocker explains its risk"
+    Assert-True ((Get-Content -LiteralPath $versionFile -Raw) -eq $baseline) "Signing refusal does not allocate a version"
+    Assert-True ((Invoke-Fixture "patch" $false "release") -ne 0) "Private release requires signing credentials"
+    Assert-True ($script:lastFixtureError -match "SIGNING_STORE_PASSWORD") "Missing release credentials fail before Gradle"
+    Assert-True ((Invoke-Fixture "patch" $false "debug") -ne 0) "Numbered workflow rejects debug APK variants"
     $env:JVY_CONTRACT_EXIT = "1"
     Assert-True ((Invoke-Fixture) -ne 0) "Gradle failure is reported"
     Assert-True ((Get-Content -LiteralPath $versionFile -Raw) -eq $baseline) "Failed build does not allocate a version"
@@ -60,6 +72,7 @@ try {
     Assert-True ((Invoke-Fixture "minor") -eq 0) "Minor build completes with native launcher"
     $manifest = Get-Content -LiteralPath (Join-Path $artifactDirectory "Jvy_wallet_v1.3.0.json") -Raw | ConvertFrom-Json
     Assert-True ($manifest.version -eq "1.3.0" -and $manifest.versionCode -eq 11) "Feature version and code increase exactly once"
+    Assert-True ($manifest.signingKeyType -eq "legacy-public-test-only") "Manifest labels public test-key artifacts explicitly"
     $hash = (Get-FileHash -LiteralPath (Join-Path $artifactDirectory "Jvy_wallet_v1.3.0.apk") -Algorithm SHA256).Hash
     Assert-True ($hash -eq $manifest.sha256) "Numbered artifact checksum matches manifest"
     Reset-Version

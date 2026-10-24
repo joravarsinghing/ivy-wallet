@@ -51,17 +51,15 @@ class WealthRepository @Inject constructor(private val db: IvyRoomDatabase) {
             val oldRecords = records(existing).associateBy { it.id }
             records(data).forEach { row ->
                 val old = oldRecords[row.id]
-                require(old == null || old.kind == "item" && row.kind == "item" || old == row) { "Historical records cannot be overwritten. Add a correction instead." }
+                val sameItemDefinition = old?.kind == "item" && row.kind == "item" &&
+                    json.decodeFromString<WealthItem>(old.payload).hasSameFinancialDefinition(json.decodeFromString(row.payload))
+                require(old == null || sameItemDefinition || old == row) { "Historical setup cannot be overwritten. Save a dated replacement or a valuation correction instead." }
             }
             db.wealthDao.save(records(data))
         }
     }
-    suspend fun save(item: WealthItem, policy: WealthPolicy, valuation: WealthValuation? = null) {
-        merge(WealthBackup(items = listOf(item), policies = listOf(policy), valuations = listOfNotNull(valuation)))
-    }
-    private fun validateSources(items: List<WealthItem>) {
-        val links = items.filter { it.source == WealthSource.ACCOUNT || it.source == WealthSource.LOAN }
-        require(links.map { it.source.name + ":" + it.sourceId }.distinct().size == links.size) { "This account or loan is already linked." }
+    suspend fun save(item: WealthItem, policy: WealthPolicy, valuation: WealthValuation? = null) = withContext(Dispatchers.IO) {
+        db.withTransaction { merge(planWealthSave(read(), item, policy, valuation)) }
     }
     fun validateReferences(data: WealthBackup) {
         val items = data.items.associateBy { it.id }
@@ -115,6 +113,6 @@ class WealthRepository @Inject constructor(private val db: IvyRoomDatabase) {
             require(hash.equals(it.inputFingerprint, ignoreCase = true)) { "Historical snapshot checksum is invalid." }
         }
         data.reviews.forEach { LocalDate.parse(it.effectiveDate); Instant.parse(it.recordedAt) }
-        validateSources(data.items)
+        validateWealthSourceLinks(data)
     }
 }

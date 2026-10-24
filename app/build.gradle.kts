@@ -1,4 +1,6 @@
 import java.util.Properties
+import java.security.KeyStore
+import java.security.MessageDigest
 
 plugins {
     id("com.android.application")
@@ -28,6 +30,49 @@ val appVersionCode = providers.gradleProperty("jvyVersionCode")
     .get()
     .toInt()
 
+val jvyReleaseStoreFile = rootProject.file(providers.environmentVariable("SIGNING_STORE_FILE").orElse("sign.jks").get())
+val jvyPublicTestStoreFile = rootProject.file("debug.jks")
+abstract class VerifyJvyReleaseSigningTask : DefaultTask() {
+    @get:Internal abstract val privateStore: RegularFileProperty
+    @get:Internal abstract val publicTestStore: RegularFileProperty
+    @TaskAction fun verify() {
+        fun credential(name: String) = System.getenv(name)?.takeIf { it.isNotBlank() }
+            ?: throw GradleException("Private release signing requires $name. Do not use the repository test key for public distribution.")
+        val password = credential("SIGNING_STORE_PASSWORD").toCharArray()
+        try {
+            val keyPassword = credential("SIGNING_KEY_PASSWORD").toCharArray()
+            try {
+                val alias = credential("SIGNING_KEY_ALIAS")
+                val store = privateStore.get().asFile
+                require(store.isFile) { "Private release keystore not found. Set SIGNING_STORE_FILE to your own keystore path." }
+                val release = KeyStore.getInstance(store, password)
+                require(release.isKeyEntry(alias) && release.getKey(alias, keyPassword) is java.security.PrivateKey) { "The release alias must contain a private signing key." }
+                val certificate = requireNotNull(release.getCertificate(alias)) { "Release signing certificate is missing." }
+                val publicStore = KeyStore.getInstance(publicTestStore.get().asFile, "IVY7834!DEbug".toCharArray())
+                val testCertificate = requireNotNull(publicStore.getCertificate("debug"))
+                // Compare keys, not only certificates: reissuing a certificate must not
+                // make the publicly known private key acceptable for release signing.
+                require(!MessageDigest.isEqual(certificate.publicKey.encoded, testCertificate.publicKey.encoded)) {
+                    "Public distribution with the repository's test signing certificate is prohibited. Supply your own private release key."
+                }
+            } finally { keyPassword.fill('\u0000') }
+        } finally {
+            password.fill('\u0000')
+        }
+    }
+}
+val verifyJvyReleaseSigning = tasks.register<VerifyJvyReleaseSigningTask>("verifyJvyReleaseSigning") {
+    group = "verification"
+    description = "Reject missing private signing credentials and the repository's public test key."
+    privateStore.set(jvyReleaseStoreFile)
+    publicTestStore.set(jvyPublicTestStoreFile)
+}
+
+// Guard raw Gradle builds too, not just the numbered PowerShell workflow.
+tasks.configureEach {
+    if (name == "validateSigningRelease") dependsOn(verifyJvyReleaseSigning)
+}
+
 android {
     namespace = "com.ivy.wallet"
     compileSdk = libs.versions.compile.sdk.get().toInt()
@@ -53,7 +98,7 @@ android {
         }
 
         create("release") {
-            storeFile = file("../sign.jks")
+            storeFile = jvyReleaseStoreFile
             storePassword = System.getenv("SIGNING_STORE_PASSWORD")
             keyAlias = System.getenv("SIGNING_KEY_ALIAS")
             keyPassword = System.getenv("SIGNING_KEY_PASSWORD")

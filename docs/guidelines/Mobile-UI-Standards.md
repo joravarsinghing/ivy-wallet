@@ -2,10 +2,12 @@
 
 These standards apply to new and modified Android screens, sheets, dialogs, and reusable UI components. They are based on screenshot review of the Samsung Galaxy S22 Ultra test device running Android 16 / One UI 8.
 
+Read the mandatory [Jvy design language](../design/JVY-DESIGN-LANGUAGE.md) first. It owns the shared typography, shapes, semantic colors, brand and navigation rules, and extends verification to narrow phones, square folds, DeX and 200% text. Existing device observations here remain useful, but are not evidence that a newly changed screen has been tested on hardware.
+
 ## Layout rhythm and gutters
 
 - Use one clear horizontal gutter per surface. Do not combine a parent gutter with a component's hidden internal gutter.
-- More-menu cards must share the same outer alignment. Search, reservation summaries, and open-source cards use the same page gutter.
+- More-hub cards must share the same outer alignment. Search, reservation summaries, and open-source cards use the same page gutter. There is no second global Home dropdown; the bottom bar/rail and More hub own navigation.
 - Goal and transaction sheets use a 24dp content gutter. Titles, section labels, fields, buttons, and horizontally scrolling selectors must align to that same gutter.
 - Shared components that already add padding, such as legacy modal titles, must not be nested inside another padded title treatment. Prefer a local title style with no hidden inset when a sheet owns its layout.
 - Keep 8dp for closely related elements, 16dp for neighboring groups, 24dp for major sections, and 32dp only for a deliberate screen-level transition.
@@ -24,7 +26,7 @@ These standards apply to new and modified Android screens, sheets, dialogs, and 
 - All user-facing money values use grouped digits: `7,000.00 AED`, never `7000.00 AED`.
 - Display values use a consistent two-decimal money format unless the product explicitly chooses a currency-specific precision.
 - Amount and currency must remain visually grouped and should not wrap independently on normal phone widths.
-- Numeric inputs accept an unformatted canonical value but display grouping while the user types. Commas are presentation; they must be removed before parsing or persistence.
+- Numeric inputs persist a canonical decimal using `.` but display and accept the app locale's decimal/grouping separators. Use `JvyDecimalField` and `canonicalDecimalInput`; never remove all commas blindly. For example, German `1,50` is `1.50`, while malformed English `1,50` must be rejected rather than becoming `150`.
 - Limit money input to digits, one decimal separator, and the supported fractional precision. Preserve a trailing decimal while the user is editing.
 - Reuse the shared money formatter for cards, summaries, details, validation messages, and confirmation text. Do not introduce local `Double.toString()` display formatting.
 - Goal creation, goal editing, and account-reservation inputs must use the same grouped-number behavior and the same parsing rules.
@@ -42,6 +44,7 @@ These standards apply to new and modified Android screens, sheets, dialogs, and 
 - Use the black mark on white for documentation, print, and high-contrast light surfaces. Use the white mark on transparent or dark surfaces.
 - Do not use the inherited Ivy/V logo in new UI, launcher metadata, notifications, onboarding, or marketing assets. Legacy resource files may remain only when they are not active references.
 - Keep one canonical color master and derive variants from it so silhouette, cutout placement, and safe-area padding stay consistent across densities.
+- App UI uses the existing transparent mark through `JvyLogo` on plain white, not a baked-in squircle, tile, border or shadow. Preserve the aspect ratio and clear space.
 - Verify launcher foreground and monochrome assets on both circular and squircle masks. The mark must remain recognizable without relying on the white tile or a surrounding shadow.
 
 ## Home insight cards and trends
@@ -97,7 +100,7 @@ These standards apply to new and modified Android screens, sheets, dialogs, and 
 - The primary purple trend is `Balance`: the wallet balance at the end of each calendar period, calculated from the ledger through that period boundary.
 - `Income` and `Spent` remain flow metrics for the selected period. They explain why the balance moved; they are not balance values themselves.
 - Never label income minus spending as `Saved`, `Net worth`, or `Balance`. It is only a cash-flow surplus/deficit.
-- A true net-worth trend is a separate future capability that must combine historical asset balances and liabilities. Until that exists, show `Balance` and do not imply that it represents net worth.
+- True net-worth history lives in the Net worth feature and combines dated asset values and liabilities. Home's ledger trend still shows `Balance`; it must not be relabeled as net worth. Accounts must not duplicate the wealth summary/calculator.
 - Pre-activity periods remain blank. Periods after the first observed transaction can show a real zero-flow point and a carried balance.
 
 ## Screenshot review checklist

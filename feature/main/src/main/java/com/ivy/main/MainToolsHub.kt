@@ -22,7 +22,6 @@ internal val planningDestinations = listOf(
     ToolDestination("Loans & money owed", "Keep track of what you owe or have lent", Icons.Outlined.Handshake, LoansScreen),
 )
 internal val moreDestinations = listOf(
-    ToolDestination("Net worth", "Understand what you own minus what you owe", Icons.Outlined.AccountBalance, NetWorthScreen),
     ToolDestination("Reports & insights", "Explore your income and spending", Icons.Outlined.BarChart, ReportScreen),
     ToolDestination("Search transactions", "Find a payment by name, amount or category", Icons.Outlined.Search, SearchScreen),
     ToolDestination("Categories", "Organise the way you earn and spend", Icons.Outlined.Category, CategoriesScreen),
@@ -42,14 +41,14 @@ internal fun MainToolsHubContent(planning: Boolean, open: (Screen) -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize().systemBarsPadding()) {
         val wide = maxWidth >= 840.dp
         val entries = if (planning) planningDestinations else moreDestinations
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 128.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            item {
+        LazyColumn(Modifier.widthIn(max = 1200.dp).fillMaxSize().align(Alignment.TopCenter), contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 128.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            item(key = "heading", contentType = "heading") {
                 Text(if (planning) "Make a plan" else "Your money tools", style = MaterialTheme.typography.headlineMedium)
                 Spacer(Modifier.height(8.dp))
                 Text(if (planning) "One small step at a time. Choose where you'd like a little more control." else "Everything has a place. Find insights, organise your wallet, and choose your privacy settings.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            item { Text(if (planning) "LOOK AHEAD" else "EXPLORE & MANAGE", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            items(entries.chunked(if (wide) 2 else 1)) { row ->
+            item(key = "section", contentType = "section") { Text(if (planning) "LOOK AHEAD" else "EXPLORE & MANAGE", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            items(entries.chunked(if (wide) 2 else 1), key = { it.first().title }, contentType = { "tool-row" }) { row ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     row.forEach { item ->
                         OutlinedCard(onClick = { open(item.screen) }, modifier = Modifier.weight(1f)) {
@@ -66,11 +65,11 @@ internal fun MainToolsHubContent(planning: Boolean, open: (Screen) -> Unit) {
                     if (wide && row.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
-            if (planning) item {
+            if (planning) item(key = "outlook", contentType = "outlook") {
                 HorizontalDivider(); Spacer(Modifier.height(16.dp))
                 Text("Looking further ahead?", style = MaterialTheme.typography.titleMedium)
                 Text("Your net worth brings savings, investments, things you own and debts into one picture.")
-                TextButton(onClick = { open(NetWorthScreen) }) { Text("Understand my net worth") }
+                Text("Open the Net worth tab when you're ready to see your bigger financial picture.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

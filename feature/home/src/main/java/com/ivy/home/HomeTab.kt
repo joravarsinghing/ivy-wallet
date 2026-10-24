@@ -49,18 +49,13 @@ import com.ivy.legacy.data.model.TimePeriod
 import com.ivy.legacy.ivyWalletCtx
 import com.ivy.legacy.utils.horizontalSwipeListener
 import com.ivy.legacy.utils.rememberSwipeListenerState
-import com.ivy.legacy.utils.verticalSwipeListener
 import com.ivy.navigation.IvyPreview
 import com.ivy.navigation.screenScopedViewModel
 import com.ivy.ui.R
 import com.ivy.ui.rememberScrollPositionListState
-import com.ivy.wallet.domain.data.IvyCurrency
 import com.ivy.wallet.domain.pure.data.IncomeExpensePair
-import com.ivy.wallet.ui.theme.modal.BufferModal
-import com.ivy.wallet.ui.theme.modal.BufferModalData
 import com.ivy.wallet.ui.theme.modal.ChoosePeriodModal
 import com.ivy.wallet.ui.theme.modal.ChoosePeriodModalData
-import com.ivy.wallet.ui.theme.modal.CurrencyModal
 import com.ivy.wallet.ui.theme.modal.DeleteModal
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -87,17 +82,10 @@ fun BoxWithConstraintsScope.HomeUi(
 ) {
     val ivyContext = ivyWalletCtx()
 
-    var bufferModalData: BufferModalData? by remember { mutableStateOf(null) }
-    var currencyModalVisible by rememberSaveable { mutableStateOf(false) }
     var choosePeriodModal: ChoosePeriodModalData? by remember {
         mutableStateOf(null)
     }
-    var moreMenuExpanded by rememberSaveable { mutableStateOf(ivyContext.moreMenuExpanded) }
     var skipAllModalVisible by rememberSaveable { mutableStateOf(false) }
-    val setMoreMenuExpanded = { expanded: Boolean ->
-        moreMenuExpanded = expanded
-        ivyContext.setMoreMenuExpanded(expanded)
-    }
 
     val baseCurrency = uiState.baseData.baseCurrency
 
@@ -105,13 +93,6 @@ fun BoxWithConstraintsScope.HomeUi(
         modifier = modifier
             .fillMaxSize()
             .systemBarsPadding()
-            .verticalSwipeListener(
-                sensitivity = Constants.SWIPE_DOWN_THRESHOLD_OPEN_MORE_MENU,
-                state = rememberSwipeListenerState(),
-                onSwipeDown = {
-                    setMoreMenuExpanded(true)
-                }
-            )
             .horizontalSwipeListener(
                 sensitivity = SWIPE_HORIZONTAL_THRESHOLD,
                 state = rememberSwipeListenerState(),
@@ -177,9 +158,6 @@ fun BoxWithConstraintsScope.HomeUi(
             onCloseTrendEditor = { onEvent(HomeEvent.CloseTrendEditor) },
             onOpenDashboardEditor = { onEvent(HomeEvent.OpenDashboardEditor) },
             onOpenSavedReports = { onEvent(HomeEvent.OpenSavedReports) },
-            onOpenMoreMenu = {
-                setMoreMenuExpanded(true)
-            },
             onBalanceClick = {
                 onEvent(HomeEvent.BalanceClick)
             },
@@ -224,50 +202,6 @@ fun BoxWithConstraintsScope.HomeUi(
             }
         )
     }
-
-    MoreMenu(
-        expanded = moreMenuExpanded,
-        theme = uiState.theme,
-        balance = uiState.balance.toDouble(),
-        currency = baseCurrency,
-        buffer = uiState.buffer.amount.toDouble(),
-        onSwitchTheme = {
-            onEvent(HomeEvent.SwitchTheme)
-        },
-        setExpanded = setMoreMenuExpanded,
-        onBufferClick = {
-            bufferModalData = BufferModalData(
-                balance = uiState.balance.toDouble(),
-                currency = baseCurrency,
-                buffer = uiState.buffer.amount.toDouble()
-            )
-        },
-        onCurrencyClick = {
-            currencyModalVisible = true
-        }
-    )
-
-    BufferModal(
-        modal = bufferModalData,
-        dismiss = {
-            bufferModalData = null
-        },
-        onBufferChanged = forward<Double>() then2 {
-            HomeEvent.SetBuffer(it)
-        } then2 onEvent
-    )
-
-    CurrencyModal(
-        title = stringResource(R.string.set_currency),
-        initialCurrency = IvyCurrency.fromCode(baseCurrency),
-        visible = currencyModalVisible,
-        dismiss = {
-            currencyModalVisible = false
-        },
-        onSetCurrency = forward<String>() then2 {
-            HomeEvent.SetCurrency(it)
-        } then2 onEvent
-    )
 
     ChoosePeriodModal(
         modal = choosePeriodModal,
@@ -335,7 +269,6 @@ fun HomeLazyColumn(
     setUpcomingExpanded: (Boolean) -> Unit,
     setOverdueExpanded: (Boolean) -> Unit,
 
-    onOpenMoreMenu: () -> Unit,
     onBalanceClick: () -> Unit,
     onOpenDashboardEditor: () -> Unit,
     onOpenSavedReports: () -> Unit,
@@ -384,7 +317,6 @@ fun HomeLazyColumn(
                 monthlyIncome = stats.income.toDouble(),
                 monthlyExpenses = stats.expense.toDouble(),
 
-                onOpenMoreMenu = onOpenMoreMenu,
                 onBalanceClick = onBalanceClick,
                 onHiddenBalanceClick = onHiddenBalanceClick,
                 percentExpanded = 1f,

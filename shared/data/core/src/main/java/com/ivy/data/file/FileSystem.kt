@@ -3,6 +3,7 @@ package com.ivy.data.file
 import android.content.Context
 import android.net.Uri
 import arrow.core.Either
+import com.ivy.base.legacy.UnsafeArchiveException
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.BufferedReader
 import java.io.FileInputStream
@@ -70,11 +71,30 @@ class FileSystem @Inject constructor(
         return readBytes(uri).map { bytes -> decodeText(bytes) }
     }
 
-    private fun readBytes(uri: Uri): Either<Failure, ByteArray> {
+    /** Backups are untrusted input. Reject oversized JSON before allocating an unbounded byte array. */
+    fun readAutoBounded(uri: Uri, maxBytes: Long = 64L * 1024 * 1024): Either<Failure, String> =
+        readBytes(uri, maxBytes).map(::decodeText)
+
+    private fun readBytes(uri: Uri, maxBytes: Long? = null): Either<Failure, ByteArray> {
         return try {
             val contentResolver = appContext.contentResolver
             val bytes = contentResolver.openFileDescriptor(uri, "r")?.use { descriptor ->
-                FileInputStream(descriptor.fileDescriptor).use { input -> input.readBytes() }
+                FileInputStream(descriptor.fileDescriptor).use { input ->
+                    if (maxBytes == null) input.readBytes() else {
+                        require(maxBytes > 0)
+                        val output = java.io.ByteArrayOutputStream()
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        var total = 0L
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            total += count
+                            if (total > maxBytes) throw UnsafeArchiveException("The backup JSON exceeds the import size limit.")
+                            output.write(buffer, 0, count)
+                        }
+                        output.toByteArray()
+                    }
+                }
             } ?: throw FileNotFoundException("Could not open $uri")
             Either.Right(bytes)
         } catch (e: FileNotFoundException) {

@@ -152,7 +152,7 @@ fun BoxWithConstraintsScope.OnboardingSplashLogin(
     ) {
         Spacer(Modifier.height(spacerTop))
 
-        Image(
+        com.ivy.design.system.JvyLogo(
             modifier = Modifier
                 .size(
                     width = logoWidth,
@@ -174,9 +174,6 @@ fun BoxWithConstraintsScope.OnboardingSplashLogin(
                 .clickableNoIndication(rememberInteractionSource()) {
                     internalSwitch = !internalSwitch
                 },
-            painter = painterResource(id = R.drawable.jvy_wallet_logo),
-            contentScale = ContentScale.FillBounds,
-            contentDescription = "Jvy Wallet logo"
         )
 
         Spacer(Modifier.height(marginTextTop))

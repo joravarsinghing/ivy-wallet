@@ -14,7 +14,8 @@ class MainDestinationTest {
     }
     @Test fun `planning and more retain existing destinations`() {
         assertEquals(setOf(BudgetScreen, PlannedPaymentsScreen, GoalsScreen, LoansScreen), planningDestinations.map { it.screen }.toSet())
-        assertTrue(moreDestinations.any { it.screen == NetWorthScreen })
+        assertFalse(moreDestinations.any { it.screen == NetWorthScreen })
+        assertTrue(planningDestinations.map { it.screen }.intersect(moreDestinations.map { it.screen }.toSet()).isEmpty())
         assertTrue(moreDestinations.any { it.screen == SecurityScreen })
         assertTrue(moreDestinations.any { it.screen == ReportScreen })
         assertTrue(moreDestinations.any { it.screen == SettingsScreen })
@@ -27,6 +28,8 @@ class MainDestinationTest {
         assertEquals(96.dp, mainNavigationRailWidth(1099.dp))
         assertEquals(200.dp, mainNavigationRailWidth(1100.dp))
         assertEquals(200.dp, mainNavigationRailWidth(1280.dp))
+        assertEquals(200.dp, mainNavigationRailWidth(720.dp, 2f))
+        assertEquals(0.dp, mainNavigationRailWidth(360.dp, 2f))
     }
     @Test fun `larger text reserves more room for navigation labels`() {
         assertEquals(80.dp, mainBottomNavigationHeight(1f))

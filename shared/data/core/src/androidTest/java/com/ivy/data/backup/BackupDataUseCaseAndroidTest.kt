@@ -17,6 +17,7 @@ import com.ivy.data.repository.AccountRepository
 import com.ivy.data.repository.CurrencyRepository
 import com.ivy.data.repository.fake.fakeRepositoryMemoFactory
 import com.ivy.data.repository.mapper.AccountMapper
+import com.ivy.data.model.wealth.*
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.ints.shouldBeGreaterThan
 import kotlinx.coroutines.runBlocking
@@ -121,6 +122,68 @@ class BackupDataUseCaseAndroidTest {
         org.junit.Assert.assertEquals(listOf(goal), db.goalDao.findAll())
         org.junit.Assert.assertEquals(listOf(allocation), db.goalAllocationDao.findAll())
         org.junit.Assert.assertEquals(listOf(rule), db.categoryRuleDao.findAll())
+    }
+
+    @Test
+    fun unsafeArchiveDoesNotTouchLedgerOrSiblingFiles() = runBlocking {
+        val account = com.ivy.data.db.entity.AccountEntity("Savings", "USD", 0)
+        db.writeAccountDao.save(account)
+        val archive = tempAndroidFile("unsafe-backup", ".zip")
+        val sentinel = File.createTempFile("sentinel", ".txt",
+            InstrumentationRegistry.getInstrumentation().context.cacheDir).apply { writeText("unchanged") }
+        try {
+            java.util.zip.ZipOutputStream(archive.outputStream()).use { output ->
+                output.putNextEntry(java.util.zip.ZipEntry("../${sentinel.name}"))
+                output.write("overwritten".toByteArray())
+                output.closeEntry()
+            }
+            val result = useCase.importBackupFile(archive.toUri(), onProgress = {})
+            org.junit.Assert.assertNotNull(result.errorMessage)
+            org.junit.Assert.assertEquals(0, result.accountsImported)
+            org.junit.Assert.assertEquals(listOf(account), db.accountDao.findAll())
+            org.junit.Assert.assertEquals("unchanged", sentinel.readText())
+        } finally {
+            archive.delete()
+            sentinel.delete()
+        }
+    }
+
+    @Test
+    fun boundedFileReaderRejectsOversizedInputWithSafetyError() {
+        val input = tempAndroidFile("bounded-backup", ".json").apply { writeText("x".repeat(64)) }
+        try {
+            val context = InstrumentationRegistry.getInstrumentation().context
+            val failure = FileSystem(context).readAutoBounded(input.toUri(), maxBytes = 32)
+                .fold({ it.e }, { null })
+            org.junit.Assert.assertTrue(failure is com.ivy.base.legacy.UnsafeArchiveException)
+        } finally {
+            input.delete()
+        }
+    }
+
+    @Test
+    fun datedFinancialEditPersistsAndSurvivesFreshDatabaseRestore() = runBlocking {
+        val repository = com.ivy.data.repository.WealthRepository(db)
+        val item = WealthItem("item", "Estimate", WealthKind.OTHER_ASSET, "USD", createdDate = "2026-01-01")
+        val policy = WealthPolicy("p1", item.id, "2026-01-01", recordedAt = "2026-10-24T12:00:00Z")
+        val value = WealthValuation("v1", item.id, "2026-01-01", "500", recordedAt = policy.recordedAt)
+        repository.save(item, policy, value)
+        repository.save(item.copy(kind = WealthKind.OTHER_DEBT),
+            policy.copy(id = "p2", effectiveDate = "2026-10-01"),
+            value.copy(id = "v2", effectiveDate = "2026-10-01"))
+        val edited = repository.read()
+        org.junit.Assert.assertEquals(item, edited.items.single { it.id == item.id })
+        org.junit.Assert.assertFalse(edited.policyOn(item.id, "2026-01-31")!!.archived)
+        org.junit.Assert.assertTrue(edited.policyOn(item.id, "2026-10-24")!!.archived)
+        org.junit.Assert.assertEquals(BalanceConvention.POSITIVE_OWED, edited.items.single { it.id != item.id }.convention)
+        val exported = useCase.generateJsonBackup()
+        closeDb()
+        createDb()
+        useCase.importJson(exported)
+        val restored = com.ivy.data.repository.WealthRepository(db).read()
+        org.junit.Assert.assertEquals(edited.items.toSet(), restored.items.toSet())
+        org.junit.Assert.assertEquals(edited.policies.toSet(), restored.policies.toSet())
+        org.junit.Assert.assertEquals(edited.valuations.toSet(), restored.valuations.toSet())
     }
 
     private suspend fun backupTestCase(version: String) {

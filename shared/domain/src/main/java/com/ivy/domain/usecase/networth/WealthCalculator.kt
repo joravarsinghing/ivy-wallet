@@ -51,6 +51,11 @@ object WealthCalculator {
             if (!policy.included || policy.archived || item.source == WealthSource.ACCOUNT && item.sourceId in duplicateAccounts) {
                 return WealthLine(item, null, null, null, null, included = false).also { lines[item.id] = it }
             }
+            val manualConvention = if (item.kind.isDebt) BalanceConvention.POSITIVE_OWED else BalanceConvention.ASSET
+            if (item.source == WealthSource.MANUAL && item.convention != manualConvention) {
+                return WealthLine(item, null, null, null, null,
+                    "Review this item's type and value to confirm whether you own it or owe it.").also { lines[item.id] = it }
+            }
             if (!visiting.add(item.id)) return WealthLine(item, null, null, null, null, "Circular portfolio relationship")
             val superseded = data.valuations.filter { it.effectiveDate <= asOf }.mapNotNull { it.supersedesId }.toSet()
             val valuation = data.valuations.filter { it.itemId == item.id && it.effectiveDate <= asOf && it.id !in superseded }

@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -21,12 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.OffsetMapping
-import androidx.compose.ui.text.input.TransformedText
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
@@ -133,15 +127,7 @@ private fun AddGoalContent(onCreated: (Goal) -> Unit) {
             }
         }
         Spacer(Modifier.height(16.dp))
-        OutlinedTextField(
-            value = target,
-            onValueChange = { target = normalizeNumberInput(it) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            label = { Text("Target amount (AED)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            visualTransformation = GroupedNumberVisualTransformation
-        )
+        com.ivy.ui.money.JvyDecimalField("Target amount (AED)", target, { target = it })
         Spacer(Modifier.height(16.dp))
         OutlinedTextField(
             value = deadline,
@@ -325,16 +311,13 @@ private fun ReserveMoneyContent(
                             style = UI.typo.c.style(color = UI.colors.gray)
                         )
                     }
-                    OutlinedTextField(
+                    com.ivy.ui.money.JvyDecimalField(
                         value = current,
-                        onValueChange = { updated ->
-                            amounts = amounts + (account.id to normalizeNumberInput(updated))
+                        change = { updated ->
+                            amounts = amounts + (account.id to updated)
                         },
                         modifier = Modifier.width(132.dp),
-                        singleLine = true,
-                        label = { Text(account.currency) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        visualTransformation = GroupedNumberVisualTransformation
+                        label = account.currency,
                     )
                 }
             }
@@ -401,62 +384,6 @@ private fun GoalModalTitle(text: String) {
             fontWeight = FontWeight.ExtraBold
         )
     )
-}
-
-private fun normalizeNumberInput(value: String): String {
-    val cleaned = value.replace(",", "")
-    if (cleaned.isEmpty()) return ""
-
-    val hasDecimal = cleaned.contains('.')
-    val parts = cleaned.split('.', limit = 2)
-    val integer = parts[0].filter(Char::isDigit)
-    val fraction = parts.getOrNull(1).orEmpty().filter(Char::isDigit).take(2)
-
-    return buildString {
-        append(integer.ifEmpty { if (hasDecimal) "0" else "" })
-        if (hasDecimal) {
-            append('.')
-            append(fraction)
-        }
-    }
-}
-
-private object GroupedNumberVisualTransformation : VisualTransformation {
-    override fun filter(text: AnnotatedString): TransformedText {
-        val raw = text.text
-        if (raw.isEmpty()) return TransformedText(text, OffsetMapping.Identity)
-
-        val transformed = formatNumberInput(raw)
-        val mapping = object : OffsetMapping {
-            override fun originalToTransformed(offset: Int): Int {
-                return formatNumberInput(raw.take(offset.coerceIn(0, raw.length))).length
-            }
-
-            override fun transformedToOriginal(offset: Int): Int {
-                return (0..raw.length)
-                    .minWithOrNull(
-                        compareBy<Int> {
-                            kotlin.math.abs(
-                                formatNumberInput(raw.take(it)).length - offset
-                            )
-                        }.thenBy { it }
-                    ) ?: raw.length
-            }
-        }
-
-        return TransformedText(AnnotatedString(transformed), mapping)
-    }
-}
-
-private fun formatNumberInput(value: String): String {
-    val parts = value.split('.', limit = 2)
-    val grouped = parts[0]
-        .reversed()
-        .chunked(3)
-        .joinToString(",")
-        .reversed()
-
-    return if (parts.size == 1) grouped else "$grouped.${parts[1]}"
 }
 
 private fun money(amount: Double, currency: String): String {

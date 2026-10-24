@@ -189,6 +189,8 @@ class BackupDataUseCase @Inject constructor(
             importJson(jsonString, onProgress).also {
                 imported = it.errorMessage == null
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "Import error")
             ImportResult(
@@ -210,20 +212,23 @@ class BackupDataUseCase @Inject constructor(
         backupFileUri: Uri,
         onProgress: suspend (progressPercent: Double) -> Unit,
     ): String? {
-        val zipped = runCatching {
+        val zipped = try {
             extractAndReadBackupZip(backupFileUri, onProgress)
-        }.getOrNull()
+        } catch (error: com.ivy.base.legacy.UnsafeArchiveException) {
+            throw error // Never retry an unsafe archive as plain text.
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
+        } catch (_: Exception) { null }
         if (!zipped.isNullOrBlank()) return zipped
 
-        return fileSystem.readAuto(backupFileUri).getOrNull()?.takeIf { it.isNotBlank() }
+        return fileSystem.readAutoBounded(backupFileUri).fold({ throw it.e }, { it.takeIf(String::isNotBlank) })
     }
 
     private suspend fun extractAndReadBackupZip(
         backupFileUri: Uri,
         onProgress: suspend (progressPercent: Double) -> Unit
     ): String? {
-        val folderName = "backup" + System.currentTimeMillis()
-        val cacheFolderPath = File(context.cacheDir, folderName)
+        val cacheFolderPath = java.nio.file.Files.createTempDirectory(context.cacheDir.toPath(), "backup-").toFile()
 
         return try {
             unzip(context, backupFileUri, cacheFolderPath)
@@ -239,7 +244,7 @@ class BackupDataUseCase @Inject constructor(
             val jsonFile = filesList.singleOrNull()
                 ?: error("The backup archive must contain exactly one JSON data file.")
 
-            fileSystem.readAuto(jsonFile.toUri()).getOrNull()
+            fileSystem.readAutoBounded(jsonFile.toUri()).fold({ throw it.e }, { it })
         } finally {
             cacheFolderPath.deleteRecursively()
         }
@@ -273,6 +278,13 @@ class BackupDataUseCase @Inject constructor(
         onProgress(0.4)
         backupTransactionRunner.run {
             validatePlanningData(ivyWalletCompleteData)
+            // An imported base currency must not reinterpret old implicit-currency accounts.
+            val implicitAccounts = accountDao.findAll().filter { it.currency.isNullOrBlank() && !it.isDeleted }
+            accountRepository.saveMany(with(accountMapper) {
+                // Resolve through the same mapper as the ledger, including the locale fallback
+                // on old installations which have accounts but no saved settings row.
+                implicitAccounts.mapNotNull { it.toDomain().getOrNull() }
+            })
             insertDataToDb(completeData = ivyWalletCompleteData, onProgress = onProgress)
             ivyWalletCompleteData.wealth?.let { wealthRepository.merge(it) }
         }
@@ -316,12 +328,16 @@ class BackupDataUseCase @Inject constructor(
     private suspend fun accommodateExistingAccountsAndCategories(jsonString: String?): String? {
         if (jsonString == null) return null
 
-        val ivyWalletCompleteData = json.decodeFromString<IvyWalletCompleteData>(jsonString)
+        val decoded = json.decodeFromString<IvyWalletCompleteData>(jsonString)
+        val incomingBase = decoded.settings.firstOrNull()?.currency ?: settingsDao.findFirstOrNull()?.currency
+        val ivyWalletCompleteData = decoded.copy(accounts = decoded.accounts.map { account ->
+            account.copy(currency = restoreCurrency(account.currency, incomingBase))
+        })
         val replacementPairs = getReplacementPairs(ivyWalletCompleteData)
 
-        var modifiedString = jsonString
+        var modifiedString = json.encodeToString(ivyWalletCompleteData)
         replacementPairs.forEach {
-            modifiedString = modifiedString!!.replace(it.first.toString(), it.second.toString())
+            modifiedString = modifiedString.replace(it.first.toString(), it.second.toString())
         }
 
         return modifiedString
@@ -379,8 +395,10 @@ class BackupDataUseCase @Inject constructor(
             val plannedPayments =
                 async { plannedPaymentRuleWriter.saveMany(completeData.plannedPaymentRules) }
             val settings = async {
-                settingsWriter.deleteAll()
-                settingsWriter.saveMany(completeData.settings)
+                if (completeData.settings.isNotEmpty()) {
+                    settingsWriter.deleteAll()
+                    settingsWriter.saveMany(completeData.settings)
+                }
             }
 
             plannedPayments.await()
@@ -473,36 +491,18 @@ class BackupDataUseCase @Inject constructor(
                 return@withContext emptyList()
             }
 
-            val sumAccountList = existingAccountsList + backupAccountsList
-            val sumCategoriesList = existingCategoryList + backupCategoryList
-
-            val accountsReplace = async {
-                sumAccountList.groupBy { it.name }.filter { it.value.size == 2 }.map {
-                    val accountsZero = it.value[0]
-                    val accountsFirst = it.value[1]
-
-                    if (backupAccountsList.contains(accountsZero)) {
-                        Pair(accountsZero.id, accountsFirst.id)
-                    } else {
-                        Pair(accountsFirst.id, accountsZero.id)
-                    }
-                }
+            val accountsReplace = accountRestoreReplacements(existingAccountsList, backupAccountsList,
+                settingsDao.findFirstOrNull()?.currency, completeData.settings.firstOrNull()?.currency)
+            val existingCategories = existingCategoryList.groupBy { it.name }
+            val incomingCategories = backupCategoryList.groupBy { it.name }
+            val existingIds = existingCategoryList.map { it.id }.toSet()
+            val incomingIds = backupCategoryList.map { it.id }.toSet()
+            val categoriesReplace = backupCategoryList.filter { it.id !in existingIds }.mapNotNull { category ->
+                existingCategories[category.name]?.singleOrNull()?.takeIf {
+                    it.id !in incomingIds && incomingCategories[category.name]?.size == 1
+                }?.let { category.id to it.id }
             }
-
-            val categoriesReplace = async {
-                sumCategoriesList.groupBy { it.name }.filter { it.value.size == 2 }.map {
-                    val categoryZero = it.value[0]
-                    val categoryFirst = it.value[1]
-
-                    if (completeData.categories.contains(categoryZero)) {
-                        Pair(categoryZero.id, categoryFirst.id)
-                    } else {
-                        Pair(categoryFirst.id, categoryZero.id)
-                    }
-                }
-            }
-
-            accountsReplace.await() + categoriesReplace.await()
+            accountsReplace + categoriesReplace
         }
     }
 

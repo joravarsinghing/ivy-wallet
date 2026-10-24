@@ -19,6 +19,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
+import com.ivy.design.system.JvyShapes
+import com.ivy.design.system.JvyTypography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -204,24 +207,20 @@ private fun ReservedSummary(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(UI.colors.primary)
+            .clip(JvyShapes.Card)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(16.dp)
     ) {
         Text(
             text = "Reserved for goals",
-            style = UI.typo.b2.style(
-                color = UI.colors.pureInverse,
-                fontWeight = FontWeight.Bold
-            )
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(10.dp))
         Text(
             text = money(reservedAmount, currency),
-            style = UI.typo.h2.style(
-                color = UI.colors.pureInverse,
-                fontWeight = FontWeight.ExtraBold
-            )
+            style = JvyTypography.Amount,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(Modifier.height(4.dp))
         Text(
@@ -230,12 +229,14 @@ private fun ReservedSummary(
             } else {
                 "$goalsCount active ${if (goalsCount == 1) "goal" else "goals"}"
             },
-            style = UI.typo.c.style(color = UI.colors.pureInverse)
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(6.dp))
         Text(
             text = "Excluded from Safe to Spend while reserved.",
-            style = UI.typo.c.style(color = UI.colors.pureInverse.copy(alpha = 0.82f))
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

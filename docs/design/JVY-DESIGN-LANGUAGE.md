@@ -11,6 +11,7 @@ Reuse existing translated string resources when restyling an established label. 
 ## Source of truth
 
 - Shared tokens and components: [`JvyDesign.kt`](../../shared/ui/core/src/main/java/com/ivy/design/system/JvyDesign.kt).
+- Planning-page headers, primary actions and empty states: [`JvyPlanningComponents.kt`](../../shared/ui/core/src/main/java/com/ivy/design/system/JvyPlanningComponents.kt).
 - Theme and semantic colors: [`IvyMaterial3Theme.kt`](../../shared/ui/core/src/main/java/com/ivy/design/system/IvyMaterial3Theme.kt).
 - Legacy bridge: [`IvyWalletDesign.kt`](../../temp/old-design/src/main/java/com/ivy/design/api/systems/IvyWalletDesign.kt). It uses the same bundled families and size scale; it retains legacy baseline offsets and weights for compatibility.
 - Use `IvyMaterial3Theme`, `MaterialTheme.typography`, `JvyTypography`, `JvyShapes` and the `JvyButton` / `JvyOutlinedButton` / `JvyTextButton` components. Do not create a feature-specific font family or hard-code another palette.
@@ -63,6 +64,8 @@ Always pair a container with its matching `on…` role. Text contrast must be at
 - Page gutter: **24dp**. Standard card inset: **16dp**, or 20dp for a deliberate summary. Related elements: 4–8dp; grouped content: 12–16dp; security sections: 20dp; major transitions: 24–32dp. Avoid double padding.
 - Interactive targets are at least **48dp**. Use the shared button wrappers, Material IconButton, or another explicitly accessible target. Visual chips can be compact but must retain Material's minimum touch target.
 - Use one primary action in a decision group. Secondary actions are outlined or text. Allow height to grow with wrapped labels; never fix a text field or button to a height that clips scaled text.
+- Planning pages use `JvyScreenHeader` for a predictable top-left Back action, not a mixture of bottom Back text, circular close controls and floating add buttons. Populated pages use `JvyPrimaryAction` in the layout flow; empty pages show one contextual action through `JvyEmptyState`, not a duplicate footer action. Empty states use meaningful static vector icons, not symbols that resemble loading indicators.
+- Budgets and Goals use adaptive card grids at sufficient content width (360dp minimum column); large text stays single-column. Summary blocks span all columns. Loans retains its saved list position and places labeled Pending/Completed filters above the content; these filters wrap as complete chips rather than breaking words.
 - PIN values, backup codes and other credentials are memory-only state, never `rememberSaveable`, logs, analytics or screenshots. Saveable state is for nonsensitive navigation, selection and drafts only.
 
 ## Navigation: one owner per destination
@@ -84,6 +87,8 @@ Contextual tools menus (for example Net worth date, rates and CSV export) are al
 - Reuse the shared grouped-money formatter: `12,345.67 AED`. Keep canonical decimal inputs/parsing unchanged. Do not introduce `Double.toString()` as a display formatter.
 - Use `JvyDecimalField` for amount entry: localized separators on screen, canonical decimal strings in state/storage, strict grouping validation, and a visible error for ambiguous input. Never strip commas before determining their meaning.
 - Unknown is not zero. Empty, loading, error, incomplete and genuinely zero states are different. Charts retain missing observations as gaps; no invented history.
+- Balance trends default to a clean polyline with subtle balance-only shading (16% maximum opacity). Do not draw a marker on every observation, smooth through invented values, stack income/spending areas or connect across missing buckets. A truly isolated observation retains a small marker and an honest single-observation explanation. An unshaded-line candidate is available for visual comparison, not as a new persisted preference.
+- Chart axes show their currency once; large-text ticks must not clip. Distinct line patterns, visible series labels, exact summaries and an expandable value list complement color. Hidden-balance mode suppresses the plot, scale, detailed values and spending-percentage bars. Convert percentage values to fractions before drawing proportional bars.
 - Hidden balances redact **every** amount and any magnitude-revealing presentation, including allocation bars, summaries and currency equivalents. Do not reveal values through an extra card.
 - Reservations are metadata, not a transfer or transaction. Preserve existing balance/reserved/available calculations.
 - Security offers PIN, biometrics or either, while retaining legacy device authentication. Existing fingerprint users can verify their current method and create a backup/recovery code without changing it. There is **one active code**, not a batch of codes; replacement invalidates the old one. Show it once in a protected dialog and ask users to keep it outside Jvy.
@@ -107,6 +112,7 @@ Base decisions on the **current window**, not phone/tablet model or orientation 
 - Accounts uses one column, or two when its available content width is at least 840dp and text scale is at most 1.3. Content is centered/capped at 1200dp. Metrics stack at large text sizes.
 - Net worth uses a secondary detail pane at 840dp+, capped overall at 1280dp. Tabs and add actions wrap at narrow/large-text sizes. Security uses a centered scrollable column capped at 640dp.
 - Critical actions stay above system/navigation/keyboard occlusion or remain reachable by scrolling. Use vertical growth, not clipped labels. Support keyboard/focus and screen-reader semantics for controls.
+- Net-worth dialogs use the shared `WealthDialogFrame`: a bounded neutral surface with a persistent Close control, scrollable body and optional pinned action area. Account review pins Save, uses whole-card account targets and whole-row checkbox semantics, preserves review drafts while visiting an account editor, and returns to review after editing. Detailed repayment education is disclosed on demand rather than repeated as a long page paragraph.
 - Account press feedback uses a 0.985 scale over 160ms. Shared transition guidance is 240ms. Use Compose animation APIs so Android's disabled/reduced-duration setting applies. No infinite decorative loops, animated currency digits or data changes disguised as motion.
 - Read animation state in the graphics/draw phase when possible. Use stable primitive keys and content types for mixed lazy lists; keep financial work off the UI thread. Do not add speculative stability annotations or dependency upgrades for a visual effect.
 
@@ -129,3 +135,5 @@ Include empty, populated, long-name, large-number, hidden-balance and error/reco
 Run unit tests/render checks without building an APK unless requested. **Do not automatically record or replace screenshot goldens.** Provide fresh candidate previews for owner review, then promote references only after explicit approval. Keep financial and import/backup regression suites green. No UI redesign may silently change package identity, signing, version numbers or stored data formats.
 
 When adding or changing a token, update this document and its unit tests in the same change. A feature-specific exception needs a stated reason, accessibility checks and review; it is not a new default.
+
+See the [2026-10-25 screenshot-led consistency review](UI-REVIEW-2026-10-25.md) for the planning, chart and review-dialog rationale and verification record.

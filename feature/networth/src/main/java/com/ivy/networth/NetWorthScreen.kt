@@ -3,7 +3,6 @@ package com.ivy.networth
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -30,7 +29,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.math.BigDecimal
 import java.math.RoundingMode
-import java.text.DecimalFormat
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import androidx.compose.ui.platform.LocalDensity
@@ -86,6 +84,9 @@ fun NetWorthScreenContent(vm: NetWorthViewModel, onBack: () -> Unit, initialTab:
     var addDebt by rememberSaveable { mutableStateOf(false) }
     var candidateKey by rememberSaveable { mutableStateOf<String?>(null) }
     var review by rememberSaveable { mutableStateOf(false) }
+    var ownReviewDraft by rememberSaveable(vm.date.toString()) { mutableStateOf<Boolean?>(null) }
+    var oweReviewDraft by rememberSaveable(vm.date.toString()) { mutableStateOf<Boolean?>(null) }
+    var repaymentsHelp by rememberSaveable { mutableStateOf(false) }
     var rates by rememberSaveable { mutableStateOf(false) }
     var guide by rememberSaveable { mutableStateOf(false) }
     var tools by remember { mutableStateOf(false) }
@@ -151,7 +152,7 @@ fun NetWorthScreenContent(vm: NetWorthViewModel, onBack: () -> Unit, initialTab:
                     OutlinedButton(onClick = { adding = true; addDebt = true }, enabled = workspace != null && !vm.loading, modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.tertiary)) { Text("Add what I owe") }
                 } }
-                if (workspace?.candidates?.isEmpty() == true) item(key = "review-linked", contentType = "action") { TextButton(onClick = { review = true }) { Text("Review accounts & loans already linked") } }
+                if (workspace?.candidates?.isEmpty() == true && (tab != 0 || workspace.current.complete)) item(key = "review-linked", contentType = "action") { TextButton(onClick = { review = true }) { Text("Review accounts & loans already linked") } }
                 if (vm.loading) item(key = "loading", contentType = "loading") { LinearProgressIndicator(Modifier.fillMaxWidth()) }
                 (vm.error ?: exportError)?.let { message -> item(key = "error", contentType = "message") { Text(message, color = MaterialTheme.colorScheme.error); TextButton(onClick = vm::load) { Text("Retry") } } }
                 if (workspace == null && !vm.loading) item(key = "empty", contentType = "message") { Text("Add what you own and what you owe, or link existing accounts and loans.") }
@@ -160,22 +161,30 @@ fun NetWorthScreenContent(vm: NetWorthViewModel, onBack: () -> Unit, initialTab:
                     when (tab) {
                         0 -> {
                             if (workspace.current.issues.isNotEmpty()) item(key = "issues", contentType = "message") {
+                                OutlinedCard(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text("Let's finish your picture", style = MaterialTheme.typography.titleMedium)
-                                Text("${workspace.current.issues.size} thing(s) still need a value, currency rate or review. Your total is only an estimate so far.")
+                                Text(if (workspace.current.issues.size == 1) "Your picture needs one more check. This total only includes what's entered so far."
+                                    else "Your picture needs ${workspace.current.issues.size} more checks. This total only includes what's entered so far.", style = MaterialTheme.typography.bodySmall)
                                 workspace.current.issues.take(5).forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
+                                if (workspace.candidates.isEmpty()) TextButton(onClick = { review = true }) { Text("Confirm what I've reviewed") }
+                                } }
                             }
-                            item(key = "allocation-heading", contentType = "help-heading") { HelpHeading("Where your value comes from", WealthHelp.ASSETS) }
                             val allocation = workspace.current.lines.filter { it.item.parentId == null && it.included && (it.reportingAmount?.signum() ?: -1) >= 0 }.groupBy { it.item.kind }
-                            items(allocation.entries.toList(), key = { "allocation-${it.key.name}" }, contentType = { "allocation" }) { entry ->
+                            if (allocation.isNotEmpty()) item(key = "allocation", contentType = "allocation") {
+                                OutlinedCard(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                HelpHeading("Where your value comes from", WealthHelp.ASSETS)
+                                allocation.entries.forEach { entry ->
                                 val amount = entry.value.mapNotNull { it.reportingAmount }.fold(BigDecimal.ZERO, BigDecimal::add)
                                 WealthAllocationRow(entry.key, amount, workspace.current.assets, workspace.current.currency, vm.hidden)
+                                }
+                                } }
                             }
                             item(key = "changes-heading", contentType = "help-heading") { HelpHeading("What changed since last month", WealthHelp.HISTORY) }
                             if (workspace.changes.isEmpty()) item(key = "changes-empty", contentType = "message") { Text("Keep your values up to date. Once we have a complete picture for this month and last month, you'll see what changed.", style = MaterialTheme.typography.bodySmall) }
                             items(workspace.changes, key = { "change-${it.label}" }, contentType = { "change" }) { change ->
                                 Column { Text(change.label); Text(money(change.amount, workspace.current.currency, vm.hidden), style = JvyTypography.AmountSmall) }
                             }
-                            item(key = "principal-explainer", contentType = "message") { Text("Cash used to repay principal reduces both cash and debt. These movements offset; only interest, fees or other changes reduce net worth.", style = MaterialTheme.typography.bodySmall) }
+                            item(key = "principal-explainer", contentType = "action") { TextButton(onClick = { repaymentsHelp = true }) { Text("How loan repayments affect net worth") } }
                         }
                         1, 2 -> {
                             val lines = workspace.current.lines.filter { it.item.parentId == null && (if (tab == 2) (it.reportingAmount?.signum() ?: if (it.item.kind.isDebt) -1 else 1) < 0 else (it.reportingAmount?.signum() ?: if (it.item.kind.isDebt) -1 else 1) >= 0) }
@@ -220,25 +229,22 @@ fun NetWorthScreenContent(vm: NetWorthViewModel, onBack: () -> Unit, initialTab:
             workspace.current.lines.firstOrNull { it.item.id == selected }?.let { line -> WealthDialog({ selected = null }) { ItemDetail(line, workspace, vm, { editorId = line.item.id }, { selected = it }); TextButton(onClick = { selected = null }) { Text("Close") } } }
         }
     }
-    if (review && workspace != null) WealthDialog({ review = false }) {
+    if (review && workspace != null) {
         val previous = workspace.data.reviews.reviewOn(vm.date.toString())
-        var ownReviewed by rememberSaveable { mutableStateOf(previous?.assetsReviewed == true) }
-        var oweReviewed by rememberSaveable { mutableStateOf(previous?.debtsReviewed == true) }
-        Text("Start with what you already track", style = MaterialTheme.typography.titleLarge)
-        Text("Choose which accounts and loans belong in your total. Jvy keeps their balances up to date from your wallet entries. You won't need to type them in again.")
-        HelpHeading("Count every item once", WealthHelp.DUPLICATES)
-        Text("This review applies from ${vm.date}. Select an earlier date first if you are confirming historical coverage.", style = MaterialTheme.typography.bodySmall)
-        workspace.candidates.forEach { source ->
-            Text(source.name + if (source.source == WealthSource.ACCOUNT) " · wallet account" else " · loan")
-            TextButton(onClick = { candidateKey = "${source.source}:${source.id}"; review = false }) { Text("Choose how to count this") }
+        val ownReviewed = ownReviewDraft ?: (previous?.assetsReviewed == true)
+        val oweReviewed = oweReviewDraft ?: (previous?.debtsReviewed == true)
+        WealthDialog({ review = false }, footer = {
+            Button(onClick = { vm.confirmCoverage(ownReviewed, oweReviewed); ownReviewDraft = null; oweReviewDraft = null; review = false }, modifier = Modifier.fillMaxWidth()) { Text("Save review") }
+        }) {
+        WealthReviewBody(workspace.candidates, vm.date, ownReviewed, oweReviewed,
+            { ownReviewDraft = it }, { oweReviewDraft = it }, { source -> candidateKey = "${source.source}:${source.id}"; review = false })
         }
-        if (workspace.candidates.isEmpty()) Text("You've checked every existing account and loan. Add anything else you own or owe using the buttons on the main page.")
-        Row { Checkbox(ownReviewed, { ownReviewed = it }); Text("I reviewed savings, investments, property and other assets.", Modifier.padding(top = 12.dp)) }
-        Row { Checkbox(oweReviewed, { oweReviewed = it }); Text("I reviewed credit cards, loans and other debts.", Modifier.padding(top = 12.dp)) }
-        Button(onClick = { vm.confirmCoverage(ownReviewed, oweReviewed); review = false }) { Text("Save review") }
-        TextButton(onClick = { review = false }) { Text("Done") }
     }
-    if (workspace != null && (adding || editor != null || candidate != null)) WealthItemEditor(vm, editor, candidate, addDebt, onClose = { adding = false; editorId = null; candidateKey = null })
+    if (workspace != null && (adding || editor != null || candidate != null)) WealthItemEditor(vm, editor, candidate, addDebt, onClose = { review = candidateKey != null; adding = false; editorId = null; candidateKey = null })
+    if (repaymentsHelp) WealthDialog({ repaymentsHelp = false }) {
+        Text("Why a repayment may not change net worth", style = MaterialTheme.typography.titleLarge)
+        Text("Cash used to repay principal reduces both cash and debt. These movements offset; only interest, fees or other changes reduce net worth.")
+    }
     if (rates && workspace != null) FxEditor(vm, workspace.current.currency) { rates = false }
     if (guide) WealthGuide(close = { guide = false }, finish = { vm.finishGuide(); guide = false }, linkAccounts = { guide = false; review = true })
     if (dateDialog) WealthDialog({ dateDialog = false }) {

@@ -42,7 +42,7 @@ internal fun MoneyComingUpCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 24.dp)
             .background(UI.colors.medium, UI.shapes.r3)
             .testTag("money_coming_up_card"),
     ) {

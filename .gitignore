@@ -22,6 +22,7 @@ out/
 build/
 **/build/
 artifacts/apk/
+artifacts/ui-review/
 
 **/.DS_Store
 

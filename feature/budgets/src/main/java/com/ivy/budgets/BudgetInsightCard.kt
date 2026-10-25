@@ -8,50 +8,57 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
+import com.ivy.design.system.JvyShapes
+import com.ivy.design.system.JvyTypography
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
 import com.ivy.legacy.utils.format
 
 @Composable
-fun BudgetInsightCard(insight: BudgetInsight, currency: String) {
+fun BudgetInsightCard(insight: BudgetInsight, currency: String, overlappingLimits: Boolean = false) {
     Column(
         modifier = Modifier
-            .padding(horizontal = 24.dp)
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(UI.colors.medium)
+            .clip(JvyShapes.Card)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(16.dp),
     ) {
-        Text("Budget health", style = UI.typo.b1.style(color = UI.colors.pureInverse, fontWeight = FontWeight.ExtraBold))
+        Text("Budget health", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-            InsightValue("Spent", insight.totalSpent.format(currency))
-            InsightValue("Remaining", insight.remaining.format(currency))
+        if (LocalDensity.current.fontScale > 1.3f) Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            InsightValue(if (overlappingLimits) "Spent across limits" else "Spent", "${insight.totalSpent.format(currency)} $currency", Modifier.fillMaxWidth())
+            InsightValue(if (overlappingLimits) "Remaining across limits" else "Remaining", "${insight.remaining.format(currency)} $currency", Modifier.fillMaxWidth())
+        } else Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            InsightValue(if (overlappingLimits) "Spent across limits" else "Spent", "${insight.totalSpent.format(currency)} $currency", Modifier.weight(1f))
+            InsightValue(if (overlappingLimits) "Remaining across limits" else "Remaining", "${insight.remaining.format(currency)} $currency", Modifier.weight(1f))
         }
         Spacer(Modifier.height(8.dp))
         Text(
             text = when {
-                insight.overBudgetCount > 0 -> "${insight.overBudgetCount} budget(s) exceeded"
-                insight.atRiskCount > 0 -> "${insight.atRiskCount} budget(s) are nearing their limit"
+                insight.overBudgetCount == 1 -> "One budget is over its limit"
+                insight.overBudgetCount > 1 -> "${insight.overBudgetCount} budgets are over their limits"
+                insight.atRiskCount == 1 -> "One budget is nearing its limit"
+                insight.atRiskCount > 1 -> "${insight.atRiskCount} budgets are nearing their limits"
                 insight.totalBudget > 0.0 -> "You are within your budget limits"
                 else -> "Add category budgets to see health insights"
             },
-            style = UI.typo.c.style(color = UI.colors.gray, fontWeight = FontWeight.Medium),
+            style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (overlappingLimits) Text("A purchase can count toward more than one limit. Check each budget before spending.",
+            style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
-private fun InsightValue(label: String, value: String) {
-    Column {
-        Text(label, style = UI.typo.c.style(color = UI.colors.gray, fontWeight = FontWeight.Medium))
-        Text(value, style = UI.typo.b2.style(color = UI.colors.pureInverse, fontWeight = FontWeight.Bold))
+private fun InsightValue(label: String, value: String, modifier: Modifier) {
+    Column(modifier) {
+        Text(label, style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = JvyTypography.AmountSmall)
     }
 }

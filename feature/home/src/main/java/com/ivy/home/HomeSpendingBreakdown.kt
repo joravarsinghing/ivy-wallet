@@ -85,9 +85,9 @@ fun HomeSpendingBreakdownCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(22.dp))
-            .background(UI.colors.medium)
+            .padding(horizontal = 24.dp)
+            .clip(com.ivy.design.system.JvyShapes.Card)
+            .background(androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant)
             .clickable(onClick = {
                 nav.navigateTo(PieChartStatisticScreen(type = TransactionType.EXPENSE))
             })
@@ -95,30 +95,30 @@ fun HomeSpendingBreakdownCard(
                 role = Role.Button
                 contentDescription = "View full expense breakdown chart"
             }
-            .padding(horizontal = 24.dp, vertical = 20.dp),
+            .padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = "Where your money went",
                 modifier = Modifier.weight(1f),
-                style = UI.typo.b1.style(color = UI.colors.pureInverse, fontWeight = FontWeight.ExtraBold),
+                style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
             )
             Text(
                 text = "View chart",
-                style = UI.typo.c.style(color = UI.colors.primary, fontWeight = FontWeight.Bold),
+                style = androidx.compose.material3.MaterialTheme.typography.labelLarge, color = androidx.compose.material3.MaterialTheme.colorScheme.primary,
             )
         }
         Spacer(Modifier.height(3.dp))
         Text(
             text = "Top spending categories for this period",
-            style = UI.typo.c.style(color = UI.colors.gray, fontWeight = FontWeight.Medium),
+            style = com.ivy.design.system.JvyTypography.Supporting, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(18.dp))
 
         if (!state.hasSpending) {
             Text(
                 text = "Categorized expenses will appear here as you track them.",
-                style = UI.typo.c.style(color = UI.colors.gray, fontWeight = FontWeight.Medium),
+                style = com.ivy.design.system.JvyTypography.Supporting, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
             state.rows.forEachIndexed { index, row ->
@@ -145,14 +145,14 @@ private fun SpendingBreakdownRow(
                 modifier = Modifier.weight(1f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                style = UI.typo.c.style(color = UI.colors.pureInverse, fontWeight = FontWeight.Bold),
+                style = com.ivy.design.system.JvyTypography.Supporting, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 text = if (hideBalance) "••••" else "${groupedHomeAmount(row.amount)} $currency",
-                style = UI.typo.c.style(color = color, fontWeight = FontWeight.Bold),
+                style = com.ivy.design.system.JvyTypography.AmountSmall, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
             )
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        if (!hideBalance) Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier
                     .weight(1f)
@@ -162,7 +162,7 @@ private fun SpendingBreakdownRow(
             ) {
                 Box(
                     Modifier
-                        .fillMaxWidth(row.percentage.toFloat().coerceIn(0f, 1f))
+                        .fillMaxWidth(spendingBarFraction(row.percentage))
                         .height(7.dp)
                         .background(color, RoundedCornerShape(10.dp)),
                 )
@@ -170,7 +170,7 @@ private fun SpendingBreakdownRow(
             Spacer(Modifier.size(10.dp))
             Text(
                 text = "${row.percentage.setScale(0, java.math.RoundingMode.HALF_UP)}%",
-                style = UI.typo.c.style(color = UI.colors.gray, fontWeight = FontWeight.Medium),
+                style = com.ivy.design.system.JvyTypography.Supporting, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -178,3 +178,6 @@ private fun SpendingBreakdownRow(
 
 private fun groupedHomeAmount(amount: BigDecimal): String =
     String.format(Locale.US, "%,.2f", amount.toDouble())
+
+internal fun spendingBarFraction(percentage: BigDecimal): Float =
+    percentage.divide(BigDecimal("100")).toFloat().coerceIn(0f, 1f)

@@ -39,6 +39,7 @@ class JvyDesignTest {
         listOf(ivyLightColorScheme(), ivyDarkColorScheme(false), ivyDarkColorScheme(true)).forEach { color ->
             listOf(color.onSurface to color.surface, color.onBackground to color.background,
                 color.onSurfaceVariant to color.surfaceVariant, color.onSurface to color.surfaceVariant,
+                color.primary to color.surfaceVariant, color.secondary to color.surfaceVariant, color.error to color.surfaceVariant,
                 color.primary to color.surface,
                 color.onPrimary to color.primary, color.onSecondary to color.secondary,
                 color.onSecondaryContainer to color.secondaryContainer, color.secondary to color.surface,

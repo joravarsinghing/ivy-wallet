@@ -95,7 +95,7 @@ fun EmergencyFundCoverageCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 24.dp)
             .drawColoredShadow(visualStyle.shadowColor)
             .background(visualStyle.background.asHorizontalBrush(), UI.shapes.r3)
             .testTag("emergency_fund_coverage_card"),

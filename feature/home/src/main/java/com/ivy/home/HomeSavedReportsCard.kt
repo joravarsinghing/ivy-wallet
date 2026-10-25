@@ -27,7 +27,7 @@ fun HomeSavedReportsCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 24.dp)
             .background(UI.colors.medium, UI.shapes.r3)
             .clickable(onClick = onOpenReports)
             .padding(horizontal = 24.dp, vertical = 18.dp),

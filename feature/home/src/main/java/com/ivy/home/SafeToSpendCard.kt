@@ -74,7 +74,7 @@ fun SafeToSpendCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 24.dp)
             .background(visualStyle.background, UI.shapes.r3)
             .testTag("safe_to_spend_card"),
     ) {

@@ -3,19 +3,20 @@ package com.ivy.networth
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
 import com.ivy.data.model.wealth.*
 import com.ivy.domain.usecase.networth.WealthCandidate
-import com.ivy.design.system.JvyTypography
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
@@ -25,12 +26,32 @@ import com.ivy.design.system.JvyOutlinedButton as OutlinedButton
 import com.ivy.design.system.JvyTextButton as TextButton
 
 @Composable
-internal fun WealthDialog(close: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+internal fun WealthDialog(close: () -> Unit, footer: (@Composable () -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
     Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.padding(16.dp).widthIn(max = 640.dp).fillMaxWidth().heightIn(max = 720.dp), shape = MaterialTheme.shapes.large) {
-            Column(Modifier.imePadding().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
-        }
+        WealthDialogFrame(close, footer, content)
     }
+}
+
+/** The same production frame is rendered in adaptive tests without a platform popup window. */
+@Composable
+internal fun WealthDialogFrame(close: () -> Unit, footer: (@Composable () -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
+        BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding().imePadding().padding(16.dp), contentAlignment = Alignment.Center) {
+            Surface(Modifier.widthIn(max = 640.dp).fillMaxWidth().heightIn(max = minOf(maxHeight, 720.dp)),
+                shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceVariant,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                Column {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.End) {
+                        IconButton(onClick = close) { Icon(Icons.Outlined.Close, "Close dialog") }
+                    }
+                    Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp), content = content)
+                    footer?.let {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Box(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) { it() }
+                    }
+                }
+            }
+        }
 }
 
 @Composable

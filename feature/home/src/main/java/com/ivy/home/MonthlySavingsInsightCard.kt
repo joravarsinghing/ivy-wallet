@@ -72,7 +72,7 @@ fun MonthlySavingsInsightCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 24.dp)
             .background(UI.colors.medium, UI.shapes.r3)
             .testTag("monthly_savings_insight_card"),
     ) {

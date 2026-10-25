@@ -53,7 +53,7 @@ fun HomeTrendCard(
     onOpenEditor: () -> Unit,
     onCloseEditor: () -> Unit,
     modifier: Modifier = Modifier,
-    plotStyle: HomeTrendPlotStyle = HomeTrendPlotStyle.ShadedLine,
+    plotStyle: HomeTrendPlotStyle = HomeTrendPlotStyle.Line,
 ) {
     var showValues by rememberSaveable(state.range) { mutableStateOf(false) }
     Column(
@@ -125,11 +125,6 @@ fun HomeTrendCard(
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp),
                         )
-                        Spacer(Modifier.height(8.dp))
-                        TrendPeriodLabels(
-                            points = state.points,
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                        )
                         Spacer(Modifier.height(14.dp))
                         state.points
                             .filter { it.isObserved }
@@ -193,7 +188,7 @@ fun HomeTrendCard(
                 }
             }
 
-            if (state.loading && state.hasData) {
+            if (!hideBalance && state.visibleMetrics.isNotEmpty() && state.loading && state.hasData) {
                 TrendLoadingOverlay()
             }
         }
@@ -229,12 +224,13 @@ private fun TrendLegend(
             .filter { it in visibleMetrics }
             .forEach { metric ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    val color = metric.color()
+                    val color = metric.plotColor()
                     Canvas(Modifier.size(width = 20.dp, height = 12.dp)) {
+                        if (metric != HomeTrendMetric.BALANCE) drawRect(color.copy(alpha = 0.3f))
                         drawLine(color, androidx.compose.ui.geometry.Offset(0f, size.height / 2),
                             androidx.compose.ui.geometry.Offset(size.width, size.height / 2), 2.dp.toPx(),
-                            pathEffect = if (metric == HomeTrendMetric.BALANCE) null else androidx.compose.ui.graphics.PathEffect.dashPathEffect(
-                                if (metric == HomeTrendMetric.INCOME) floatArrayOf(8.dp.toPx(), 4.dp.toPx()) else floatArrayOf(12.dp.toPx(), 3.dp.toPx())))
+                            pathEffect = if (metric == HomeTrendMetric.EXPENSES) androidx.compose.ui.graphics.PathEffect.dashPathEffect(
+                                floatArrayOf(5.dp.toPx(), 3.dp.toPx())) else null)
                     }
                     Spacer(Modifier.size(6.dp))
                     Text(
@@ -246,28 +242,6 @@ private fun TrendLegend(
     }
 }
 
-
-@Composable
-private fun TrendPeriodLabels(
-    points: List<HomeTrendPoint>,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            text = points.firstOrNull()?.periodLabel.orEmpty(),
-            style = JvyTypography.Label, color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (points.size > 1) {
-            Text(
-                text = points.last().periodLabel,
-                style = JvyTypography.Label, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
 
 @Composable
 private fun TrendLatestValues(point: HomeTrendPoint, visibleMetrics: Set<HomeTrendMetric>, currency: String,

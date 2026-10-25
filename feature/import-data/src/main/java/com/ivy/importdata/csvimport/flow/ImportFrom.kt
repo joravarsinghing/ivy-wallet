@@ -45,6 +45,7 @@ fun BoxWithConstraintsScope.ImportFrom(
 
     onSkip: () -> Unit = {},
     onImportFrom: (ImportType) -> Unit = {},
+    onAiGuide: () -> Unit = {},
 ) {
     val importTypes = ImportType.values()
 
@@ -62,6 +63,10 @@ fun BoxWithConstraintsScope.ImportFrom(
                 onSkip = onSkip
             )
             // onboarding toolbar include paddingBottom 16.dp
+        }
+
+        item(key = "ai-conversion") {
+            com.ivy.importdata.csvimport.AiImportEntryCard(onAiGuide)
         }
 
         item {

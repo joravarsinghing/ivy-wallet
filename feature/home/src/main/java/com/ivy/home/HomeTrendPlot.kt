@@ -1,11 +1,15 @@
 package com.ivy.home
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
@@ -14,9 +18,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.ivy.design.system.JvyTypography
+import com.ivy.design.system.JvyChartColors
+import com.ivy.design.system.JvyMotion
 import java.math.BigDecimal
-import java.math.RoundingMode
-import java.time.temporal.ChronoUnit
 
 enum class HomeTrendPlotStyle { Line, ShadedLine }
 internal data class TrendObservation(val index: Int, val point: HomeTrendPoint)
@@ -40,78 +44,113 @@ internal fun HomeTrendMetric.plotAmount(point: HomeTrendPoint): BigDecimal = whe
 }
 
 @Composable
-internal fun HomeTrendMetric.plotColor(): Color = when (this) {
-    HomeTrendMetric.INCOME -> MaterialTheme.colorScheme.secondary
-    HomeTrendMetric.EXPENSES -> MaterialTheme.colorScheme.error
-    HomeTrendMetric.BALANCE -> MaterialTheme.colorScheme.primary
-}
+internal fun HomeTrendMetric.plotColor(): Color = JvyChartColors.palette().let { palette -> when (this) {
+    HomeTrendMetric.INCOME -> palette.income
+    HomeTrendMetric.EXPENSES -> palette.spending
+    HomeTrendMetric.BALANCE -> palette.balance
+} }
 
 @Composable
 internal fun TrendPlot(state: HomeTrendState, currency: String, style: HomeTrendPlotStyle, modifier: Modifier = Modifier) {
-    val segments = observedTrendSegments(state.points)
-    val values = segments.flatten().flatMap { entry -> state.visibleMetrics.map { it.plotAmount(entry.point) } }
-    val low = values.minOrNull() ?: BigDecimal.ZERO
-    val high = values.maxOrNull() ?: BigDecimal.ONE
-    val padding = (high - low).abs().max(high.abs().multiply(BigDecimal("0.1"))).max(BigDecimal.ONE).multiply(BigDecimal("0.1"))
-    val minimum = if (low.signum() >= 0) BigDecimal.ZERO else low - padding
-    val maximum = high + padding
-    val span = maximum - minimum
-    val colors = state.visibleMetrics.associateWith { it.plotColor() }
-    val grid = MaterialTheme.colorScheme.outlineVariant
-    val startDate = state.points.firstOrNull()?.periodIdentity?.startDate
-    val endDate = state.points.lastOrNull()?.periodIdentity?.startDate
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-    Text(currency, style = JvyTypography.Label, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    val axisWidth = if (LocalDensity.current.fontScale > 1.3f) 88.dp else 64.dp
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Column(Modifier.width(axisWidth).height(136.dp), verticalArrangement = Arrangement.SpaceBetween) {
-            listOf(maximum, (minimum + maximum).divide(BigDecimal("2")), minimum).forEach {
-                Text(compactAxisAmount(it), style = JvyTypography.Label, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        Canvas(Modifier.weight(1f).height(136.dp).semantics {
-            contentDescription = "Balance and cash flow over ${state.points.size} ${if (state.range.isDaily) "days" else "months"}. Unknown periods remain gaps. Exact totals follow the chart."
-        }) {
-            val inset = 4.dp.toPx()
-            val width = (size.width - 2 * inset).coerceAtLeast(1f)
-            val top = 4.dp.toPx()
-            val height = (size.height - top * 2).coerceAtLeast(1f)
-            fun y(value: BigDecimal) = top + height * (1f - (value - minimum).divide(span, 12, RoundingMode.HALF_UP).toFloat())
-            val baseline = y(BigDecimal.ZERO).coerceIn(top, top + height)
-            repeat(3) { i ->
-                val row = top + height * i / 2f
-                drawLine(grid, Offset(inset, row), Offset(size.width - inset, row), 1.dp.toPx())
-            }
-            if (minimum.signum() < 0 && maximum.signum() > 0) drawLine(grid, Offset(inset, baseline), Offset(size.width - inset, baseline), 1.dp.toPx())
-            // Balance alone gets shading; income and spending must never look stacked.
-            state.visibleMetrics.sortedBy { if (it == HomeTrendMetric.BALANCE) 0 else 1 }.forEach { metric ->
-                val color = colors.getValue(metric)
-                segments.forEach { segment ->
-                    val offsets = segment.map { entry ->
-                        val date = entry.point.periodIdentity.startDate
-                        val fraction = if (startDate != null && endDate != null && date != null && endDate > startDate)
-                            ChronoUnit.DAYS.between(startDate, date).toFloat() / ChronoUnit.DAYS.between(startDate, endDate).toFloat()
-                        else if (state.points.size > 1) entry.index.toFloat() / (state.points.size - 1) else 0.5f
-                        Offset(inset + width * fraction.coerceIn(0f, 1f), y(metric.plotAmount(entry.point)))
-                    }
-                    if (offsets.size == 1) drawCircle(color, 3.dp.toPx(), offsets.single())
-                    else {
-                        val line = Path().apply { moveTo(offsets.first().x, offsets.first().y); offsets.drop(1).forEach { lineTo(it.x, it.y) } }
-                        if (style == HomeTrendPlotStyle.ShadedLine && metric == HomeTrendMetric.BALANCE) {
-                            val area = Path().apply { addPath(line); lineTo(offsets.last().x, baseline); lineTo(offsets.first().x, baseline); close() }
-                            drawPath(area, Brush.verticalGradient(listOf(color.copy(alpha = 0.16f), color.copy(alpha = 0.01f))))
-                        }
-                        val effect = when (metric) {
-                            HomeTrendMetric.BALANCE -> null
-                            HomeTrendMetric.INCOME -> PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 4.dp.toPx()))
-                            HomeTrendMetric.EXPENSES -> PathEffect.dashPathEffect(floatArrayOf(12.dp.toPx(), 3.dp.toPx()))
-                        }
-                        drawPath(line, color, style = Stroke(if (metric == HomeTrendMetric.BALANCE) 2.5.dp.toPx() else 2.dp.toPx(),
-                            cap = StrokeCap.Round, join = StrokeJoin.Round, pathEffect = effect))
-                    }
+    val scene = remember(state.points, state.visibleMetrics) { prepareTrendScene(state) }
+    // A currency change discards outgoing plots rather than relabelling their old amounts.
+    // Hidden-balance mode removes this entire composable, including outgoing animation layers.
+    key(currency) {
+        Crossfade(scene, modifier, tween(JvyMotion.TransitionMillis), label = "Trend update") { frame ->
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(currency, style = JvyTypography.Label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TrendOverlayPlot(frame.plot, style, Modifier.fillMaxWidth())
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(frame.firstLabel, style = JvyTypography.Label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    frame.lastLabel?.let { Text(it, style = JvyTypography.Label, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             }
         }
     }
+}
+
+private data class CachedTrendPath(val line: Path, val area: Path, val color: Color, val fill: Brush,
+                                  val stroke: Stroke, val filled: Boolean, val underlay: Stroke?)
+
+@Composable
+private fun TrendOverlayPlot(band: TrendBand, style: HomeTrendPlotStyle, modifier: Modifier) {
+    val colors = band.series.associate { it.metric to it.metric.plotColor() }
+    val grid = MaterialTheme.colorScheme.outlineVariant
+    val surface = MaterialTheme.colorScheme.surfaceVariant
+    val zeroInk = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+    val axisWidth = if (LocalDensity.current.fontScale > 1.3f) 88.dp else 60.dp
+    val height = 160.dp
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.width(axisWidth).height(height), verticalArrangement = Arrangement.SpaceBetween) {
+            band.scale.ticks.forEach { tick ->
+                Text(compactAxisAmount(tick), style = JvyTypography.Label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Spacer(Modifier.weight(1f).height(height).semantics {
+            contentDescription = "Balance line with income and spending filled areas on the same money scale and zero baseline. Areas overlap, not stack. Unknown periods remain gaps; a single observation has no trend line. Exact values follow."
+        }.drawWithCache {
+            val inset = 4.dp.toPx()
+            val plotWidth = (size.width - inset * 2).coerceAtLeast(1f)
+            val plotHeight = (size.height - inset * 2).coerceAtLeast(1f)
+            val zero = inset + plotHeight * band.scale.y(BigDecimal.ZERO)
+            // Cache paths, strokes and brushes on data/size changes, not animation frames.
+            val paths = band.series.flatMap { series ->
+                val color = colors.getValue(series.metric)
+                val isBalance = series.metric == HomeTrendMetric.BALANCE
+                val stroke = Stroke(if (isBalance) 2.75.dp.toPx() else 1.5.dp.toPx(),
+                    cap = StrokeCap.Round, join = StrokeJoin.Round,
+                    pathEffect = if (series.metric == HomeTrendMetric.EXPENSES)
+                        PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 3.dp.toPx())) else null)
+                val fill = Brush.verticalGradient(if (!isBalance) listOf(color.copy(alpha = 0.8f), color.copy(alpha = 0.7f))
+                    else listOf(color.copy(alpha = 0.16f), color.copy(alpha = 0.01f)))
+                series.segments.filter { it.size > 1 }.map { segment ->
+                    val line = Path().apply {
+                        segment.forEachIndexed { index, point ->
+                            val x = inset + plotWidth * point.x
+                            val y = inset + plotHeight * point.y
+                            if (index == 0) moveTo(x, y)
+                            else if (isBalance) lineTo(x, y)
+                            else {
+                                val previous = segment[index - 1]
+                                val previousX = inset + plotWidth * previous.x
+                                val previousY = inset + plotHeight * previous.y
+                                val controlWidth = (x - previousX) / 3f
+                                // Bounded easing through real samples: no overshoot or invented peaks.
+                                cubicTo(previousX + controlWidth, previousY, x - controlWidth, y, x, y)
+                            }
+                        }
+                    }
+                    val area = Path().apply {
+                        addPath(line)
+                        lineTo(inset + plotWidth * segment.last().x, zero)
+                        lineTo(inset + plotWidth * segment.first().x, zero)
+                        close()
+                    }
+                    CachedTrendPath(line, area, color, fill, stroke,
+                        !isBalance || style == HomeTrendPlotStyle.ShadedLine,
+                        if (isBalance) Stroke(4.75.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round) else null)
+                }
+            }
+            val gridStroke = 1.dp.toPx()
+            onDrawBehind {
+                repeat(3) { i ->
+                    val y = inset + plotHeight * i / 2f
+                    drawLine(grid, Offset(inset, y), Offset(size.width - inset, y), gridStroke)
+                }
+                // Areas first; balance last and above every fill, including values above the balance.
+                for (index in paths.indices) {
+                    val path = paths[index]
+                    if (path.filled) drawPath(path.area, path.fill)
+                }
+                for (index in paths.indices) {
+                    val path = paths[index]
+                    // A quiet neutral edge keeps purple readable when a flow crosses the balance.
+                    path.underlay?.let { drawPath(path.line, surface, style = it) }
+                    drawPath(path.line, path.color, style = path.stroke)
+                }
+                // Neutral zero stays legible where both zero-flow series coincide.
+                drawLine(zeroInk, Offset(inset, zero), Offset(size.width - inset, zero), gridStroke)
+            }
+        })
     }
 }

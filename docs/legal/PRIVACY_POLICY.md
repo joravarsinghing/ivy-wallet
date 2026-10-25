@@ -1,6 +1,7 @@
 # Jvy Wallet Privacy Policy
 
-**Effective date:** 17 October 2026  
+**Effective date:** 25 October 2026
+
 **App:** Jvy Wallet  
 **Maintainer:** Joravar Singh
 
@@ -39,6 +40,8 @@ Jvy Wallet does not use location to create an advertising profile or to calculat
 When you select a file, Jvy Wallet reads it on the device to import supported data. When you export a CSV or backup, the app writes the file to a location you choose through Android’s file picker.
 
 Exported files and backups are not cloud storage provided by Jvy Wallet and are not automatically encrypted by the app. They may contain your complete financial history. Protect them with Android device security or encrypted storage, and delete copies you no longer need. A copy shared with another app or person is governed by that recipient’s practices.
+
+The optional **Other app / AI conversion** flow copies a public file schema, instructions and a fictional example; it does not include your wallet records or send anything to an AI provider. If you choose to give an export to a third-party AI, that sharing occurs outside Jvy and is subject to the provider’s policies. Remove unnecessary identifiers and never share a PIN, recovery code or bank login. Converted JSON is validated locally and requires review and confirmation before import. Passing validation does not establish that the AI interpreted your original finances correctly.
 
 ## Biometrics and privacy mode
 

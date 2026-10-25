@@ -254,8 +254,13 @@ class BackupDataUseCase @Inject constructor(
         jsonString: String,
         onProgress: suspend (Double) -> Unit = {},
         clearCacheDir: Boolean = false,
+        aiProfile: Boolean = false,
     ): ImportResult {
         require(jsonString.isNotBlank()) { "The backup file is empty." }
+        if (aiProfile) AiImportContract.prepare(jsonString).data.wealth?.let {
+            wealthRepository.validate(it)
+            wealthRepository.validateReferences(it)
+        }
         // Validate original snapshot checksums before adapting source IDs to existing accounts.
         val originalData = json.decodeFromString<IvyWalletCompleteData>(jsonString)
         originalData.wealth?.let(wealthRepository::validate)
@@ -278,6 +283,7 @@ class BackupDataUseCase @Inject constructor(
         onProgress(0.4)
         backupTransactionRunner.run {
             validatePlanningData(ivyWalletCompleteData)
+            if (aiProfile) rejectAiConflicts(ivyWalletCompleteData)
             // An imported base currency must not reinterpret old implicit-currency accounts.
             val implicitAccounts = accountDao.findAll().filter { it.currency.isNullOrBlank() && !it.isDeleted }
             accountRepository.saveMany(with(accountMapper) {
@@ -288,8 +294,10 @@ class BackupDataUseCase @Inject constructor(
             insertDataToDb(completeData = ivyWalletCompleteData, onProgress = onProgress)
             ivyWalletCompleteData.wealth?.let { wealthRepository.merge(it) }
         }
-        applySharedPrefs(ivyWalletCompleteData.sharedPrefs)
-        applyNetWorthSettings(ivyWalletCompleteData)
+        if (!aiProfile) {
+            applySharedPrefs(ivyWalletCompleteData.sharedPrefs)
+            applyNetWorthSettings(ivyWalletCompleteData)
+        }
         onProgress(1.0)
 
         return ImportResult(
@@ -299,6 +307,50 @@ class BackupDataUseCase @Inject constructor(
             categoriesImported = ivyWalletCompleteData.categories.size,
             failedRows = persistentListOf()
         )
+    }
+
+    /** Preview is read-only. Retain the exact validated payload, not a URI that can change later. */
+    suspend fun prepareAiImport(payload: String): AiImportPreview = withContext(dispatchersProvider.io) {
+        AiImportContract.prepare(payload).also { preview -> preview.data.wealth?.let {
+            try {
+                wealthRepository.validate(it)
+                wealthRepository.validateReferences(it)
+            } catch (_: Exception) {
+                throw IllegalArgumentException("Net-worth records failed validation. Check dates, values, ownership and source links against the guide.")
+            }
+        } }
+    }
+
+    suspend fun importAiPreview(preview: AiImportPreview): ImportResult = withContext(dispatchersProvider.io) {
+        val result = importJson(preview.payload, aiProfile = true)
+        dataObserver.post(DataWriteEvent.AllDataChange)
+        result
+    }
+
+    private suspend fun rejectAiConflicts(data: IvyWalletCompleteData) {
+        fun <T, K> check(existing: List<T>, incoming: List<T>, id: (T) -> K) {
+            val byId = existing.associateBy(id)
+            require(incoming.all { row -> byId[id(row)]?.let { it == row } ?: true }) {
+                "An imported ID already belongs to a different record. Nothing was imported. Ask your AI to preserve source IDs or use distinct IDs for a different source."
+            }
+        }
+        // Include tombstones so an AI file cannot silently resurrect a deleted transaction.
+        // Chunk IDs to stay below SQLite's bind-parameter limit on older supported phones.
+        val existingTransactions = data.transactions.chunked(900).flatMap { rows ->
+            transactionDao.findByIds(rows.map { it.id })
+        }
+        check(existingTransactions, data.transactions) { it.id }
+        // The account mapper normalizes this obsolete sync flag on every save.
+        check(accountDao.findAll().map { it.copy(isSynced = false) }, data.accounts) { it.id }
+        check(categoryDao.findAll(), data.categories) { it.id }
+        check(budgetDao.findAll(), data.budgets) { it.id }
+        check(plannedPaymentRuleDao.findAll(), data.plannedPaymentRules) { it.id }
+        check(loanDao.findAll(), data.loans) { it.id }
+        check(loanRecordDao.findAll(), data.loanRecords) { it.id }
+        check(goalsReader.findAll(), data.goals) { it.id }
+        check(goalAllocationsReader.findAll(), data.goalAllocations) { it.goalId to it.accountId }
+        check(tagsReader.findAll(), data.tags) { it.id }
+        check(tagAssociationReader.findAll(), data.tagAssociations) { it.tagId to it.associatedId }
     }
 
     private fun IvyWalletCompleteData.hasImportableData(): Boolean =

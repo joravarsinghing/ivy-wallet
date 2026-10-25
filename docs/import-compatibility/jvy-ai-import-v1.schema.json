@@ -1,0 +1,1217 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "accounts": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "currency": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "color": {
+                        "type": "integer"
+                    },
+                    "icon": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "orderNum": {
+                        "type": "number"
+                    },
+                    "includeInBalance": {
+                        "type": "boolean"
+                    },
+                    "isSynced": {
+                        "type": "boolean"
+                    },
+                    "isDeleted": {
+                        "type": "boolean"
+                    },
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    }
+                },
+                "required": [
+                    "name",
+                    "currency",
+                    "color",
+                    "id"
+                ]
+            }
+        },
+        "budgets": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "amount": {
+                        "type": "number"
+                    },
+                    "categoryIdsSerialized": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "accountIdsSerialized": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "isSynced": {
+                        "type": "boolean"
+                    },
+                    "isDeleted": {
+                        "type": "boolean"
+                    },
+                    "orderId": {
+                        "type": "number"
+                    },
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    }
+                },
+                "required": [
+                    "name",
+                    "amount",
+                    "categoryIdsSerialized",
+                    "accountIdsSerialized",
+                    "orderId",
+                    "id"
+                ]
+            }
+        },
+        "categories": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "color": {
+                        "type": "integer"
+                    },
+                    "icon": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "orderNum": {
+                        "type": "number"
+                    },
+                    "isSynced": {
+                        "type": "boolean"
+                    },
+                    "isDeleted": {
+                        "type": "boolean"
+                    },
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    }
+                },
+                "required": [
+                    "name",
+                    "color",
+                    "id"
+                ]
+            }
+        },
+        "loanRecords": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "loanId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "amount": {
+                        "type": "number"
+                    },
+                    "note": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "dateTime": {
+                        "type": "integer",
+                        "description": "Unix epoch milliseconds, not ISO text or epoch seconds"
+                    },
+                    "interest": {
+                        "type": "boolean"
+                    },
+                    "accountId": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "uuid"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "convertedAmount": {
+                        "anyOf": [
+                            {
+                                "type": "number"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "loanRecordType": {
+                        "type": "string",
+                        "enum": [
+                            "INCREASE",
+                            "DECREASE"
+                        ]
+                    },
+                    "isSynced": {
+                        "type": "boolean"
+                    },
+                    "isDeleted": {
+                        "type": "boolean"
+                    },
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    }
+                },
+                "required": [
+                    "loanId",
+                    "amount",
+                    "dateTime",
+                    "id"
+                ]
+            }
+        },
+        "loans": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "amount": {
+                        "type": "number"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "BORROW",
+                            "LEND"
+                        ]
+                    },
+                    "color": {
+                        "type": "integer"
+                    },
+                    "icon": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "orderNum": {
+                        "type": "number"
+                    },
+                    "accountId": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "uuid"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "note": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "isSynced": {
+                        "type": "boolean"
+                    },
+                    "isDeleted": {
+                        "type": "boolean"
+                    },
+                    "dateTime": {
+                        "anyOf": [
+                            {
+                                "type": "integer",
+                                "description": "Unix epoch milliseconds, not ISO text or epoch seconds"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    }
+                },
+                "required": [
+                    "name",
+                    "amount",
+                    "type",
+                    "id"
+                ]
+            }
+        },
+        "plannedPaymentRules": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "startDate": {
+                        "anyOf": [
+                            {
+                                "type": "integer",
+                                "description": "Unix epoch milliseconds, not ISO text or epoch seconds"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "intervalN": {
+                        "anyOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "intervalType": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "enum": [
+                                    "DAY",
+                                    "WEEK",
+                                    "MONTH",
+                                    "YEAR"
+                                ]
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "oneTime": {
+                        "type": "boolean"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "INCOME",
+                            "EXPENSE",
+                            "TRANSFER"
+                        ]
+                    },
+                    "accountId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "amount": {
+                        "type": "number"
+                    },
+                    "categoryId": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "uuid"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "title": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "description": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "isSynced": {
+                        "type": "boolean"
+                    },
+                    "isDeleted": {
+                        "type": "boolean"
+                    },
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    }
+                },
+                "required": [
+                    "startDate",
+                    "intervalN",
+                    "intervalType",
+                    "oneTime",
+                    "type",
+                    "accountId",
+                    "id"
+                ]
+            }
+        },
+        "transactions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "accountId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "INCOME",
+                            "EXPENSE",
+                            "TRANSFER"
+                        ]
+                    },
+                    "amount": {
+                        "type": "number"
+                    },
+                    "toAccountId": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "uuid"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "toAmount": {
+                        "anyOf": [
+                            {
+                                "type": "number"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "title": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "description": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "dateTime": {
+                        "anyOf": [
+                            {
+                                "type": "integer",
+                                "description": "Unix epoch milliseconds, not ISO text or epoch seconds"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "categoryId": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "uuid"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "dueDate": {
+                        "anyOf": [
+                            {
+                                "type": "integer",
+                                "description": "Unix epoch milliseconds, not ISO text or epoch seconds"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "recurringRuleId": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "uuid"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "paidForDateTime": {
+                        "anyOf": [
+                            {
+                                "type": "integer",
+                                "description": "Unix epoch milliseconds, not ISO text or epoch seconds"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "attachmentUrl": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "loanId": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "uuid"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "loanRecordId": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "uuid"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "isSynced": {
+                        "type": "boolean"
+                    },
+                    "isDeleted": {
+                        "type": "boolean"
+                    },
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    }
+                },
+                "required": [
+                    "accountId",
+                    "type",
+                    "amount",
+                    "id"
+                ]
+            }
+        },
+        "tags": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "description": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "color": {
+                        "type": "integer"
+                    },
+                    "icon": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "orderNum": {
+                        "type": "number"
+                    },
+                    "creationTime": {
+                        "type": "integer",
+                        "description": "Unix epoch milliseconds, not ISO text or epoch seconds"
+                    },
+                    "isDeleted": {
+                        "type": "boolean"
+                    },
+                    "lastSyncTime": {
+                        "type": "integer",
+                        "description": "Unix epoch milliseconds, not ISO text or epoch seconds"
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "description",
+                    "color",
+                    "icon",
+                    "orderNum",
+                    "creationTime",
+                    "isDeleted",
+                    "lastSyncTime"
+                ]
+            }
+        },
+        "tagAssociations": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "tagId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "associatedId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "lastSyncTime": {
+                        "type": "integer",
+                        "description": "Unix epoch milliseconds, not ISO text or epoch seconds"
+                    },
+                    "isDeleted": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "tagId",
+                    "associatedId",
+                    "lastSyncTime",
+                    "isDeleted"
+                ]
+            }
+        },
+        "goals": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "kind": {
+                        "type": "string",
+                        "enum": [
+                            "EMERGENCY_FUND",
+                            "PURCHASE",
+                            "SINKING_FUND",
+                            "CUSTOM"
+                        ]
+                    },
+                    "targetAmount": {
+                        "type": "number"
+                    },
+                    "deadline": {
+                        "anyOf": [
+                            {
+                                "type": "integer",
+                                "description": "Unix epoch milliseconds, not ISO text or epoch seconds"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "isActive": {
+                        "type": "boolean"
+                    },
+                    "createdAt": {
+                        "type": "integer",
+                        "description": "Unix epoch milliseconds, not ISO text or epoch seconds"
+                    },
+                    "updatedAt": {
+                        "type": "integer",
+                        "description": "Unix epoch milliseconds, not ISO text or epoch seconds"
+                    },
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    }
+                },
+                "required": [
+                    "name",
+                    "kind",
+                    "targetAmount",
+                    "createdAt",
+                    "updatedAt",
+                    "id"
+                ]
+            }
+        },
+        "goalAllocations": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "goalId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "accountId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "reservedAmount": {
+                        "type": "number"
+                    },
+                    "createdAt": {
+                        "type": "integer",
+                        "description": "Unix epoch milliseconds, not ISO text or epoch seconds"
+                    },
+                    "updatedAt": {
+                        "type": "integer",
+                        "description": "Unix epoch milliseconds, not ISO text or epoch seconds"
+                    }
+                },
+                "required": [
+                    "goalId",
+                    "accountId",
+                    "reservedAmount",
+                    "createdAt",
+                    "updatedAt"
+                ]
+            }
+        },
+        "wealth": {
+            "anyOf": [
+                {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "version": {
+                            "type": "integer"
+                        },
+                        "items": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "id": {
+                                        "type": "string"
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                            "CASH",
+                                            "SAVINGS",
+                                            "INVESTMENT",
+                                            "RETIREMENT",
+                                            "PROPERTY",
+                                            "VEHICLE",
+                                            "GOLD",
+                                            "CRYPTO",
+                                            "BUSINESS",
+                                            "RECEIVABLE",
+                                            "OTHER_ASSET",
+                                            "CREDIT_CARD",
+                                            "MORTGAGE",
+                                            "PERSONAL_LOAN",
+                                            "VEHICLE_LOAN",
+                                            "STUDENT_LOAN",
+                                            "BORROWED",
+                                            "OTHER_DEBT"
+                                        ]
+                                    },
+                                    "currency": {
+                                        "type": "string"
+                                    },
+                                    "source": {
+                                        "type": "string",
+                                        "enum": [
+                                            "MANUAL",
+                                            "ACCOUNT",
+                                            "LOAN",
+                                            "HOLDINGS"
+                                        ]
+                                    },
+                                    "sourceId": {
+                                        "anyOf": [
+                                            {
+                                                "type": "string"
+                                            },
+                                            {
+                                                "type": "null"
+                                            }
+                                        ]
+                                    },
+                                    "parentId": {
+                                        "anyOf": [
+                                            {
+                                                "type": "string"
+                                            },
+                                            {
+                                                "type": "null"
+                                            }
+                                        ]
+                                    },
+                                    "convention": {
+                                        "type": "string",
+                                        "enum": [
+                                            "ASSET",
+                                            "POSITIVE_OWED",
+                                            "NEGATIVE_OWED"
+                                        ]
+                                    },
+                                    "createdDate": {
+                                        "type": "string"
+                                    },
+                                    "note": {
+                                        "type": "string"
+                                    },
+                                    "reviewDays": {
+                                        "type": "integer"
+                                    },
+                                    "apr": {
+                                        "anyOf": [
+                                            {
+                                                "type": "string"
+                                            },
+                                            {
+                                                "type": "null"
+                                            }
+                                        ]
+                                    },
+                                    "minimumPayment": {
+                                        "anyOf": [
+                                            {
+                                                "type": "string"
+                                            },
+                                            {
+                                                "type": "null"
+                                            }
+                                        ]
+                                    },
+                                    "dueDate": {
+                                        "anyOf": [
+                                            {
+                                                "type": "string"
+                                            },
+                                            {
+                                                "type": "null"
+                                            }
+                                        ]
+                                    },
+                                    "unit": {
+                                        "type": "string"
+                                    },
+                                    "securedById": {
+                                        "anyOf": [
+                                            {
+                                                "type": "string"
+                                            },
+                                            {
+                                                "type": "null"
+                                            }
+                                        ]
+                                    },
+                                    "duplicateAccountId": {
+                                        "anyOf": [
+                                            {
+                                                "type": "string"
+                                            },
+                                            {
+                                                "type": "null"
+                                            }
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "id",
+                                    "name",
+                                    "kind",
+                                    "currency",
+                                    "createdDate"
+                                ]
+                            }
+                        },
+                        "policies": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "id": {
+                                        "type": "string"
+                                    },
+                                    "itemId": {
+                                        "type": "string"
+                                    },
+                                    "effectiveDate": {
+                                        "type": "string"
+                                    },
+                                    "included": {
+                                        "type": "boolean"
+                                    },
+                                    "ownership": {
+                                        "type": "string"
+                                    },
+                                    "archived": {
+                                        "type": "boolean"
+                                    },
+                                    "recordedAt": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "id",
+                                    "itemId",
+                                    "effectiveDate",
+                                    "recordedAt"
+                                ]
+                            }
+                        },
+                        "valuations": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "id": {
+                                        "type": "string"
+                                    },
+                                    "itemId": {
+                                        "type": "string"
+                                    },
+                                    "effectiveDate": {
+                                        "type": "string"
+                                    },
+                                    "amount": {
+                                        "type": "string"
+                                    },
+                                    "quantity": {
+                                        "anyOf": [
+                                            {
+                                                "type": "string"
+                                            },
+                                            {
+                                                "type": "null"
+                                            }
+                                        ]
+                                    },
+                                    "unitPrice": {
+                                        "anyOf": [
+                                            {
+                                                "type": "string"
+                                            },
+                                            {
+                                                "type": "null"
+                                            }
+                                        ]
+                                    },
+                                    "contribution": {
+                                        "anyOf": [
+                                            {
+                                                "type": "string"
+                                            },
+                                            {
+                                                "type": "null"
+                                            }
+                                        ]
+                                    },
+                                    "withdrawal": {
+                                        "anyOf": [
+                                            {
+                                                "type": "string"
+                                            },
+                                            {
+                                                "type": "null"
+                                            }
+                                        ]
+                                    },
+                                    "note": {
+                                        "type": "string"
+                                    },
+                                    "recordedAt": {
+                                        "type": "string"
+                                    },
+                                    "supersedesId": {
+                                        "anyOf": [
+                                            {
+                                                "type": "string"
+                                            },
+                                            {
+                                                "type": "null"
+                                            }
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "id",
+                                    "itemId",
+                                    "effectiveDate",
+                                    "amount",
+                                    "recordedAt"
+                                ]
+                            }
+                        },
+                        "rates": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "id": {
+                                        "type": "string"
+                                    },
+                                    "from": {
+                                        "type": "string"
+                                    },
+                                    "to": {
+                                        "type": "string"
+                                    },
+                                    "rate": {
+                                        "type": "string"
+                                    },
+                                    "effectiveDate": {
+                                        "type": "string"
+                                    },
+                                    "source": {
+                                        "type": "string"
+                                    },
+                                    "recordedAt": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "id",
+                                    "from",
+                                    "to",
+                                    "rate",
+                                    "effectiveDate",
+                                    "recordedAt"
+                                ]
+                            }
+                        },
+                        "snapshots": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "id": {
+                                        "type": "string"
+                                    },
+                                    "asOf": {
+                                        "type": "string"
+                                    },
+                                    "currency": {
+                                        "type": "string"
+                                    },
+                                    "assets": {
+                                        "type": "string"
+                                    },
+                                    "liabilities": {
+                                        "type": "string"
+                                    },
+                                    "complete": {
+                                        "type": "boolean"
+                                    },
+                                    "inputFingerprint": {
+                                        "type": "string"
+                                    },
+                                    "inputs": {
+                                        "type": "string"
+                                    },
+                                    "recordedAt": {
+                                        "type": "string"
+                                    },
+                                    "supersedesId": {
+                                        "anyOf": [
+                                            {
+                                                "type": "string"
+                                            },
+                                            {
+                                                "type": "null"
+                                            }
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "id",
+                                    "asOf",
+                                    "currency",
+                                    "assets",
+                                    "liabilities",
+                                    "complete",
+                                    "inputFingerprint",
+                                    "inputs",
+                                    "recordedAt"
+                                ]
+                            }
+                        },
+                        "reviews": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "id": {
+                                        "type": "string"
+                                    },
+                                    "effectiveDate": {
+                                        "type": "string"
+                                    },
+                                    "assetsReviewed": {
+                                        "type": "boolean"
+                                    },
+                                    "debtsReviewed": {
+                                        "type": "boolean"
+                                    },
+                                    "recordedAt": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "id",
+                                    "effectiveDate",
+                                    "assetsReviewed",
+                                    "debtsReviewed",
+                                    "recordedAt"
+                                ]
+                            }
+                        }
+                    },
+                    "required": []
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        }
+    },
+    "required": [
+        "accounts"
+    ],
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Jvy AI import profile v1",
+    "description": "Native Jvy backup JSON subset. Read conversion rules; schema alone cannot verify accounting meaning or cross-record references."
+}

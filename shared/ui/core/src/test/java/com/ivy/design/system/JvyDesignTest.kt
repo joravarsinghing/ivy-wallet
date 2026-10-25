@@ -57,4 +57,14 @@ class JvyDesignTest {
         }
         return (maxOf(luminance(a), luminance(b)) + 0.05) / (minOf(luminance(a), luminance(b)) + 0.05)
     }
+
+    @Test fun `vivid chart outlines meet nontext contrast on every insight surface`() {
+        listOf(ivyLightColorScheme() to JvyChartColors.Light,
+            ivyDarkColorScheme(false) to JvyChartColors.Dark,
+            ivyDarkColorScheme(true) to JvyChartColors.Dark).forEach { (scheme, palette) ->
+            listOf(palette.balance, palette.income, palette.spending).forEach { ink ->
+                assertTrue("Plot $ink on ${scheme.surfaceVariant}", contrast(ink, scheme.surfaceVariant) >= 3.0)
+            }
+        }
+    }
 }

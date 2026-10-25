@@ -16,28 +16,27 @@ import androidx.compose.ui.unit.dp
 
 /** Planning pages share one back location, action shape and restrained empty-state hierarchy. */
 @Composable
-fun JvyScreenHeader(title: String, onBack: () -> Unit, subtitle: String? = null,
+fun JvyScreenHeader(title: String, onBack: () -> Unit, subtitle: String? = null, backModifier: Modifier = Modifier,
                     actions: @Composable RowScope.() -> Unit = {}) {
-    if (LocalDensity.current.fontScale > 1.3f) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface) }
-                Spacer(Modifier.weight(1f)); actions()
+    val largeText = LocalDensity.current.fontScale > 1.3f
+    Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack, modifier = Modifier.size(48.dp).then(backModifier)) {
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface)
             }
+            if (largeText) Spacer(Modifier.weight(1f)) else {
+                Spacer(Modifier.width(8.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(title, style = JvyTypography.PageTitle, modifier = Modifier.semantics { heading() })
+                    subtitle?.let { Text(it, style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
+            }
+            actions()
+        }
+        if (largeText) {
             Text(title, style = JvyTypography.PageTitle, modifier = Modifier.semantics { heading() })
             subtitle?.let { Text(it, style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-        return
-    }
-    Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface) }
-        Spacer(Modifier.width(8.dp))
-        Column(Modifier.weight(1f)) {
-            Text(title, style = JvyTypography.PageTitle, modifier = Modifier.semantics { heading() })
-            subtitle?.let { Text(it, style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        }
-        actions()
     }
 }
 

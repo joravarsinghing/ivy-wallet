@@ -44,6 +44,70 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
 class BackupDataUseCaseTest {
+    @Test fun `marketing backup restores and round trips all current planning records`() = runTest {
+        val json = KotlinxSerializationModule.provideJson()
+        val planning = PlanningStore()
+        var wealth = com.ivy.data.model.wealth.WealthBackup()
+        val wealthStore = mockk<com.ivy.data.repository.WealthRepository>(relaxed = true) {
+            coEvery { read() } answers { wealth }
+            coEvery { merge(any()) } answers { wealth = firstArg() }
+        }
+        val backup = newBackupDataUseCase(planning = planning, wealthStore = wealthStore)
+        val payload = testResource("backups/jvy-marketing-2026-10.json").readText()
+        val result = backup.importJson(payload)
+        result.transactionsImported shouldBe 61
+        result.accountsImported shouldBe 6
+        planning.goals.size shouldBe 3
+        planning.allocations.size shouldBe 4
+        val restored = json.decodeFromString(IvyWalletCompleteData.serializer(), backup.generateJsonBackup())
+        restored.transactions.size shouldBe 61
+        restored.plannedPaymentRules.size shouldBe 4
+        restored.loans.size shouldBe 2
+        restored.loanRecords.size shouldBe 3
+        restored.goals.size shouldBe 3
+        restored.wealth!!.items.size shouldBe 12
+        restored.wealth!!.valuations.size shouldBe 12
+        restored.wealth!!.reviews.size shouldBe 3
+        val again = newBackupDataUseCase()
+        again.importJson(backup.generateJsonBackup()).transactionsImported shouldBe 61
+    }
+
+    @Test fun `AI preview is read only confirmation preserves preferences and repeats idempotently`() = runTest {
+        val accountDao = FakeAccountDao()
+        val transactionDao = FakeTransactionDao()
+        val prefs = mockk<SharedPrefs>(relaxed = true)
+        val useCase = newBackupDataUseCase(accountDao = accountDao, transactionDao = transactionDao, sharedPrefs = prefs)
+        val payload = AiImportContract.guide.substringAfter("MINIMAL FICTIONAL EXAMPLE (do not reuse its IDs for real data):").substringBefore("JSON SCHEMA:").trim()
+        val preview = useCase.prepareAiImport(payload)
+        accountDao.findAll().size shouldBe 0
+        transactionDao.findAll().size shouldBe 0
+        useCase.importAiPreview(preview).transactionsImported shouldBe 1
+        useCase.importAiPreview(preview).transactionsImported shouldBe 1
+        transactionDao.findAll().size shouldBe 1
+        verify(exactly = 0) { prefs.putBoolean(any(), any()) }
+    }
+
+    @Test fun `AI conflicting transaction ID is rejected before any write`() = runTest {
+        val transactionDao = FakeTransactionDao()
+        val useCase = newBackupDataUseCase(transactionDao = transactionDao)
+        val payload = AiImportContract.guide.substringAfter("MINIMAL FICTIONAL EXAMPLE (do not reuse its IDs for real data):").substringBefore("JSON SCHEMA:").trim()
+        val first = useCase.prepareAiImport(payload)
+        useCase.importAiPreview(first)
+        val conflict = useCase.prepareAiImport(payload.replace("45.50", "99.50"))
+        try { useCase.importAiPreview(conflict); error("Expected conflicting ID refusal") }
+        catch (_: IllegalArgumentException) { transactionDao.findAll().single().amount shouldBe 45.5 }
+    }
+
+    @Test fun `AI cannot resurrect a deleted transaction ID`() = runTest {
+        val transactions = FakeTransactionDao()
+        val payload = AiImportContract.guide.substringAfter("MINIMAL FICTIONAL EXAMPLE (do not reuse its IDs for real data):").substringBefore("JSON SCHEMA:").trim()
+        val useCase = newBackupDataUseCase(transactionDao = transactions)
+        val preview = useCase.prepareAiImport(payload)
+        transactions.saveMany(preview.data.transactions.map { it.copy(isDeleted = true) })
+        try { useCase.importAiPreview(preview); error("Expected deleted ID refusal") }
+        catch (_: IllegalArgumentException) { transactions.findByIds(preview.data.transactions.map { it.id }).single().isDeleted shouldBe true }
+    }
+
     // Ivy's persisted/backup timestamp contract is epoch milliseconds, not nanoseconds.
     private val fixtureTime = java.time.Instant.ofEpochMilli(1700000000123)
 
@@ -90,6 +154,7 @@ class BackupDataUseCaseTest {
         tagAssociationDao: FakeTagAssociationDao = FakeTagAssociationDao(),
         planning: PlanningStore = PlanningStore(),
         sharedPrefs: SharedPrefs = mockk(relaxed = true),
+        wealthStore: com.ivy.data.repository.WealthRepository? = null,
     ): BackupDataUseCase {
         val accountMapper = AccountMapper(
             CurrencyRepository(
@@ -138,7 +203,7 @@ class BackupDataUseCaseTest {
             tagAssociationWriter = tagAssociationDao,
             savedAnalyticsReader = mockk<SavedAnalyticsDao>(relaxed = true),
             savedAnalyticsWriter = mockk<WriteSavedAnalyticsDao>(relaxed = true),
-            wealthRepository = mockk<com.ivy.data.repository.WealthRepository>(relaxed = true).also {
+            wealthRepository = wealthStore ?: mockk<com.ivy.data.repository.WealthRepository>(relaxed = true).also {
                 io.mockk.coEvery { it.read() } returns com.ivy.data.model.wealth.WealthBackup()
             },
             goalsReader = planning.goalsReader,

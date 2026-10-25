@@ -2,6 +2,8 @@
 
 Jvy Wallet has format-specific CSV adapters for the ten source apps shown in the README, plus manual CSV import and Jvy/Ivy backup JSON or ZIP restore.
 
+For an unlisted source, the [Other app / AI conversion guide](AI-CONVERSION.md) documents the optional, local schema-copy and validated JSON-preview workflow, its supported fields and privacy limitations. Its entry is available in both regular import and onboarding in source after 0.4.2.
+
 This distinction matters:
 
 - **Adapter present** means the app has a source-specific mapping in `CSVMapper` and an import flow entry.

@@ -142,6 +142,8 @@ Jvy Wallet keeps the import path local and explicit. Choose the source format, s
 
 Manual CSV import remains available for files from other apps. Source-app logos in this section identify import formats only; they are not Jvy branding. See the [import compatibility notes](docs/import-compatibility/README.md) for the evidence and current verification status of each format.
 
+**An app isn’t listed?** The optional [AI conversion workflow](docs/import-compatibility/AI-CONVERSION.md) (implemented after 0.4.2) provides a copyable schema and guide in regular import and onboarding, with local validation and a confirmation preview. You choose whether to share an export with any external AI; Jvy does not upload it. Review the conversion report before importing.
+
 ---
 
 ## 📸 Screenshots

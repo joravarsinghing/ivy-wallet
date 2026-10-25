@@ -23,6 +23,7 @@ build/
 **/build/
 artifacts/apk/
 artifacts/ui-review/
+artifacts/fixtures/marketing-2026-10/
 
 **/.DS_Store
 

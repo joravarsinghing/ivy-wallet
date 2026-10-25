@@ -32,6 +32,7 @@ import com.ivy.navigation.navigation
 import com.ivy.ui.R
 import com.ivy.wallet.domain.data.TransactionHistoryDateDivider
 import com.ivy.wallet.ui.theme.components.ItemIconSDefaultIcon
+import com.ivy.wallet.ui.theme.findContrastTextColor
 import com.ivy.wallet.ui.theme.toComposeColor
 import java.math.BigDecimal
 import java.util.Locale
@@ -139,7 +140,7 @@ private fun compactHistory(history: List<TransactionHistoryItem>, maxTransaction
 }
 
 @Composable
-private fun CompactActivityRow(
+internal fun CompactActivityRow(
     transaction: Transaction,
     baseData: AppBaseData,
     hideBalance: Boolean,
@@ -168,7 +169,7 @@ private fun CompactActivityRow(
                 modifier = Modifier.size(22.dp),
                 iconName = category?.icon?.id,
                 defaultIcon = R.drawable.ic_custom_category_s,
-                tint = UI.colors.pureInverse,
+                tint = findContrastTextColor(color),
             )
         }
         Column(Modifier.weight(1f)) {

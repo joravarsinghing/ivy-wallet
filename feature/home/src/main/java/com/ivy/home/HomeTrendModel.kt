@@ -135,7 +135,7 @@ data class HomeTrendState(
     val hasData: Boolean
         get() = points.any { it.isObserved }
 
-    /** A single observed bucket can be shown as a point, but does not establish a trend line. */
+    /** A single observed bucket supplies exact values, but does not establish a trend line. */
     val hasComparableTrend: Boolean
         get() = points.count { it.isObserved } > 1
 }

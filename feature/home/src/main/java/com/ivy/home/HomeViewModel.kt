@@ -161,6 +161,7 @@ class HomeViewModel @Inject constructor(
     private var expanded by mutableStateOf(true)
     private var moneyComingUp by mutableStateOf(MoneyComingUpState())
     private var trend by mutableStateOf(HomeTrendState())
+    private var trendLoadGeneration = 0L
     private var spendingBreakdown by mutableStateOf(HomeSpendingBreakdownState())
     private var visibleDashboardCards by mutableStateOf(defaultVisibleHomeDashboardCards)
     private var dashboardEditorVisible by mutableStateOf(false)
@@ -357,6 +358,11 @@ class HomeViewModel @Inject constructor(
         } thenInvokeAfter { (accounts, categories) ->
             val (settings, timeRange) = input
 
+            if (baseData.baseCurrency != settings.baseCurrency) {
+                // Never show the previous currency's plot/totals under a new currency label.
+                trendLoadGeneration++
+                trend = trend.copy(points = persistentListOf(), loading = true)
+            }
             baseData = AppBaseData(
                 baseCurrency = settings.baseCurrency,
                 categories = categories.toImmutableList(),
@@ -395,17 +401,20 @@ class HomeViewModel @Inject constructor(
         baseCurrency: String,
         accounts: List<Account>,
     ) {
+        val generation = ++trendLoadGeneration
+        val range = trend.range
         trend = trend.copy(loading = true)
 
         val end = trendEndDate()
-        val buckets = (trend.range.periodCount - 1 downTo 0).map { offset ->
-            val pointDate = if (trend.range.isDaily) {
+        val buckets = (range.periodCount - 1 downTo 0).map { offset ->
+            if (generation != trendLoadGeneration) return
+            val pointDate = if (range.isDaily) {
                 end.minusDays(offset.toLong())
             } else {
                 end.withDayOfMonth(1).minusMonths(offset.toLong())
             }
-            val start = if (trend.range.isDaily) pointDate else pointDate.withDayOfMonth(1)
-            val endOfBucket = if (trend.range.isDaily) {
+            val start = if (range.isDaily) pointDate else pointDate.withDayOfMonth(1)
+            val endOfBucket = if (range.isDaily) {
                 pointDate
             } else {
                 pointDate.withDayOfMonth(1).plusMonths(1).minusDays(1).coerceAtMost(end)
@@ -416,6 +425,7 @@ class HomeViewModel @Inject constructor(
             TrendBucket(start, endOfBucket, transactions)
         }
         val rawPoints = buckets.map { bucket ->
+            if (generation != trendLoadGeneration) return
             val stats = calculateTrendStats(bucket.transactions, accounts, baseCurrency)
             val balanceAtEnd = calcWalletBalanceAct(
                 CalcWalletBalanceAct.Input(
@@ -427,7 +437,7 @@ class HomeViewModel @Inject constructor(
             )
             val pointDate = bucket.start
             HomeTrendPoint(
-                periodLabel = if (trend.range.isDaily) {
+                periodLabel = if (range.isDaily) {
                     "${pointDate.month.getDisplayName(TextStyle.SHORT, Locale.US)} ${pointDate.dayOfMonth}"
                 } else {
                     "${pointDate.month.getDisplayName(TextStyle.SHORT, Locale.US)} ${pointDate.year}"
@@ -436,15 +446,16 @@ class HomeViewModel @Inject constructor(
                 expenses = stats?.expense ?: BigDecimal.ZERO,
                 balance = balanceAtEnd,
                 isObserved = bucket.transactions.isNotEmpty(),
-                periodIdentity = if (trend.range.isDaily) {
+                periodIdentity = if (range.isDaily) {
                     HomeTrendPeriodIdentity.Day(pointDate)
                 } else {
                     HomeTrendPeriodIdentity.Month(java.time.YearMonth.from(pointDate))
                 },
             )
         }
-        val points = buildHomeTrendPoints(rawPoints, trend.range, anchorDate = end)
+        val points = buildHomeTrendPoints(rawPoints, range, anchorDate = end)
 
+        if (generation != trendLoadGeneration || range != trend.range) return
         trend = trend.copy(
             points = points.toImmutableList(),
             loading = false,
@@ -523,9 +534,11 @@ class HomeViewModel @Inject constructor(
     }
 
     private suspend fun setTrendRange(range: HomeTrendRange) {
-        trend = trend.copy(range = range)
+        if (trend.range == range) return
+        trendLoadGeneration++
+        trend = trend.copy(range = range, loading = true)
         dataStore.edit { it[HOME_TREND_RANGE_KEY] = range.name }
-        loadTrend(baseData.baseCurrency, baseData.accounts.toList())
+        if (trend.range == range) loadTrend(baseData.baseCurrency, baseData.accounts.toList())
     }
 
     private suspend fun toggleTrendMetric(metric: HomeTrendMetric) {

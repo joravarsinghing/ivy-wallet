@@ -1,5 +1,7 @@
 # Render fixtures
 
+For a full, current, importable fictional backup (including goals and net worth), see [the marketing backup instructions](../import-compatibility/AI-CONVERSION.md#fictional-marketing-backup) and `scripts/generate-marketing-backup.cjs`. Unlike the older generator below, it covers the current backup envelope and has serializer/restore/calculation regression tests.
+
 `john-doe-render-fixture.json` is the deterministic John Doe dataset for screenshots, Paparazzi renders, demos, and device QA.
 
 It mirrors the current persisted concepts:

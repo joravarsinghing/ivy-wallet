@@ -33,7 +33,7 @@ class HomeTrendMotionPaparazziTest : JvyAdaptivePreviewTest(JvyPreviewWindow.Pho
             }.toImmutableList())
     }
 
-    private fun motion(hideDuringUpdate: Boolean, rapid: Boolean) {
+    private fun motion(hideDuringUpdate: Boolean, rapid: Boolean, loading: Boolean = false, hideWhileLoading: Boolean = false) {
         val daily = state(false)
         val monthly = state(true)
         var target by mutableStateOf(daily)
@@ -47,6 +47,14 @@ class HomeTrendMotionPaparazziTest : JvyAdaptivePreviewTest(JvyPreviewWindow.Pho
                 }
                 LaunchedEffect(Unit) {
                     delay(100)
+                    if (loading) {
+                        target = daily.copy(range = monthly.range, loading = true)
+                        if (hideWhileLoading) {
+                            delay(60)
+                            hidden = true
+                            delay(390)
+                        } else delay(450)
+                    }
                     target = monthly
                     if (hideDuringUpdate || rapid) {
                         delay(60)
@@ -56,7 +64,7 @@ class HomeTrendMotionPaparazziTest : JvyAdaptivePreviewTest(JvyPreviewWindow.Pho
             }
         }
         try {
-            paparazzi.gif(view, end = 700, fps = 20)
+            paparazzi.gif(view, end = 1200, fps = 20)
             assertEquals(if (rapid) daily else monthly, target)
             if (hideDuringUpdate) assertTrue(hidden)
         } finally {
@@ -67,4 +75,7 @@ class HomeTrendMotionPaparazziTest : JvyAdaptivePreviewTest(JvyPreviewWindow.Pho
     @Test fun dailyToMonthly() = motion(hideDuringUpdate = false, rapid = false)
     @Test fun latestTargetWins() = motion(hideDuringUpdate = false, rapid = true)
     @Test fun hideDuringTransition() = motion(hideDuringUpdate = true, rapid = false)
+    @Test fun loadingThenReveal() = motion(hideDuringUpdate = false, rapid = false, loading = true)
+    @Test fun hideWhileLoading() = motion(hideDuringUpdate = false, rapid = false, loading = true, hideWhileLoading = true)
+    @Test fun rapidChangeAfterLoading() = motion(hideDuringUpdate = false, rapid = true, loading = true)
 }

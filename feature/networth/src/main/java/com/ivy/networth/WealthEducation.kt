@@ -12,9 +12,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
-import java.util.Locale
 import com.ivy.design.system.JvyButton as Button
 import com.ivy.design.system.JvyOutlinedButton as OutlinedButton
 import com.ivy.design.system.JvyTextButton as TextButton
@@ -93,18 +90,6 @@ internal fun ColumnScope.WealthGuidePage(step: Int, next: () -> Unit, previous: 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun WealthDateField(label: String, value: String, change: (String) -> Unit, allowFuture: Boolean = false) {
-    var open by remember { mutableStateOf(false) }
-    val date = runCatching { LocalDate.parse(value) }.getOrDefault(LocalDate.now())
-    OutlinedButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth()) {
-        Text("$label: ${date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.getDefault()))}")
-    }
-    if (open) {
-        val state = rememberDatePickerState(initialSelectedDateMillis = date.toEpochDay() * 86_400_000L,
-            selectableDates = object : SelectableDates {
-                override fun isSelectableDate(utcTimeMillis: Long) = allowFuture || utcTimeMillis / 86_400_000L <= LocalDate.now().toEpochDay()
-            })
-        DatePickerDialog(onDismissRequest = { open = false }, confirmButton = { TextButton(onClick = {
-            state.selectedDateMillis?.let { change(LocalDate.ofEpochDay(it / 86_400_000L).toString()) }; open = false
-        }, enabled = state.selectedDateMillis != null) { Text("Use date") } }, dismissButton = { TextButton(onClick = { open = false }) { Text("Cancel") } }) { DatePicker(state) }
-    }
+    com.ivy.ui.time.JvyDateField(label, runCatching { LocalDate.parse(value) }.getOrNull(),
+        { it?.let { day -> change(day.toString()) } }, latestDate = if (allowFuture) null else LocalDate.now())
 }

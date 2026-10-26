@@ -8,9 +8,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.ivy.design.system.*
@@ -30,39 +32,63 @@ fun BoxWithConstraintsScope.GoalsScreen(screen: GoalsScreen) {
 
 @Composable
 fun BoxWithConstraintsScope.GoalsScreenContent(state: GoalScreenState, onEvent: (GoalsScreenEvent) -> Unit) {
-    var goals by remember(state.goals) { mutableStateOf(state.goals) }
-    var modal by remember { mutableStateOf<GoalsModal?>(null) }
-    val add = { modal = GoalsModal.Add }
-    Box(Modifier.fillMaxSize()) {
+    val goals = state.goals
+    var modalKind by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
+    var requestedRevision by rememberSaveable { mutableStateOf<Long?>(null) }
+    val selected = goals.firstOrNull { it.id == selectedId }
+    val modal = when (modalKind) {
+        "add" -> GoalsModal.Add
+        "detail" -> selected?.let(GoalsModal::Detail)
+        "edit" -> selected?.let(GoalsModal::Edit)
+        "reserve" -> selected?.let(GoalsModal::Reserve)
+        else -> null
+    }
+    val add = { if (!state.loading && !state.saving) modalKind = "add" }
+    if (requestedRevision?.let { state.saveRevision >= it } == true) SideEffect {
+        modalKind = null
+        requestedRevision = null
+    }
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+      Box(Modifier.fillMaxSize()) {
         Column(Modifier.widthIn(max = 960.dp).fillMaxSize().systemBarsPadding().align(Alignment.TopCenter)) {
             JvyScreenHeader("Goals", { onEvent(GoalsScreenEvent.Back) }, "Plan for what matters to you.")
             LazyVerticalGrid(columns = GridCells.Adaptive(if (LocalDensity.current.fontScale > 1.3f) 960.dp else 360.dp), modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(horizontal = if (goals.isEmpty()) 0.dp else 24.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                if (goals.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
+                if (state.error != null && modal == null) item(span = { GridItemSpan(maxLineSpan) }) {
+                    Column(Modifier.padding(horizontal = 24.dp)) {
+                        Text(state.error, color = MaterialTheme.colorScheme.error, style = JvyTypography.Supporting)
+                        JvyTextButton({ onEvent(GoalsScreenEvent.Retry) }) { Text("Retry") }
+                    }
+                }
+                if (state.loading && goals.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
+                    Box(Modifier.fillMaxWidth().height(160.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                } else if (goals.isEmpty() && state.error == null) item(span = { GridItemSpan(maxLineSpan) }) {
                     JvyEmptyState("What would you like to plan for?",
                         "A laptop, a trip, or peace of mind. Set a target, then reserve money from your accounts without creating a transfer.",
                         Icons.Outlined.Flag, "Create your first goal", add)
-                } else {
+                } else if (goals.isNotEmpty()) {
                     item(span = { GridItemSpan(maxLineSpan) }) { ReservedSummary(goals.sumOf { it.savedAmount }, state.baseCurrency, goals.count { it.status == GoalStatus.ACTIVE }) }
                     item(span = { GridItemSpan(maxLineSpan) }) { Text("Your goals · ${goals.size}", style = JvyTypography.SectionTitle) }
                     items(goals.size, key = { goals[it].id }) { index ->
                         val goal = goals[index]
-                        GoalCard(goal, state.accounts, state.asOfDate) { modal = GoalsModal.Detail(goal) }
+                        GoalCard(goal, state.accounts, state.asOfDate) { selectedId = goal.id; modalKind = "detail" }
                     }
                 }
             }
             if (goals.isNotEmpty()) JvyPrimaryAction("Add goal", add)
         }
-        GoalsModalHost(modal, state.copy(goals = goals), onDismiss = { modal = null },
+        GoalsModalHost(modal, state, onDismiss = { modalKind = null; requestedRevision = null },
             onCreated = { goal ->
-                val ready = goal.copy(fundingGuidance = goal.toFundingGuidance(state.asOfDate))
-                goals = goals + ready; onEvent(GoalsScreenEvent.GoalCreated(ready)); modal = null
+                requestedRevision = state.saveRevision + 1
+                onEvent(GoalsScreenEvent.GoalCreated(goal))
             }, onUpdated = { goal ->
-                val ready = goal.copy(fundingGuidance = goal.toFundingGuidance(state.asOfDate))
-                goals = goals.map { if (it.id == goal.id) ready else it }
-                onEvent(GoalsScreenEvent.GoalUpdated(ready)); modal = null
-            }, onReserve = { modal = GoalsModal.Reserve(it) })
+                requestedRevision = state.saveRevision + 1
+                onEvent(GoalsScreenEvent.GoalUpdated(goal))
+            }, onReserve = { selectedId = it.id; modalKind = "reserve" },
+            onEdit = { selectedId = it.id; modalKind = "edit" })
+      }
     }
 }
 
@@ -82,16 +108,20 @@ private fun ReservedSummary(amount: Double, currency: String, count: Int) {
 private fun GoalCard(goal: Goal, accounts: List<GoalAccount>, date: java.time.LocalDate, onClick: () -> Unit) {
     val guidance = goal.fundingGuidance ?: goal.toFundingGuidance(date)
     val accent = if (goal.type == GoalType.EMERGENCY_FUND) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
-    OutlinedCard(onClick, Modifier.fillMaxWidth(), shape = JvyShapes.Card) {
+    Card(onClick, Modifier.fillMaxWidth(), shape = JvyShapes.Card,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurface)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(goal.name, style = MaterialTheme.typography.titleMedium)
             Text(goal.type.label, style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text("Reserved ${money(guidance.reservedAmount.toDouble(), goal.currency)}", style = JvyTypography.AmountSmall)
             ProgressTrack(goal.progress, accent)
+            if (goal.reservationsNeedReview(accounts)) Text(reservationReviewMessage,
+                style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text("Remaining ${money(guidance.remainingAmount.toDouble(), goal.currency)}", style = JvyTypography.Supporting)
             Text(guidance.displayLabel(goal.currency), style = JvyTypography.Supporting, color = accent)
-            goal.deadlineLabel?.takeUnless { it.equals(guidance.displayLabel(goal.currency), ignoreCase = true) }
-                ?.let { Text(it, style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            goal.displayDeadline(LocalConfiguration.current.locales[0] ?: Locale.getDefault())
+                ?.let { Text("By $it", style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             val names = goal.allocations.mapNotNull { allocation -> accounts.firstOrNull { it.id == allocation.accountId }?.name }
             Text(if (names.isEmpty()) "Not reserved yet" else names.joinToString(), style = JvyTypography.Supporting,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -102,7 +132,7 @@ private fun GoalCard(goal: Goal, accounts: List<GoalAccount>, date: java.time.Lo
 @Composable
 internal fun ProgressTrack(progress: Float, color: Color) {
     LinearProgressIndicator(progress.coerceIn(0f, 1f), Modifier.fillMaxWidth().height(6.dp),
-        color = color, trackColor = MaterialTheme.colorScheme.surfaceVariant)
+        color = color, trackColor = MaterialTheme.colorScheme.surface)
 }
 
 private fun money(amount: Double, currency: String) = String.format(Locale.US, "%,.2f %s", amount, currency)

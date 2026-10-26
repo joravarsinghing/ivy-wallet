@@ -9,7 +9,7 @@ import java.util.UUID
 enum class GoalType(val label: String) {
     EMERGENCY_FUND("Emergency fund"),
     PURCHASE("Purchase"),
-    SINKING_FUND("Sinking fund"),
+    SINKING_FUND("Planned expense"),
     CUSTOM("Custom")
 }
 
@@ -17,6 +17,12 @@ enum class GoalStatus(val label: String) {
     ACTIVE("Active"),
     PAUSED("Paused"),
     COMPLETED("Completed")
+}
+
+internal const val reservationReviewMessage = "Some reservations use other currencies or unavailable accounts. Review this total; no conversion is applied."
+
+internal fun Goal.reservationsNeedReview(accounts: List<GoalAccount>): Boolean = allocations.any { allocation ->
+    accounts.firstOrNull { it.id == allocation.accountId }?.currency != currency
 }
 
 @Immutable
@@ -45,6 +51,8 @@ data class Goal(
     val allocations: List<GoalAllocation> = emptyList(),
     val categoryLabel: String? = null,
     val fundingGuidance: GoalFundingGuidance? = null,
+    /** The selected calendar day. Labels are presentation/legacy compatibility only. */
+    val deadline: LocalDate? = null,
 ) {
     val savedAmount: Double
         get() = allocations.sumOf { it.amount.coerceAtLeast(0.0) }
@@ -62,6 +70,10 @@ data class GoalScreenState(
     val goals: List<Goal>,
     val accounts: List<GoalAccount>,
     val asOfDate: LocalDate = LocalDate.now(),
+    val loading: Boolean = false,
+    val saving: Boolean = false,
+    val error: String? = null,
+    val saveRevision: Long = 0,
 ) {
     val reservedAmount: Double
         get() = goals.sumOf { it.savedAmount }
@@ -112,6 +124,7 @@ data class GoalScreenState(
 
 sealed interface GoalsScreenEvent {
     data object Back : GoalsScreenEvent
+    data object Retry : GoalsScreenEvent
     data class GoalCreated(val goal: Goal) : GoalsScreenEvent
     data class GoalUpdated(val goal: Goal) : GoalsScreenEvent
 }

@@ -12,7 +12,6 @@ import com.ivy.domain.usecase.goal.GoalType as DomainGoalType
 import com.ivy.domain.usecase.goal.deriveGoalFundingGuidance
 import java.math.BigDecimal
 import java.time.LocalDate
-import java.time.YearMonth
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -46,6 +45,7 @@ internal fun GoalEntity.toUiGoal(
         deadlineLabel = deadline?.atZone(ZoneOffset.UTC)?.let {
             DateTimeFormatter.ofPattern("MMMM yyyy", Locale.US).format(it)
         },
+        deadline = deadline?.atZone(ZoneOffset.UTC)?.toLocalDate(),
         status = if (isActive) GoalStatus.ACTIVE else GoalStatus.PAUSED,
         allocations = allocations.map {
             GoalAllocation(
@@ -66,7 +66,7 @@ internal fun Goal.toFundingGuidance(asOfDate: LocalDate): GoalFundingGuidance =
             targetAmount = BigDecimal.valueOf(targetAmount),
             status = status.toDomainStatus(),
         ),
-        dueDate = deadlineLabel.toDeadlineLocalDateOrNull(),
+        dueDate = resolvedDeadline(),
         asOfDate = asOfDate,
         allocations = allocations.map { it.toDomainAllocation(id) },
     )
@@ -118,14 +118,6 @@ private fun GoalStatus.toDomainStatus(): DomainGoalStatus = when (this) {
     GoalStatus.ACTIVE -> DomainGoalStatus.ACTIVE
     GoalStatus.PAUSED -> DomainGoalStatus.PAUSED
     GoalStatus.COMPLETED -> DomainGoalStatus.COMPLETED
-}
-
-private fun String?.toDeadlineLocalDateOrNull(): LocalDate? {
-    val value = this?.trim().orEmpty()
-    if (value.isBlank()) return null
-    return runCatching {
-        YearMonth.parse(value, DateTimeFormatter.ofPattern("MMMM yyyy", Locale.US)).atDay(1)
-    }.getOrNull()
 }
 
 private fun groupedAmount(amount: BigDecimal): String =

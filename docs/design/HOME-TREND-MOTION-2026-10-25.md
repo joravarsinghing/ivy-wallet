@@ -12,7 +12,7 @@ The overlay plot is 160dp tall across range changes. Green/red fills retain stro
 
 ## Animation and compatibility
 
-- A 240ms Compose crossfade updates plot, dates and axes together after replacement data arrives. Exact totals update immediately; initial display is static.
+- The initial reference-correction candidate used a 240ms Compose crossfade. The owner found this too subtle behind the loading feedback; the loading-to-reveal follow-up below supersedes that motion treatment. Exact totals update immediately; initial display remains static.
 - Loading/editor-only changes do not create animation targets. The previous chart remains steady during loading. Rapid range requests cannot publish an older result over a newer selection.
 - Hiding balances removes outgoing animation layers, scales and values immediately. Currency changes clear the previous dataset before relabelling the chart.
 - Geometry and decimal normalization are prepared on data changes. Paths, strokes and brushes are cached on data/size changes; animation updates opacity, not ledger calculations.
@@ -39,3 +39,17 @@ The superseded candidates are under ignored `artifacts/ui-review/home-trend-moti
 Before distribution, check date/range/transaction refreshes and gesture scrolling on a real phone/fold/DeX window, Android animation scales (including disabled), and TalkBack/exact-value access. Hardware frame-time/battery performance and disabled-motion behavior have not been measured in this environment. Profile a release build if measurement is needed, never a debug build.
 
 No installable APK was generated, no APK version consumed, and no screenshot golden replaced.
+
+## Line-only legend and loading-to-reveal follow-up
+
+The approved graph geometry, fills and palette remain unchanged. Legend samples now contain only a solid green line, dashed red line and solid purple line: no tinted backplates.
+
+Refreshes keep the old plot visible without a floating loading pill. A 2dp height-reserved top-edge indicator appears only after 350ms of loading, and disappears immediately when values are ready or balances are hidden. Initial loading retains an inline accessible progress treatment rather than a floating surface.
+
+Replacement data gets a 360ms eased, left-to-right draw-on reveal (`JvyMotion.ChartUpdateMillis`), with a shorter 160ms outgoing/axis fade. The reveal clips exact cached geometry in drawing; it does not interpolate money, morph unrelated dates or rebuild paths every frame. The initial chart is complete and has no entry-animation coroutine. Trend query/fold assembly runs on `Dispatchers.Default`, with UI publication and the latest-generation guard retained; the generation counter is volatile for safe worker cancellation checks.
+
+318 checks passed: 162 Home, 62 shared UI and 94 domain, with zero failures, errors or skips. Tests include progressive reveal and finite completion, disabled duration scale, cancellation without queued frames, slow loading followed by reveal, rapid changes after loading, and hiding during either loading or animation. Motion-duration assertions use a controlled virtual clock, not hardware timing benchmarks.
+
+Fresh light/AMOLED/large-text legend renders and slow-load/reveal/privacy recordings were inspected under ignored `artifacts/ui-review/home-trend-refresh-2026-10-25/`. Frame inspection confirms the replacement line and fills are partially revealed before reaching their unchanged final shape. These remain candidates, not approved screenshot goldens or measured real-device frame rates.
+
+This follow-up did not generate another APK or consume a version; the last signed release remains 0.4.3 / 227.

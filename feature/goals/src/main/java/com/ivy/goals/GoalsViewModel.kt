@@ -17,11 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.YearMonth
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import kotlinx.coroutines.CancellationException
 import java.util.UUID
 import javax.inject.Inject
 
@@ -34,7 +30,7 @@ class GoalsViewModel @Inject constructor(
     private val baseCurrencyAct: BaseCurrencyAct,
     private val timeProvider: TimeProvider,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(GoalScreenState.empty())
+    private val _uiState = MutableStateFlow(GoalScreenState.empty().copy(loading = true))
     val uiState: StateFlow<GoalScreenState> = _uiState.asStateFlow()
 
     init {
@@ -44,6 +40,7 @@ class GoalsViewModel @Inject constructor(
     fun onEvent(event: GoalsScreenEvent) {
         when (event) {
             GoalsScreenEvent.Back -> Unit
+            GoalsScreenEvent.Retry -> refresh()
             is GoalsScreenEvent.GoalCreated -> save(event.goal)
             is GoalsScreenEvent.GoalUpdated -> save(event.goal)
         }
@@ -51,27 +48,37 @@ class GoalsViewModel @Inject constructor(
 
     private fun refresh() {
         viewModelScope.launch {
-            val currency = baseCurrencyAct(Unit)
-            val asOfDate = timeProvider.localDateNow()
-            val accounts = loadAccounts()
-            val goals = goalRepository.findActiveGoals()
-            val allocations = goals.flatMap { goal ->
-                goalRepository.findAllocations(goal.id)
+            _uiState.value = _uiState.value.copy(loading = true, error = null)
+            try {
+                loadState()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                _uiState.value = _uiState.value.copy(loading = false, error = "Couldn't load goals. Please retry.")
             }
-
-            _uiState.value = GoalScreenState(
-                baseCurrency = currency,
-                accounts = accounts,
-                asOfDate = asOfDate,
-                goals = goals.map { goal ->
-                    goal.toUiGoal(
-                        allocations = allocations.filter { it.goalId == goal.id },
-                        baseCurrency = currency,
-                        asOfDate = asOfDate,
-                    )
-                }
-            )
         }
+    }
+
+    private suspend fun loadState() {
+        val currency = baseCurrencyAct(Unit)
+        val asOfDate = timeProvider.localDateNow()
+        val accounts = loadAccounts()
+        val goals = goalRepository.findActiveGoals()
+        val allocations = goals.flatMap { goal -> goalRepository.findAllocations(goal.id) }
+
+        _uiState.value = _uiState.value.copy(
+            baseCurrency = currency,
+            accounts = accounts,
+            asOfDate = asOfDate,
+            goals = goals.map { goal ->
+                goal.toUiGoal(
+                    allocations = allocations.filter { it.goalId == goal.id },
+                    baseCurrency = currency,
+                    asOfDate = asOfDate,
+                )
+            },
+            loading = false,
+        )
     }
 
     private suspend fun loadAccounts(): List<GoalAccount> {
@@ -95,55 +102,61 @@ class GoalsViewModel @Inject constructor(
     }
 
     private fun save(goal: Goal) {
+        if (_uiState.value.saving || _uiState.value.loading) return
+        _uiState.value = _uiState.value.copy(saving = true, error = null)
         viewModelScope.launch {
-            val goalId = goal.id.toUuidOrNew()
-            val now = Instant.now()
-            val previous = goalRepository.findGoal(goalId)
-            val entity = GoalEntity(
-                id = goalId,
-                name = goal.name,
-                kind = goal.type.toEntityKind(),
-                targetAmount = goal.targetAmount,
-                deadline = goal.deadlineLabel.toDeadlineInstantOrNull(),
-                isActive = goal.status != GoalStatus.PAUSED,
-                createdAt = previous?.createdAt ?: now,
-                updatedAt = now,
-            )
-            val allocations = goal.allocations.mapNotNull { allocation ->
-                allocation.accountId.toUuidOrNull()?.let { accountId ->
+            var persisted = false
+            try {
+                require(goalInputError(goal.name, goal.targetAmount.toString()) == null) {
+                    "Enter a name and a positive target amount."
+                }
+                require(goal.currency == _uiState.value.baseCurrency) { "Use the wallet currency for this goal." }
+                require(goal.allocations.all { it.amount.isFinite() && it.amount >= 0 }) { "Enter valid reservation amounts." }
+                val goalId = UUID.fromString(goal.id)
+                val now = timeProvider.utcNow()
+                val previous = goalRepository.findGoal(goalId)
+                val entity = GoalEntity(
+                    id = goalId,
+                    name = goal.name,
+                    kind = goal.type.toEntityKind(),
+                    targetAmount = goal.targetAmount,
+                    deadline = goal.deadlineInstant(),
+                    isActive = goal.status != GoalStatus.PAUSED,
+                    createdAt = previous?.createdAt ?: now,
+                    updatedAt = now,
+                )
+                val allocations = goal.allocations.map { allocation ->
                     GoalAllocationEntity(
                         goalId = goalId,
-                        accountId = accountId,
-                        reservedAmount = allocation.amount.coerceAtLeast(0.0),
+                        accountId = UUID.fromString(allocation.accountId),
+                        reservedAmount = allocation.amount,
                         createdAt = previous?.createdAt ?: now,
                         updatedAt = now,
                     )
                 }
+                goalRepository.saveGoalWithAllocations(entity, allocations)
+                persisted = true
+                loadState()
+                _uiState.value = _uiState.value.copy(saving = false, saveRevision = _uiState.value.saveRevision + 1)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    saving = false,
+                    saveRevision = _uiState.value.saveRevision + if (persisted) 1 else 0,
+                    error = when {
+                        persisted -> "The goal was saved, but the list couldn't refresh. Please retry."
+                        failure is IllegalArgumentException -> failure.message ?: "Check the goal details and try again."
+                        else -> "Couldn't save the goal. Please retry."
+                    },
+                )
             }
-            goalRepository.saveGoalWithAllocations(entity, allocations)
-            refresh()
         }
     }
 }
-
 private fun GoalType.toEntityKind(): GoalKind = when (this) {
     GoalType.EMERGENCY_FUND -> GoalKind.EMERGENCY_FUND
     GoalType.PURCHASE -> GoalKind.PURCHASE
     GoalType.SINKING_FUND -> GoalKind.SINKING_FUND
     GoalType.CUSTOM -> GoalKind.CUSTOM
 }
-
-private fun String?.toDeadlineInstantOrNull(): Instant? {
-    val value = this?.trim().orEmpty()
-    if (value.isBlank()) return null
-    return runCatching {
-        YearMonth.parse(value, DateTimeFormatter.ofPattern("MMMM yyyy", Locale.US))
-            .atDay(1)
-            .atStartOfDay()
-            .toInstant(ZoneOffset.UTC)
-    }.getOrNull()
-}
-
-private fun String.toUuidOrNull(): UUID? = runCatching { UUID.fromString(this) }.getOrNull()
-
-private fun String.toUuidOrNew(): UUID = toUuidOrNull() ?: UUID.randomUUID()

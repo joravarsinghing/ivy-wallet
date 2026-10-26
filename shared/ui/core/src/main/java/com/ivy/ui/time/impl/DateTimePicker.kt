@@ -20,4 +20,12 @@ interface DateTimePicker {
         initialTime: LocalTime?,
         onTimePick: (LocalTime) -> Unit
     )
+
+    /** Date-only callers must not manufacture a UTC Instant to open a calendar. */
+    fun pickCalendarDate(
+        initialDate: LocalDate?,
+        minDate: LocalDate? = null,
+        maxDate: LocalDate? = null,
+        onDatePick: (LocalDate) -> Unit,
+    )
 }

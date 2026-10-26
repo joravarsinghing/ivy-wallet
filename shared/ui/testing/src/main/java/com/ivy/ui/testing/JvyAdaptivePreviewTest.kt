@@ -3,7 +3,8 @@ package com.ivy.ui.testing
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Surface
+import androidx.compose.foundation.background
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
@@ -28,7 +29,9 @@ open class JvyAdaptivePreviewTest(protected val window: JvyPreviewWindow) {
         paparazzi.snapshot {
             CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, window.font)) {
                 IvyMaterial3Theme(isTrueBlack = window.amoled, dark = window.dark) {
-                    Surface(Modifier.fillMaxSize()) { BoxWithConstraints(Modifier.fillMaxSize(), content = content) }
+                    // Match production non-legacy routes: do not add a Surface that masks a
+                    // missing LocalContentColor at the theme boundary.
+                    BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), content = content)
                 }
             }
         }

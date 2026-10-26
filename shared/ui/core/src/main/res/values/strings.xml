@@ -514,4 +514,10 @@
     <string name="bill_paid">Your bill for %1$s %2$s has been paid</string>
     <string name="language">Language</string>
     <string name="advanced_features">Advanced features</string>
+    <string name="jvy_picker_date_title">@string/m3c_date_picker_title</string>
+    <string name="jvy_picker_time_title">Choose time</string>
+    <string name="jvy_picker_type_time">Type time</string>
+    <string name="jvy_picker_use_clock">Use clock</string>
+    <string name="jvy_picker_previous_month">@string/m3c_date_picker_switch_to_previous_month</string>
+    <string name="jvy_picker_next_month">@string/m3c_date_picker_switch_to_next_month</string>
 </resources>

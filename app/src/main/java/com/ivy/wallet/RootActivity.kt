@@ -27,9 +27,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.google.android.material.datepicker.MaterialDatePicker
-import com.google.android.material.timepicker.MaterialTimePicker
-import com.google.android.material.timepicker.TimeFormat
 import com.google.android.play.core.review.ReviewManagerFactory
 import com.ivy.IvyNavGraph
 import com.ivy.base.legacy.Theme
@@ -55,8 +52,6 @@ import com.ivy.widget.balance.WalletBalanceWidgetReceiver
 import com.ivy.widget.transaction.AddTransactionWidget
 import com.ivy.widget.transaction.AddTransactionWidgetCompact
 import dagger.hilt.android.AndroidEntryPoint
-import java.time.LocalDate
-import java.time.LocalTime
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -186,70 +181,16 @@ class RootActivity : AppCompatActivity(), RootScreen {
         WalletBalanceWidgetReceiver.updateBroadcast(this)
     }
 
-    private companion object {
-        private const val MILLISECONDS_IN_DAY = 24 * 60 * 60 * 1000
-    }
-
     private fun setupDatePicker() {
-        ivyContext.onShowDatePicker = { minDate,
-                                        maxDate,
-                                        initialDate,
-                                        onDatePicked ->
-            val datePicker =
-                MaterialDatePicker.Builder.datePicker()
-                    .setSelection(
-                        if (initialDate != null) {
-                            initialDate.toEpochDay() * MILLISECONDS_IN_DAY
-                        } else {
-                            MaterialDatePicker.todayInUtcMilliseconds()
-                        }
-                    )
-                    .build()
-            datePicker.show(supportFragmentManager, "datePicker")
-            datePicker.addOnPositiveButtonClickListener {
-                onDatePicked(LocalDate.ofEpochDay(it / MILLISECONDS_IN_DAY))
-            }
-
-            if (minDate != null) {
-                datePicker.addOnCancelListener {
-                    onDatePicked(minDate)
-                }
-            }
-
-            if (maxDate != null) {
-                datePicker.addOnCancelListener {
-                    onDatePicked(maxDate)
-                }
-            }
-
-            if (initialDate != null) {
-                datePicker.addOnCancelListener {
-                    onDatePicked(initialDate)
-                }
-            }
+        val picker = dateTimePicker
+        ivyContext.onShowDatePicker = { minDate, maxDate, initialDate, onDatePicked ->
+            picker.pickCalendarDate(initialDate, minDate, maxDate, onDatePicked)
         }
     }
 
     private fun setupTimePicker() {
-        ivyContext.onShowTimePicker = { initialTime,
-                                        onTimePicked ->
-            val nowLocal = initialTime ?: timeProvider.localTimeNow()
-            val is24Hour = android.text.format.DateFormat.is24HourFormat(this)
-            val timeFormat = if (is24Hour) TimeFormat.CLOCK_24H else TimeFormat.CLOCK_12H
-
-            val picker =
-                MaterialTimePicker.Builder()
-                    .setTimeFormat(timeFormat)
-                    .setHour(nowLocal.hour)
-                    .setMinute(nowLocal.minute)
-                    .build()
-            picker.show(supportFragmentManager, "timePicker")
-            picker.addOnPositiveButtonClickListener {
-                onTimePicked(
-                    LocalTime.of(picker.hour, picker.minute).withSecond(0)
-                )
-            }
-        }
+        val picker = dateTimePicker
+        ivyContext.onShowTimePicker = { initialTime, onTimePicked -> picker.pickTime(initialTime, onTimePicked) }
     }
 
     private fun isDarkThemeEnabled(ivyDesign: IvyDesign, systemDarkTheme: Boolean): Boolean {

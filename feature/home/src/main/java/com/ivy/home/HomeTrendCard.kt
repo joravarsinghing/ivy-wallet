@@ -1,6 +1,5 @@
 package com.ivy.home
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.FilterChip
@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -36,6 +37,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import java.math.BigDecimal
 import java.util.Locale
+import kotlinx.coroutines.delay
 
 /**
  * A reusable, state-driven Home trend card.
@@ -56,6 +58,14 @@ fun HomeTrendCard(
     plotStyle: HomeTrendPlotStyle = HomeTrendPlotStyle.Line,
 ) {
     var showValues by rememberSaveable(state.range) { mutableStateOf(false) }
+    val refreshing = state.loading && state.hasData && !hideBalance && state.visibleMetrics.isNotEmpty()
+    val showRefreshHint by produceState(false, refreshing, state.range) {
+        value = false
+        if (refreshing) {
+            delay(350)
+            value = true
+        }
+    }
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -64,6 +74,14 @@ fun HomeTrendCard(
             .background(MaterialTheme.colorScheme.surfaceVariant, JvyShapes.Card)
             .testTag("home_trend_card"),
     ) {
+        // Reserve the strip's height: slow refresh feedback never overlays or moves the plot.
+        Box(Modifier.fillMaxWidth().height(2.dp)) {
+            if (refreshing && showRefreshHint) LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth().height(2.dp).testTag("home_trend_refresh")
+                    .semantics { contentDescription = "Updating money trends" },
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -188,9 +206,6 @@ fun HomeTrendCard(
                 }
             }
 
-            if (!hideBalance && state.visibleMetrics.isNotEmpty() && state.loading && state.hasData) {
-                TrendLoadingOverlay()
-            }
         }
 
         Spacer(Modifier.height(18.dp))
@@ -225,13 +240,15 @@ private fun TrendLegend(
             .forEach { metric ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val color = metric.plotColor()
-                    Canvas(Modifier.size(width = 20.dp, height = 12.dp)) {
-                        if (metric != HomeTrendMetric.BALANCE) drawRect(color.copy(alpha = 0.3f))
-                        drawLine(color, androidx.compose.ui.geometry.Offset(0f, size.height / 2),
-                            androidx.compose.ui.geometry.Offset(size.width, size.height / 2), 2.dp.toPx(),
-                            pathEffect = if (metric == HomeTrendMetric.EXPENSES) androidx.compose.ui.graphics.PathEffect.dashPathEffect(
-                                floatArrayOf(5.dp.toPx(), 3.dp.toPx())) else null)
-                    }
+                    Spacer(Modifier.size(width = 20.dp, height = 12.dp).drawWithCache {
+                        val dash = if (metric == HomeTrendMetric.EXPENSES)
+                            androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 3.dp.toPx())) else null
+                        val stroke = 2.dp.toPx()
+                        onDrawBehind {
+                            drawLine(color, androidx.compose.ui.geometry.Offset(0f, size.height / 2),
+                                androidx.compose.ui.geometry.Offset(size.width, size.height / 2), stroke, pathEffect = dash)
+                        }
+                    })
                     Spacer(Modifier.size(6.dp))
                     Text(
                         text = metric.label,
@@ -282,23 +299,9 @@ private fun TrendLoadingPlaceholder() {
 }
 
 @Composable
-private fun TrendLoadingOverlay() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(144.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        TrendLoadingPill()
-    }
-}
-
-@Composable
 private fun TrendLoadingPill() {
     Row(
         modifier = Modifier
-            .clip(JvyShapes.Control)
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f))
             .padding(horizontal = 14.dp, vertical = 10.dp)
             .semantics {
                 contentDescription = "Updating money trends"

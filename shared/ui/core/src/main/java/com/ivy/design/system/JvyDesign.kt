@@ -74,6 +74,7 @@ object JvyShapes {
 object JvyMotion {
     const val FeedbackMillis = 160
     const val TransitionMillis = 240
+    const val ChartUpdateMillis = 360
     const val PressedScale = 0.985f
 }
 

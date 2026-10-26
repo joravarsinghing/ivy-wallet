@@ -27,14 +27,16 @@ fun JvyScreenHeader(title: String, onBack: () -> Unit, subtitle: String? = null,
             if (largeText) Spacer(Modifier.weight(1f)) else {
                 Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(title, style = JvyTypography.PageTitle, modifier = Modifier.semantics { heading() })
+                    Text(title, style = JvyTypography.PageTitle, color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.semantics { heading() })
                     subtitle?.let { Text(it, style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             }
             actions()
         }
         if (largeText) {
-            Text(title, style = JvyTypography.PageTitle, modifier = Modifier.semantics { heading() })
+            Text(title, style = JvyTypography.PageTitle, color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.semantics { heading() })
             subtitle?.let { Text(it, style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
@@ -55,7 +57,7 @@ fun JvyEmptyState(title: String, description: String, icon: ImageVector,
         Surface(shape = JvyShapes.Control, color = MaterialTheme.colorScheme.secondaryContainer) {
             Icon(icon, null, Modifier.padding(16.dp).size(24.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
         }
-        Text(title, style = JvyTypography.SectionTitle, textAlign = TextAlign.Center)
+        Text(title, style = JvyTypography.SectionTitle, color = MaterialTheme.colorScheme.onBackground, textAlign = TextAlign.Center)
         Text(description, style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center)
         actionLabel?.let { JvyButton(onAction) { Text(it) } }

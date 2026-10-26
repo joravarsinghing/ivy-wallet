@@ -75,7 +75,9 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.format.TextStyle
@@ -161,7 +163,7 @@ class HomeViewModel @Inject constructor(
     private var expanded by mutableStateOf(true)
     private var moneyComingUp by mutableStateOf(MoneyComingUpState())
     private var trend by mutableStateOf(HomeTrendState())
-    private var trendLoadGeneration = 0L
+    @Volatile private var trendLoadGeneration = 0L
     private var spendingBreakdown by mutableStateOf(HomeSpendingBreakdownState())
     private var visibleDashboardCards by mutableStateOf(defaultVisibleHomeDashboardCards)
     private var dashboardEditorVisible by mutableStateOf(false)
@@ -406,8 +408,27 @@ class HomeViewModel @Inject constructor(
         trend = trend.copy(loading = true)
 
         val end = trendEndDate()
+        val points = withContext(Dispatchers.Default) {
+            calculateTrendPoints(range, end, baseCurrency, accounts, generation)
+        } ?: return
+
+        if (generation != trendLoadGeneration || range != trend.range) return
+        trend = trend.copy(
+            points = points.toImmutableList(),
+            loading = false,
+        )
+    }
+
+    /** Query/fold work stays off the UI thread; only immutable results are published above. */
+    private suspend fun calculateTrendPoints(
+        range: HomeTrendRange,
+        end: LocalDate,
+        baseCurrency: String,
+        accounts: List<Account>,
+        generation: Long,
+    ): List<HomeTrendPoint>? {
         val buckets = (range.periodCount - 1 downTo 0).map { offset ->
-            if (generation != trendLoadGeneration) return
+            if (generation != trendLoadGeneration) return null
             val pointDate = if (range.isDaily) {
                 end.minusDays(offset.toLong())
             } else {
@@ -425,7 +446,7 @@ class HomeViewModel @Inject constructor(
             TrendBucket(start, endOfBucket, transactions)
         }
         val rawPoints = buckets.map { bucket ->
-            if (generation != trendLoadGeneration) return
+            if (generation != trendLoadGeneration) return null
             val stats = calculateTrendStats(bucket.transactions, accounts, baseCurrency)
             val balanceAtEnd = calcWalletBalanceAct(
                 CalcWalletBalanceAct.Input(
@@ -453,13 +474,7 @@ class HomeViewModel @Inject constructor(
                 },
             )
         }
-        val points = buildHomeTrendPoints(rawPoints, range, anchorDate = end)
-
-        if (generation != trendLoadGeneration || range != trend.range) return
-        trend = trend.copy(
-            points = points.toImmutableList(),
-            loading = false,
-        )
+        return buildHomeTrendPoints(rawPoints, range, anchorDate = end)
     }
 
     private suspend fun calculateTrendStats(

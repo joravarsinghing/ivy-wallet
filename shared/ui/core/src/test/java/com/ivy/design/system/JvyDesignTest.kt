@@ -8,6 +8,10 @@ import org.junit.Test
 import kotlin.math.pow
 
 class JvyDesignTest {
+    @Test fun `chart motion has a finite context-specific duration`() {
+        assertEquals(360, JvyMotion.ChartUpdateMillis)
+        assertTrue(JvyMotion.FeedbackMillis < JvyMotion.ChartUpdateMillis)
+    }
     @Test fun `all Material roles retain Ivy's interface family`() {
         val type = JvyTypography.Material
         listOf(type.displayLarge, type.displayMedium, type.displaySmall,

@@ -1,11 +1,14 @@
 package com.ivy.home
 
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -14,6 +17,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -51,15 +55,25 @@ internal fun HomeTrendMetric.plotColor(): Color = JvyChartColors.palette().let {
 } }
 
 @Composable
+@OptIn(ExperimentalAnimationApi::class)
 internal fun TrendPlot(state: HomeTrendState, currency: String, style: HomeTrendPlotStyle, modifier: Modifier = Modifier) {
     val scene = remember(state.points, state.visibleMetrics) { prepareTrendScene(state) }
     // A currency change discards outgoing plots rather than relabelling their old amounts.
     // Hidden-balance mode removes this entire composable, including outgoing animation layers.
     key(currency) {
-        Crossfade(scene, modifier, tween(JvyMotion.TransitionMillis), label = "Trend update") { frame ->
+        val transition = updateTransition(scene, label = "Trend update")
+        transition.Crossfade(modifier, tween(JvyMotion.FeedbackMillis)) { frame ->
+            // Initial display is complete. Replacement datasets draw on, even after a slow load.
+            // This is a reveal of exact cached geometry, not a morph through fictitious values.
+            val reveal = remember(transition, frame) {
+                HomeTrendRevealMotion(animateOnEntry = transition.currentState != frame)
+            }
+            if (reveal.animateOnEntry) LaunchedEffect(reveal) {
+                reveal.reveal()
+            }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(currency, style = JvyTypography.Label, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TrendOverlayPlot(frame.plot, style, Modifier.fillMaxWidth())
+                TrendOverlayPlot(frame.plot, style, Modifier.fillMaxWidth(), reveal = { reveal.progress.value })
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(frame.firstLabel, style = JvyTypography.Label, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     frame.lastLabel?.let { Text(it, style = JvyTypography.Label, color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -73,7 +87,7 @@ private data class CachedTrendPath(val line: Path, val area: Path, val color: Co
                                   val stroke: Stroke, val filled: Boolean, val underlay: Stroke?)
 
 @Composable
-private fun TrendOverlayPlot(band: TrendBand, style: HomeTrendPlotStyle, modifier: Modifier) {
+private fun TrendOverlayPlot(band: TrendBand, style: HomeTrendPlotStyle, modifier: Modifier, reveal: () -> Float) {
     val colors = band.series.associate { it.metric to it.metric.plotColor() }
     val grid = MaterialTheme.colorScheme.outlineVariant
     val surface = MaterialTheme.colorScheme.surfaceVariant
@@ -137,16 +151,18 @@ private fun TrendOverlayPlot(band: TrendBand, style: HomeTrendPlotStyle, modifie
                     val y = inset + plotHeight * i / 2f
                     drawLine(grid, Offset(inset, y), Offset(size.width - inset, y), gridStroke)
                 }
-                // Areas first; balance last and above every fill, including values above the balance.
-                for (index in paths.indices) {
-                    val path = paths[index]
-                    if (path.filled) drawPath(path.area, path.fill)
-                }
-                for (index in paths.indices) {
-                    val path = paths[index]
-                    // A quiet neutral edge keeps purple readable when a flow crosses the balance.
-                    path.underlay?.let { drawPath(path.line, surface, style = it) }
-                    drawPath(path.line, path.color, style = path.stroke)
+                // Animation reads happen only while drawing; cached paths/brushes do not rebuild.
+                clipRect(right = size.width * reveal().coerceIn(0f, 1f)) {
+                    // Areas first; balance last and above every fill.
+                    for (index in paths.indices) {
+                        val path = paths[index]
+                        if (path.filled) drawPath(path.area, path.fill)
+                    }
+                    for (index in paths.indices) {
+                        val path = paths[index]
+                        path.underlay?.let { drawPath(path.line, surface, style = it) }
+                        drawPath(path.line, path.color, style = path.stroke)
+                    }
                 }
                 // Neutral zero stays legible where both zero-flow series coincide.
                 drawLine(zeroInk, Offset(inset, zero), Offset(size.width - inset, zero), gridStroke)

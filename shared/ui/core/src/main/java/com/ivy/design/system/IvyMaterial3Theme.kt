@@ -3,7 +3,9 @@ package com.ivy.design.system
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import com.ivy.design.system.colors.IvyColors
 
@@ -17,8 +19,13 @@ fun IvyMaterial3Theme(
         colorScheme = if (dark) ivyDarkColorScheme(isTrueBlack) else ivyLightColorScheme(),
         typography = JvyTypography.Material,
         shapes = JvyShapes.Material,
-        content = content,
-    )
+    ) {
+        // Non-legacy destinations intentionally omit a Surface in IvyUI. MaterialTheme alone
+        // does not provide a foreground, so unqualified Text would otherwise inherit black.
+        CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
+            content()
+        }
+    }
 }
 
 internal fun ivyLightColorScheme(): ColorScheme = ColorScheme(

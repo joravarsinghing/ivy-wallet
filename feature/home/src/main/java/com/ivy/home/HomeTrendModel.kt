@@ -16,7 +16,7 @@ enum class HomeTrendBucket {
 }
 
 enum class HomeTrendRange(
-    /** Number of calendar buckets represented by this range. */
+    /** Calendar horizon units, not the number of plotted samples. */
     val periodCount: Int,
     val bucket: HomeTrendBucket,
     val label: String,
@@ -33,6 +33,8 @@ enum class HomeTrendRange(
 
     val isDaily: Boolean
         get() = bucket == HomeTrendBucket.DAY
+
+    val sampleCount: Int get() = if (this == SEVEN_DAYS) 7 else 30
 }
 
 /**
@@ -51,6 +53,13 @@ sealed interface HomeTrendPeriodIdentity {
     data class Month(val yearMonth: YearMonth) : HomeTrendPeriodIdentity {
         override val bucket: HomeTrendBucket = HomeTrendBucket.MONTH
         override val startDate: LocalDate = yearMonth.atDay(1)
+    }
+
+    /** A real, inclusive day-based aggregation interval, never an interpolated value. */
+    data class Interval(val from: LocalDate, val through: LocalDate) : HomeTrendPeriodIdentity {
+        init { require(from <= through) }
+        override val bucket: HomeTrendBucket = HomeTrendBucket.DAY
+        override val startDate: LocalDate = from
     }
 
     /** Compatibility identity for callers that only have the old display label. */
@@ -107,6 +116,7 @@ data class HomeTrendPoint(
         get() = when (val identity = periodIdentity) {
             is HomeTrendPeriodIdentity.Day -> "day:${identity.date}"
             is HomeTrendPeriodIdentity.Month -> "month:${identity.yearMonth}"
+            is HomeTrendPeriodIdentity.Interval -> "interval:${identity.from}:${identity.through}"
             is HomeTrendPeriodIdentity.Legacy -> "legacy:${identity.label}"
         }
 }

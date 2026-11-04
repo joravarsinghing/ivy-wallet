@@ -6,7 +6,26 @@ Premium means reliable, accessible and understandable, not a paid tier.
 
 Resumed verification and cross-session integration review: 2026-11-04.
 
-Latest verified continuation: [shared Home date window and requested signed candidate](004-v2-home-window-checkpoint-2026-11-04.md).
+Subsequent owner-requested packaging: [private release 0.5.1 / 230](../releases/0.5.1-candidate.md)
+now includes the four corrections below. Official release build succeeded;
+actual signature, matching owner identity, non-debuggable manifest, alignment
+and checksum checks passed. Temporary private-key copy removed. Source/version
+committed locally before handoff; no push, tag or publication. Hardware upgrade
+and full public-release acceptance remain unverified.
+
+Latest verified continuation: [four owner-reported corrections after 0.5.0](004-v2-four-fixes-checkpoint-2026-11-04.md).
+Thirty real trend buckets now cover 30d and longer ranges, expanded account
+actions use readable identifier ink, the native period dialog pins Apply above
+root chrome and uses shared calendars, and all app-UI logo backings use the
+shared proportional rounded token. An explicit relative-option chip preserves
+selection of the unchanged one-week default. Final gate passed in **12m 25s**:
+**2,185 tests / 205 suites**, zero failures/errors/skips, app and Android-test
+compilation plus lint against the unchanged baseline. Eighty-two added cases
+include actual control actions and adaptive candidates, not hardware acceptance.
+No new APK/version, commit or publication; the installed 0.5.0 candidate predates
+this batch. Device/owner and remaining full-v2 release gates stay separate.
+
+Previous verified continuation: [shared Home date window and requested signed candidate](004-v2-home-window-checkpoint-2026-11-04.md).
 The owner approved chart-selected dates for all three Home cards. Their results
 now share a date window and latest-request publication; spending drill-down
 retains it, and upcoming payment actions stay separate. Large-text Home headings

@@ -82,7 +82,7 @@ fun BoxWithConstraintsScope.HomeUi(
 ) {
     val ivyContext = ivyWalletCtx()
 
-    var choosePeriodModal: ChoosePeriodModalData? by remember {
+    var choosePeriodModal: ChoosePeriodModalData? by rememberSaveable(stateSaver = com.ivy.wallet.ui.theme.modal.ChoosePeriodModalDataSaver) {
         mutableStateOf(null)
     }
     var skipAllModalVisible by rememberSaveable { mutableStateOf(false) }

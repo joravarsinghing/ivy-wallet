@@ -60,6 +60,11 @@ fun HomeTrendCard(
     plotStyle: HomeTrendPlotStyle = HomeTrendPlotStyle.Line,
 ) {
     val hidden = hideBalance || com.ivy.design.system.LocalFinancialVisibility.current.hidden
+    // Range chips can change while the previous, explicitly dated result is still loading.
+    val intervalSamples = state.points.any { it.periodIdentity is HomeTrendPeriodIdentity.Interval } ||
+        state.points.isEmpty() && !state.range.isDaily
+    val dailySamples = if (state.points.isEmpty()) state.range.isDaily
+        else state.points.all { it.periodIdentity is HomeTrendPeriodIdentity.Day }
     var showValues by rememberSaveable(state.range) { mutableStateOf(false) }
     val refreshing = state.loading && state.hasData && !hidden && state.visibleMetrics.isNotEmpty()
     val showRefreshHint by produceState(false, refreshing, state.range) {
@@ -96,7 +101,11 @@ fun HomeTrendCard(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = if (state.range.isDaily) "Daily balance and cash flow" else "Period-end balance and cash flow",
+                    text = when {
+                        intervalSamples -> "30 points across this range"
+                        dailySamples -> "Daily balance and cash flow"
+                        else -> "Period-end balance and cash flow"
+                    },
                     style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 state.window?.let { Text(stringResource(R.string.home_chart_range_caption, it.displayLabel()),
@@ -172,6 +181,10 @@ fun HomeTrendCard(
                         JvyTextButton(onClick = { showValues = !showValues }, modifier = Modifier.padding(horizontal = 8.dp)) {
                             Text(if (showValues) "Hide values" else "View values")
                         }
+                        if (showValues && intervalSamples) Text(
+                            "Each point groups a few days. Income and spending are totals for those days; balance is the amount at the end.",
+                            Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (showValues) state.points.filter { it.isObserved }.forEach { point ->
                             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                                 Text(point.periodLabel, style = MaterialTheme.typography.titleSmall)
@@ -183,16 +196,16 @@ fun HomeTrendCard(
                             1 -> {
                                 Spacer(Modifier.height(8.dp))
                                 TrendMessage(
-                                    if (state.range.isDaily) "One observed day. More history is needed to show a trend." else "One observed month. More history is needed to show a trend."
+                                    if (dailySamples) "One observed day. More history is needed to show a trend." else "One observed interval. More history is needed to show a trend."
                                 )
                             }
                             2 -> {
                                 Spacer(Modifier.height(8.dp))
                                 TrendMessage(
-                                    if (state.range.isDaily) {
+                                    if (dailySamples) {
                                         "Two observed days. More history will make the pattern clearer."
                                     } else {
-                                        "Two observed months. More history will make the pattern clearer."
+                                        "Two observed intervals. More history will make the pattern clearer."
                                     }
                                 )
                             }

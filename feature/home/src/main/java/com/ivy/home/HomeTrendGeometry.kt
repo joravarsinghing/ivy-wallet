@@ -25,10 +25,12 @@ internal data class TrendScene(
 internal fun prepareTrendScene(state: HomeTrendState): TrendScene {
     val segments = observedTrendSegments(state.points)
     val observed = segments.flatten()
-    val start = state.points.firstOrNull()?.periodIdentity?.startDate
-    val end = state.points.lastOrNull()?.periodIdentity?.startDate
+    fun plotDate(point: HomeTrendPoint) = (point.periodIdentity as? HomeTrendPeriodIdentity.Interval)?.through
+        ?: point.periodIdentity.startDate
+    val start = state.window?.from ?: state.points.firstOrNull()?.let(::plotDate)
+    val end = state.window?.through ?: state.points.lastOrNull()?.let(::plotDate)
     fun x(entry: TrendObservation): Float {
-        val date = entry.point.periodIdentity.startDate
+        val date = plotDate(entry.point)
         return when {
             start != null && end != null && date != null && end > start ->
                 ChronoUnit.DAYS.between(start, date).toFloat() / ChronoUnit.DAYS.between(start, end)
@@ -50,7 +52,12 @@ internal fun prepareTrendScene(state: HomeTrendState): TrendScene {
         .max(BigDecimal.ONE).multiply(BigDecimal("0.1"))
     val scale = TrendScale(if (low.signum() < 0) low - padding else BigDecimal.ZERO,
         if (high.signum() > 0) high + padding else if (low.signum() < 0) BigDecimal.ZERO else BigDecimal.ONE)
-    return TrendScene(state.points.map { it.periodIdentity }, state.points.firstOrNull()?.periodLabel.orEmpty(),
-        state.points.lastOrNull()?.periodLabel?.takeIf { state.points.size > 1 },
+    val format = java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.getDefault())
+    fun axisLabel(point: HomeTrendPoint, first: Boolean): String {
+        val interval = point.periodIdentity as? HomeTrendPeriodIdentity.Interval ?: return point.periodLabel
+        return (if (first) interval.from else interval.through).format(format)
+    }
+    return TrendScene(state.points.map { it.periodIdentity }, state.points.firstOrNull()?.let { axisLabel(it, true) }.orEmpty(),
+        state.points.lastOrNull()?.let { axisLabel(it, false) }?.takeIf { state.points.size > 1 },
         TrendBand(scale, metrics.map { series(it, scale) }))
 }

@@ -13,6 +13,13 @@ run passed: use the execution ledger's final verification record. All device,
 TalkBack, keyboard, process-death and owner visual approvals remain **pending**.
 Do not promote screenshot references from this matrix alone.
 
+The [post-0.5.0 four-fix checkpoint](../plans/004-v2-four-fixes-checkpoint-2026-11-04.md)
+tracks 30-bucket trend sampling, actual period-control actions and reachable
+footer/scroll bounds across eight windows, account-action foreground checks and
+the shared rounded logo token. These are local candidates/semantics and source
+contracts, not native window/IME, TalkBack, device-upgrade or owner approval.
+No new APK is part of that batch.
+
 The [4 November Home window checkpoint](../plans/004-v2-home-window-checkpoint-2026-11-04.md)
 tracks the approved common scope for plot/spending/activity, fixed-date spending
 drill-down and separate upcoming actions. Refer to its final gate/artifact record;

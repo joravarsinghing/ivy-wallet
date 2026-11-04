@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -24,7 +25,6 @@ import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
 import com.ivy.legacy.utils.format
 import com.ivy.ui.R
-import com.ivy.wallet.ui.theme.Green
 import com.ivy.wallet.ui.theme.findContrastTextColor
 
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
@@ -55,7 +55,6 @@ fun IncomeExpensesCards(
                 .filterIsInstance(Transaction::class.java)
                 .count { it.type == TransactionType.INCOME },
             addButtonText = if (hasAddButtons) stringResource(R.string.add_income) else null,
-            isIncome = true,
 
             itemColor = itemColor,
             onHeaderCardClicked = { incomeHeaderCardClicked() }
@@ -72,7 +71,6 @@ fun IncomeExpensesCards(
                 .filterIsInstance(Transaction::class.java)
                 .count { it.type == TransactionType.EXPENSE },
             addButtonText = if (hasAddButtons) stringResource(R.string.add_expense) else null,
-            isIncome = false,
 
             itemColor = itemColor,
             onHeaderCardClicked = { expenseHeaderCardClicked() }
@@ -99,7 +97,6 @@ private fun HeaderCard(
     amount: Double,
     transactionCount: Int,
 
-    isIncome: Boolean,
     addButtonText: String?,
 
     itemColor: Color,
@@ -146,11 +143,12 @@ private fun HeaderCard(
             Text(
                 modifier = Modifier
                     .align(Alignment.End)
-                    .clickable { onAddClick() }
+                    .heightIn(min = 48.dp)
+                    .clickable(role = androidx.compose.ui.semantics.Role.Button) { onAddClick() }
                     .padding(horizontal = 8.dp, vertical = 6.dp),
                 text = addButtonText,
                 style = UI.typo.c.style(
-                    color = if (isIncome) Green else contrastColor,
+                    color = contrastColor,
                     fontWeight = FontWeight.Bold,
                 ),
             )

@@ -19,7 +19,8 @@ import java.util.Locale
 @Composable
 fun JvyDateField(label: String, value: LocalDate?, change: (LocalDate?) -> Unit,
                  modifier: Modifier = Modifier.fillMaxWidth(), optional: Boolean = false,
-                 latestDate: LocalDate? = null, initialDate: LocalDate = LocalDate.now()) {
+                 latestDate: LocalDate? = null, initialDate: LocalDate = LocalDate.now(),
+                 earliestDate: LocalDate? = null, emptyLabel: String? = null, clearLabel: String? = null) {
     var open by rememberSaveable { mutableStateOf(false) }
     val locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -28,14 +29,14 @@ fun JvyDateField(label: String, value: LocalDate?, change: (LocalDate?) -> Unit,
             Icon(Icons.Outlined.DateRange, null, Modifier.size(20.dp))
             Spacer(Modifier.width(8.dp))
             Text(value?.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))
-                ?: if (optional) "No deadline · choose date" else "Choose date")
+                ?: emptyLabel ?: if (optional) "No deadline · choose date" else "Choose date")
         }
-        if (optional && value != null) JvyTextButton({ change(null) }) { Text("Clear deadline") }
+        if (optional && value != null) JvyTextButton({ change(null) }) { Text(clearLabel ?: "Clear deadline") }
     }
     if (open) {
         JvyDatePickerDialog(value, onDismiss = { open = false }, onDatePicked = {
             change(it)
             open = false
-        }, label = label, bounds = CalendarDateBounds(latest = latestDate), today = initialDate)
+        }, label = label, bounds = CalendarDateBounds(earliest = earliestDate, latest = latestDate), today = initialDate)
     }
 }

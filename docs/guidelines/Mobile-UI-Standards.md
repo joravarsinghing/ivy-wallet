@@ -55,7 +55,7 @@ Read the mandatory [Jvy design language](../design/JVY-DESIGN-LANGUAGE.md) first
 - Use the black mark on white for documentation, print, and high-contrast light surfaces. Use the white mark on transparent or dark surfaces.
 - Do not use the inherited Ivy/V logo in new UI, launcher metadata, notifications, onboarding, or marketing assets. Legacy resource files may remain only when they are not active references.
 - Keep one canonical color master and derive variants from it so silhouette, cutout placement, and safe-area padding stay consistent across densities.
-- App UI uses the existing transparent mark through `JvyLogo` on plain white, not a baked-in squircle, tile, border or shadow. Preserve the aspect ratio and clear space.
+- App UI uses the existing transparent mark through `JvyLogo` on plain white, clipped by the shared 22% `JvyShapes.Logo` runtime corner mask at every size. Sharp-corner app-UI backings and feature-owned logo renderers are not allowed. Do not bake a squircle, tile, border or shadow into the artwork. Preserve the aspect ratio and clear space; Android system icon masks remain platform-owned.
 - Verify launcher foreground and monochrome assets on both circular and squircle masks. The mark must remain recognizable without relying on the white tile or a surrounding shadow.
 
 ## Home insight cards and trends
@@ -76,10 +76,10 @@ Read the mandatory [Jvy design language](../design/JVY-DESIGN-LANGUAGE.md) first
 - Sparse history, loading, empty, and hidden-balance states are first-class designs. They must not collapse into a blank card or reveal values that the user has chosen to hide.
 - Range changes preserve chart height and keep the previous result visible until replacement data arrives. Do not cover it with a loading pill. A slow refresh may show a thin top-edge indicator after 350ms; reserve its height so appearing/disappearing feedback never moves the graph.
 - Home must not repeat detailed account balances in a dashboard card. The Accounts tab is the authoritative account-management surface; Home may show only derived reservations or spendability when that answers a different question.
-- Trends support `7D` and `30D` daily buckets plus `3M`, `6M`, and `12M` monthly buckets. Use explicit date/YearMonth identities for ordering; never sort by display labels.
+- Trends support `7D` (seven daily buckets), `30D` (thirty daily buckets), and `3M`, `6M`, `12M` (thirty evenly partitioned real date intervals, not one point per month). The monthly horizon keeps calendar-month start boundaries independent of budgeting start days. Interval sums preserve exact income/spending totals; balance is calculated at each bucket's inclusive end. Never invent thirty populated observations when history is unknown. Use explicit date/interval identities for ordering, never display labels.
 - Before the first observed activity, periods are gaps. After activity starts, quiet periods are real zero-activity observations. A single activity period has exact values and no trend line or marker.
 - Keep chart height fixed while changing ranges. Preserve the previous plot instead of collapsing the card or obscuring it with an overlay.
-- Use one explicit horizontal plot domain for every trend range. Daily and monthly anchors share the same left/right plot insets; monthly points use the first day of each month as their anchor and must not be positioned against month-end padding.
+- Use one explicit horizontal date domain for all series, shared plot insets, and actual date positions. Sampled interval balances belong to the interval end, not its first day or a synthetic month label. Legacy month-only comparison fixtures retain their existing month-start identities; they are not production sampling policy.
 - After data arrives, fade outgoing content/dates/axes over 160ms and reveal the new exact paths from left to right over the shared 360ms chart-update duration. Initial display does not animate. Exact summaries update immediately. Loading/editor-only recompositions do not create animation targets. Respect platform duration scaling, including disabled animations; no polling, animated digits or decorative loops. Cache paths/brushes on data/size changes and read reveal progress only in drawing. Calculate buckets off the UI thread, retaining the latest-request guard. Hidden mode removes outgoing plots immediately, and changing currency clears the previous plot before relabelling values.
 
 ## Home density and activity
@@ -118,6 +118,7 @@ Read the mandatory [Jvy design language](../design/JVY-DESIGN-LANGUAGE.md) first
 
 ## Reports filter behavior
 
+- The shared period chooser owns its own dialog window, scrolling fields and a pinned Apply filter action above root navigation/IME occlusion. Close cancels. Only the chosen month/custom/relative/all-time option determines validity; an inactive relative field must not show an unrelated error or veto a month. Its custom dates use the shared calendar, not raw date text or an app-level picker hidden behind the dialog. Nested report drafts do not change the global period until their owning flow commits.
 - Reports must open with a useful default: the current app period, all transaction types, all accounts, and all categories.
 - A filter sheet must support narrowing one dimension independently. Selecting only a month, type, account, category, amount, keyword, or tag must produce a report without requiring unrelated sections.
 - Empty selections in a dimension mean “all” rather than “invalid.” This keeps Clear and Select All predictable and prevents silent no-op filter applications.

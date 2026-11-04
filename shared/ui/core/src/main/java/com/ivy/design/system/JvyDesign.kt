@@ -12,6 +12,7 @@ import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -65,6 +66,7 @@ object JvyTypography {
 }
 
 object JvyShapes {
+    val Logo = RoundedCornerShape(percent = 22)
     val Control = RoundedCornerShape(16.dp)
     val Card = RoundedCornerShape(20.dp)
     val Sheet = RoundedCornerShape(24.dp)
@@ -97,10 +99,11 @@ object JvyFinanceColors {
     @Composable fun debtSurface(): Color = MaterialTheme.colorScheme.tertiaryContainer
 }
 
-/** The transparent color mark sits on plain white, never a baked-in squircle. */
+/** Unchanged transparent artwork on white, with a shared proportional runtime corner mask. */
 @Composable
 fun JvyLogo(modifier: Modifier = Modifier) {
-    Image(painterResource(R.drawable.jvy_wallet_logo), "Jvy Wallet logo", modifier.background(Color.White))
+    Image(painterResource(R.drawable.jvy_wallet_logo), "Jvy Wallet logo",
+        modifier.clip(JvyShapes.Logo).background(Color.White), contentScale = androidx.compose.ui.layout.ContentScale.Fit)
 }
 
 @Composable

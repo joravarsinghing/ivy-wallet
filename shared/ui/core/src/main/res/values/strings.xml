@@ -243,6 +243,8 @@
     <string name="clean_filter">Clear filter</string>
     <string name="filter">Filter</string>
     <string name="apply_filter">Apply filter</string>
+    <string name="jvy_period_apply_help">Choose a period, then tap Apply filter. Closing cancels your changes.</string>
+    <string name="jvy_clear_date">Clear date</string>
     <string name="by_type">By Type</string>
     <string name="incomes">Incomes</string>
     <string name="time_period">Time Period</string>

@@ -77,6 +77,18 @@ class NavigationLayoutContractTest {
         assertTrue(source("feature/networth/src/main/java/com/ivy/networth/WealthEditors.kt").contains("JvyCloseButton(close)"))
     }
 
+    @Test fun `period chooser has its own window and an explicit pinned confirmation`() {
+        val text = source("temp/legacy-code/src/main/java/com/ivy/legacy/legacy/ui/theme/modal/ChoosePeriodModal.kt")
+        assertTrue(text.contains("Dialog(onDismissRequest = dismiss"))
+        assertTrue(text.contains("JvyFormDialogFrame("))
+        assertTrue(text.contains("testTag(\"period_apply\")"))
+        assertTrue(text.contains("R.string.apply_filter"))
+        assertFalse(text.contains("IvyModal("))
+        assertFalse(text.contains("addKeyboardListener"))
+        assertTrue(text.contains("JvyDateField("))
+        assertTrue(source("feature/reports/src/main/java/com/ivy/reports/FilterOverlay.kt").contains("updateGlobalPeriod = false"))
+    }
+
     @Test fun `transaction editors retain shared chrome and contextual destructive actions`() {
         val toolbar = source("temp/legacy-code/src/main/java/com/ivy/legacy/ui/component/edit/core/Toolbar.kt")
         assertTrue(toolbar.contains("JvyScreenHeader("))

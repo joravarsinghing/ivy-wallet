@@ -57,7 +57,7 @@ internal fun HomeTrendMetric.plotColor(): Color = JvyChartColors.palette().let {
 @Composable
 @OptIn(ExperimentalAnimationApi::class)
 internal fun TrendPlot(state: HomeTrendState, currency: String, style: HomeTrendPlotStyle, modifier: Modifier = Modifier) {
-    val scene = remember(state.points, state.visibleMetrics) { prepareTrendScene(state) }
+    val scene = remember(state.points, state.visibleMetrics, state.window) { prepareTrendScene(state) }
     // A currency change discards outgoing plots rather than relabelling their old amounts.
     // Hidden-balance mode removes this entire composable, including outgoing animation layers.
     key(currency) {
@@ -75,8 +75,9 @@ internal fun TrendPlot(state: HomeTrendState, currency: String, style: HomeTrend
                 Text(currency, style = JvyTypography.Label, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TrendOverlayPlot(frame.plot, style, Modifier.fillMaxWidth(), reveal = { reveal.progress.value })
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(frame.firstLabel, style = JvyTypography.Label, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    frame.lastLabel?.let { Text(it, style = JvyTypography.Label, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    Text(frame.firstLabel, Modifier.weight(1f), style = JvyTypography.Label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    frame.lastLabel?.let { Text(it, Modifier.weight(1f), style = JvyTypography.Label,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.End, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             }
         }

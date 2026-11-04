@@ -437,23 +437,12 @@ class HomeViewModel @Inject constructor(
         val firstRecordedActivity = transactionRepository.findFirstSettledTime(
             accounts.map { com.ivy.data.model.AccountId(it.id) }
         )?.let { with(timeConverter) { it.toLocalDate() } }
-        val buckets = (range.periodCount - 1 downTo 0).map { offset ->
+        val buckets = homeTrendSamplingWindows(range, end).map { window ->
             if (generation != trendLoadGeneration) return null
-            val pointDate = if (range.isDaily) {
-                end.minusDays(offset.toLong())
-            } else {
-                end.withDayOfMonth(1).minusMonths(offset.toLong())
-            }
-            val start = if (range.isDaily) pointDate else pointDate.withDayOfMonth(1)
-            val endOfBucket = if (range.isDaily) {
-                pointDate
-            } else {
-                pointDate.withDayOfMonth(1).plusMonths(1).minusDays(1).coerceAtMost(end)
-            }
             val transactions = historyWithDateDivsAct(
-                HistoryWithDateDivsAct.Input(trendRange(start, endOfBucket), baseCurrency)
+                HistoryWithDateDivsAct.Input(window.toUtcRange(timeConverter), baseCurrency)
             ).filterIsInstance<Transaction>().filter(::isTrendTransaction)
-            TrendBucket(start, endOfBucket, transactions)
+            TrendBucket(window.from, window.through, transactions)
         }
         val rawPoints = buckets.map { bucket ->
             if (generation != trendLoadGeneration) return null
@@ -469,7 +458,7 @@ class HomeViewModel @Inject constructor(
                 periodLabel = if (range.isDaily) {
                     "${pointDate.month.getDisplayName(TextStyle.SHORT, Locale.US)} ${pointDate.dayOfMonth}"
                 } else {
-                    "${pointDate.month.getDisplayName(TextStyle.SHORT, Locale.US)} ${pointDate.year}"
+                    HomeDateWindow(bucket.start, bucket.end).displayLabel()
                 },
                 income = stats?.income ?: BigDecimal.ZERO,
                 expenses = stats?.expense ?: BigDecimal.ZERO,
@@ -478,11 +467,11 @@ class HomeViewModel @Inject constructor(
                 periodIdentity = if (range.isDaily) {
                     HomeTrendPeriodIdentity.Day(pointDate)
                 } else {
-                    HomeTrendPeriodIdentity.Month(java.time.YearMonth.from(pointDate))
+                    HomeTrendPeriodIdentity.Interval(bucket.start, bucket.end)
                 },
             )
         }
-        return buildHomeTrendPoints(rawPoints, range, anchorDate = end, firstRecordedActivity = firstRecordedActivity)
+        return coverHomeTrendSamples(rawPoints, firstRecordedActivity)
     }
 
     private suspend fun calculateTrendStats(
@@ -509,9 +498,6 @@ class HomeViewModel @Inject constructor(
         val end: LocalDate,
         val transactions: List<Transaction>,
     )
-
-    private fun trendRange(from: LocalDate, to: LocalDate): ClosedTimeRange =
-        HomeDateWindow(from, to).toUtcRange(timeConverter)
 
     private fun trendEndDate(): LocalDate {
         period.fromToRange?.to?.let { return with(timeConverter) { it.toLocalDate() } }

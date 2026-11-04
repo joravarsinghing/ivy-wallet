@@ -9,6 +9,13 @@ import org.junit.Test
 import kotlin.math.pow
 
 class JvyDesignTest {
+    @Test fun `logo corners scale proportionally instead of turning small logos into circles`() {
+        listOf(44f, 56f, 88f).forEach { edge ->
+            val outline = JvyShapes.Logo.createOutline(androidx.compose.ui.geometry.Size(edge, edge),
+                androidx.compose.ui.unit.LayoutDirection.Ltr, androidx.compose.ui.unit.Density(1f)) as androidx.compose.ui.graphics.Outline.Rounded
+            assertEquals(edge * 0.22f, outline.roundRect.topLeftCornerRadius.x, 0.001f)
+        }
+    }
     @Test fun `spacing has one gutter and a bounded four-eight dp rhythm`() {
         assertEquals(24.dp, JvySpacing.PageGutter)
         assertEquals(8.dp, JvySpacing.Related)

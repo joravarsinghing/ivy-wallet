@@ -24,15 +24,16 @@ pages, child editors and Android system surfaces; a group heading is not a compl
 
 ## Signed candidate and distribution
 
-Current owner-requested candidate: **0.5.0 / 229**, privately signed and
-non-debuggable, certificate/package matching 0.4.4. See the
-[4 November evidence record](../plans/004-v2-home-window-checkpoint-2026-11-04.md)
-for test/lint, artifact hash, signature/manifest/alignment and key-cleanup checks.
+Current owner-requested candidate: **0.5.1 / 230**, privately signed and
+non-debuggable, certificate/package matching 0.5.0 (and its verified 0.4.4 chain).
+See the [0.5.1 evidence record](0.5.1-candidate.md) for test/lint, artifact hash,
+signature/manifest/alignment and key-cleanup checks.
 No connected upgrade, whole-app acceptance or publication has been completed;
 the remaining gates below still apply.
 
 1. Build only on owner request with the numbered private-release script and
-   `-Bump minor` for this feature release. Never use the public test key or a debug APK.
+   `-Bump patch` for fixes (as in 0.5.1), or `-Bump minor` for a feature release.
+   Never use the public test key or a debug APK.
 2. Check actual APK signature/certificate, application ID, non-debuggable flag,
    manifest/permissions, version, hash and size. Do not log credentials.
 3. Test an in-place upgrade with the same owner certificate. Reconcile account

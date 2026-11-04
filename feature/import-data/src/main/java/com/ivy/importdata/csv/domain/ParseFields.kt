@@ -5,12 +5,13 @@ import com.ivy.importdata.csv.CSVRow
 import com.ivy.importdata.csv.ColumnMapping
 import com.ivy.importdata.csv.DateMetadata
 import com.ivy.importdata.csv.TrnTypeMetadata
-import java.text.DecimalFormat
-import java.text.NumberFormat
+import com.ivy.legacy.domain.deprecated.logic.csv.parseImportedCsvAmount
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeFormatterBuilder
 import java.time.format.DateTimeParseException
+import java.time.format.ResolverStyle
+import java.time.temporal.ChronoField
 import java.util.Locale
 import kotlin.math.abs
 
@@ -30,31 +31,10 @@ fun parseAmount(
         1_0000 -> 10_000.0
         else -> 1.0
     }
-    val double = parsePositiveDouble(value) ?: return@tryParse null
-    abs(double * multiplier)
+    val double = parseImportedCsvAmount(value) ?: return@tryParse null
+    abs(double * multiplier).takeIf(Double::isFinite)
 }
 
-private fun parsePositiveDouble(string: String): Double? {
-    val cleanedString = string
-        .replace("-", "")
-        .replace(" ", ".")
-        .filter { it.isDigit() || it == '.' }
-
-    val numberFormat = NumberFormat.getInstance(Locale.US)
-    if (numberFormat is DecimalFormat) {
-        try {
-            numberFormat.applyPattern("#,###.##")
-            val parsedNumber = numberFormat.parse(cleanedString)?.toDouble()
-            if (parsedNumber != null) {
-                return parsedNumber
-            }
-        } catch (e: Exception) {
-            // ignored
-        }
-    }
-
-    return cleanedString.toDoubleOrNull() ?: string.toDoubleOrNull()
-}
 // endregion
 
 fun parseTransactionType(
@@ -85,35 +65,22 @@ fun parseTransactionType(
 }
 
 // region Parse Date
-var lastSuccessfulFormat: String? = null
-
 fun parseDate(
     value: String,
     metadata: DateMetadata
 ): LocalDateTime? = tryParse {
-    val cleanedValue = value.filter {
-        it.isLetterOrDigit() || it == '-' || it == '/' || it == ':' || it == ' '
-    }
-
+    val cleanedValue = value.trim()
     val possibleFormats = possibleDateFormats(metadata)
-    if (lastSuccessfulFormat != null) {
-        try {
-            return@tryParse LocalDateTime.parse(
-                cleanedValue,
-                DateTimeFormatter.ofPattern(lastSuccessfulFormat)
-            )
-        } catch (e: DateTimeParseException) {
-            // Ignore and continue trying other formats
-            lastSuccessfulFormat = null
-        }
-    }
     for (format in possibleFormats) {
+        val formatter = DateTimeFormatterBuilder().parseCaseInsensitive()
+            .appendPattern(format).parseDefaulting(ChronoField.ERA, 1)
+            .toFormatter(Locale.ENGLISH).withResolverStyle(ResolverStyle.STRICT)
         try {
-            return@tryParse LocalDateTime.parse(cleanedValue, DateTimeFormatter.ofPattern(format))
+            return@tryParse LocalDateTime.parse(cleanedValue, formatter)
         } catch (e: DateTimeParseException) {
             // Ignore and continue trying other formats
             try {
-                return@tryParse LocalDate.parse(cleanedValue, DateTimeFormatter.ofPattern(format))
+                return@tryParse LocalDate.parse(cleanedValue, formatter)
                     .atStartOfDay()
             } catch (e: DateTimeParseException) {
                 // Ignore and continue trying other formats

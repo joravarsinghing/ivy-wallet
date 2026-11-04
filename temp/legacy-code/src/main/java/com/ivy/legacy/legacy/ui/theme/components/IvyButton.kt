@@ -4,6 +4,8 @@ import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -36,6 +38,8 @@ import com.ivy.wallet.ui.theme.White
 
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
 @Composable
+// Preserve this established positional adapter; migrate callers before reordering its API.
+@Suppress("ComposeParameterOrder")
 fun IvyButton(
     modifier: Modifier = Modifier,
     text: String,
@@ -50,7 +54,7 @@ fun IvyButton(
     enabled: Boolean = true,
     shadowAlpha: Float = 0.15f,
     wrapContentMode: Boolean = true,
-    hasGlow: Boolean = true,
+    hasGlow: Boolean = false,
     padding: Dp = 12.dp,
     iconEdgePadding: Dp = 12.dp,
     iconTextPadding: Dp = 4.dp,
@@ -68,16 +72,17 @@ fun IvyButton(
                     offsetY = 8.dp
                 )
             }
-            .clip(UI.shapes.rFull)
+            .heightIn(min = 48.dp)
+            .clip(com.ivy.design.system.JvyShapes.Control)
             .background(
                 brush = if (enabled) {
                     backgroundGradient.asHorizontalBrush()
                 } else {
                     SolidColor(UI.colors.gray)
                 },
-                shape = UI.shapes.rFull
+                shape = com.ivy.design.system.JvyShapes.Control
             )
-            .clickable(onClick = onClick, enabled = enabled),
+            .clickable(onClick = onClick, enabled = enabled, role = Role.Button),
         verticalAlignment = Alignment.CenterVertically
     ) {
         when {
@@ -107,7 +112,7 @@ fun IvyButton(
         }
 
         Text(
-            modifier = Modifier.padding(
+            modifier = Modifier.weight(1f, fill = false).padding(
                 vertical = padding,
             ),
             text = text,

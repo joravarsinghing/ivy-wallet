@@ -75,6 +75,15 @@ class BudgetViewModel @Inject constructor(
     private val reorderModalVisible = mutableStateOf(false)
     private val budgetModalData = mutableStateOf<BudgetModalData?>(null)
     private val insight = mutableStateOf(BudgetInsight())
+    private val submission = com.ivy.design.system.EditorSubmission()
+    fun saveModal(): List<String>? = BudgetEditorRestoration.save(budgetModalData.value)
+    fun restoreModal(payload: List<String>): Boolean {
+        if (budgetModalData.value != null) return true
+        val modal = BudgetEditorRestoration.restore(payload, baseCurrency.value, budgets.value.map { it.budget }, categories.value, accounts.value)
+            ?: return false
+        budgetModalData.value = modal
+        return true
+    }
 
     @Composable
     override fun uiState(): BudgetScreenState {
@@ -94,6 +103,8 @@ class BudgetViewModel @Inject constructor(
             reorderModalVisible = getReorderModalVisible(),
             budgetModalData = getBudgetModalData(),
             insight = insight.value,
+            saving = submission.saving,
+            saveError = submission.error,
         )
     }
 
@@ -179,7 +190,7 @@ class BudgetViewModel @Inject constructor(
             }
 
             is BudgetScreenEvent.OnBudgetModalData -> {
-                budgetModalData.value = event.budgetModalData
+                if (!submission.saving) budgetModalData.value = event.budgetModalData
             }
         }
     }
@@ -269,27 +280,29 @@ class BudgetViewModel @Inject constructor(
     }
 
     private fun createBudget(data: CreateBudgetData) {
-        viewModelScope.launch {
-            budgetCreator.createBudget(data) {
-                start()
-            }
-        }
+        persistBudget { budgetCreator.createBudget(data) {} }
     }
 
     private fun editBudget(budget: Budget) {
-        viewModelScope.launch {
-            budgetCreator.editBudget(budget) {
-                start()
+        persistBudget { budgetCreator.editBudget(budget) {} }
+    }
+
+    private fun persistBudget(write: suspend () -> Unit) {
+        submission.submit({ complete ->
+            viewModelScope.launch {
+                try {
+                    write()
+                    complete(Result.success(Unit))
+                } catch (error: kotlinx.coroutines.CancellationException) {
+                    complete(Result.failure(error))
+                    throw error
+                } catch (error: Exception) { complete(Result.failure(error)) }
             }
-        }
+        }, onSuccess = { budgetModalData.value = null; start() })
     }
 
     private fun deleteBudget(budget: Budget) {
-        viewModelScope.launch {
-            budgetCreator.deleteBudget(budget) {
-                start()
-            }
-        }
+        persistBudget { budgetCreator.deleteBudget(budget) {} }
     }
 
     private fun reorder(newOrder: List<DisplayBudget>) {

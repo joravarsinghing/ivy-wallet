@@ -52,13 +52,14 @@ class PieChartAct @Inject constructor(
     override suspend fun Input.compose(): suspend () -> Output = suspend {
         getUsableAccounts(
             accountIdFilterList = accountIdFilterList,
-            allAccounts = suspend { accountsAct(Unit) }
+            allAccounts = suspend { accountsAct(Unit) },
+            filterExcludedAccounts = filterExcluded
         )
     } then {
         val accountsUsed = it.first
         val accountIdFilterSet = it.second
 
-        val transactions = existingTransactions.ifEmpty {
+        val transactions = if (useExplicitTransactions) existingTransactions else {
             trnsWithRangeAndAccFiltersAct(
                 TrnsWithRangeAndAccFiltersAct.Input(
                     range = range,
@@ -90,7 +91,7 @@ class PieChartAct @Inject constructor(
                 },
                 transactions = suspend { transactions },
                 accountsUsed = suspend { accountsUsed },
-                addAssociatedTransToCategoryAmt = existingTransactions.isNotEmpty()
+                addAssociatedTransToCategoryAmt = useExplicitTransactions
             )
         } then {
             addAccountTransfersCategory(
@@ -125,9 +126,10 @@ class PieChartAct @Inject constructor(
 
         @SideEffect
         allAccounts: suspend () -> List<Account>,
+        filterExcludedAccounts: Boolean,
     ): Pair<List<Account>, Set<UUID>> {
         val accountsUsed = if (accountIdFilterList.isEmpty()) {
-            allAccounts then ::filterExcluded
+            if (filterExcludedAccounts) allAccounts then ::filterExcluded else allAccounts
         } else {
             allAccounts thenFilter {
                 accountIdFilterList.contains(it.id)
@@ -291,6 +293,8 @@ class PieChartAct @Inject constructor(
         val treatTransferAsIncExp: Boolean = false,
         val showAccountTransfersCategory: Boolean = treatTransferAsIncExp,
         val existingTransactions: List<Transaction> = emptyList(),
+        val useExplicitTransactions: Boolean = existingTransactions.isNotEmpty(),
+        val filterExcluded: Boolean = true,
     )
 
     data class Output(val totalAmount: Double, val categoryAmounts: ImmutableList<CategoryAmount>)

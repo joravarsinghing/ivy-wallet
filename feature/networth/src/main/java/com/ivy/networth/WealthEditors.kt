@@ -41,7 +41,7 @@ internal fun WealthDialogFrame(close: () -> Unit, footer: (@Composable () -> Uni
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                 Column {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.End) {
-                        IconButton(onClick = close) { Icon(Icons.Outlined.Close, "Close dialog") }
+                        com.ivy.design.system.JvyCloseButton(close)
                     }
                     Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp), content = content)

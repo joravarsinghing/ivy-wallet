@@ -25,6 +25,9 @@ import androidx.compose.ui.unit.dp
 import com.ivy.data.model.Category
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
+import com.ivy.design.system.JvyEmptyState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.EventRepeat
 import com.ivy.legacy.datamodel.Account
 import com.ivy.legacy.datamodel.PlannedPaymentRule
 import com.ivy.legacy.ui.component.transaction.SectionDivider
@@ -55,14 +58,13 @@ fun PlannedPaymentsLazyColumn(
     setOneTimeExpanded: (Boolean) -> Unit,
     setRecurringExpanded: (Boolean) -> Unit,
     listState: LazyListState = rememberLazyListState(),
+    onAdd: () -> Unit = {},
 ) {
     val nav = navigation()
 
     LazyColumn(
         modifier = Modifier
-            .fillMaxSize()
-            .statusBarsPadding()
-            .navigationBarsPadding(),
+            .fillMaxSize(),
         state = listState
     ) {
         item {
@@ -86,7 +88,8 @@ fun PlannedPaymentsLazyColumn(
             recurringIncome = recurringIncome,
             recurringExpenses = recurringExpenses,
             recurringExpanded = recurringExpanded,
-            setRecurringExpanded = setRecurringExpanded
+            setRecurringExpanded = setRecurringExpanded,
+            onAdd = onAdd,
         )
     }
 }
@@ -110,6 +113,7 @@ private fun LazyListScope.plannedPaymentItems(
     recurringExpenses: Double,
     recurringExpanded: Boolean,
     setRecurringExpanded: (Boolean) -> Unit,
+    onAdd: () -> Unit,
 ) {
     if (oneTime.isNotEmpty()) {
         item {
@@ -175,13 +179,14 @@ private fun LazyListScope.plannedPaymentItems(
 
     if (oneTime.isEmpty() && recurring.isEmpty()) {
         item {
-            NoPlannedPaymentsEmptyState()
+            JvyEmptyState(stringResource(R.string.no_planned_payments),
+                stringResource(R.string.jvy_planned_empty_description), Icons.Outlined.EventRepeat,
+                actionLabel = stringResource(R.string.add_payment), onAction = onAdd)
         }
     }
 
     item {
-        // last spacer - scroll hack
-        Spacer(Modifier.height(150.dp))
+        Spacer(Modifier.height(16.dp))
     }
 }
 
@@ -196,43 +201,4 @@ private fun onPlannedPaymentClick(
             type = rule.type
         )
     )
-}
-
-@Composable
-private fun LazyItemScope.NoPlannedPaymentsEmptyState() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(Modifier.height(64.dp))
-
-        IvyIcon(
-            icon = R.drawable.ic_planned_payments,
-            tint = Gray
-        )
-
-        Spacer(Modifier.height(24.dp))
-
-        Text(
-            text = stringResource(R.string.no_planned_payments),
-            style = UI.typo.b1.style(
-                color = Gray,
-                fontWeight = FontWeight.ExtraBold
-            ),
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(Modifier.height(8.dp))
-
-        Text(
-            text = stringResource(R.string.no_planned_payments_description),
-            style = UI.typo.b2.style(
-                color = Gray,
-                fontWeight = FontWeight.Medium,
-                textAlign = TextAlign.Center
-            )
-        )
-    }
 }

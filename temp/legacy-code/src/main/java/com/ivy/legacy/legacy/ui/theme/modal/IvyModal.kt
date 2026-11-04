@@ -7,9 +7,16 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -69,6 +76,9 @@ const val DURATION_MODAL_ANIM = 200
 
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
+// Preserve this established positional adapter; migrate callers before reordering its API.
+@Suppress("ComposeParameterOrder")
 fun BoxScope.IvyModal(
     id: UUID?,
     visible: Boolean,
@@ -78,120 +88,76 @@ fun BoxScope.IvyModal(
     scrollState: ScrollState? = rememberScrollState(),
     shiftIfKeyboardShown: Boolean = true,
     includeActionsRowPadding: Boolean = true,
+    dismissEnabled: Boolean = true,
+    hasUnsavedChanges: Boolean = false,
+    title: String? = null,
     Content: @Composable ColumnScope.() -> Unit
 ) {
-    val rootView = LocalView.current
-    var keyboardShown by remember { mutableStateOf(false) }
+    if (!visible) return
 
-    onScreenStart {
-        rootView.addKeyboardListener {
-            keyboardShown = it
+    val rootView = LocalView.current
+    var discardRequested by remember(id) { mutableStateOf(false) }
+    val requestClose = {
+        if (dismissEnabled) {
+            hideKeyboard(rootView)
+            if (hasUnsavedChanges) discardRequested = true else dismiss()
         }
     }
+    // Some legacy callers allocate their data ID on recomposition. Back ownership
+    // belongs to this visible host, not that changing data ID, or a parent can
+    // re-register above its still-open child and steal the child's Back action.
+    val backId = remember { UUID.randomUUID() }
+    ModalBackHandling(modalId = backId, visible = true, dismiss = requestClose)
 
-    val keyboardShownInsetDp by animateDpAsState(
-        targetValue = densityScope {
-            if (keyboardShown) keyboardOnlyWindowInsets().bottom.toDp() else 0.dp
-        },
-        animationSpec = tween(DURATION_MODAL_ANIM)
-    )
-    val navBarPadding by animateDpAsState(
-        targetValue = densityScope {
-            if (keyboardShown) 0.dp else navigationBarInsets().bottom.toDp()
-        },
-        animationSpec = tween(DURATION_MODAL_ANIM)
-    )
-    val blurAlpha by animateFloatAsState(
-        targetValue = if (visible) 1f else 0f,
-        animationSpec = tween(DURATION_BACKGROUND_BLUR_ANIM),
-        visibilityThreshold = 0.01f
-    )
-    val modalPercentVisible by animateFloatAsState(
-        targetValue = if (visible) 1f else 0f,
-        animationSpec = tween(DURATION_MODAL_ANIM),
-        visibilityThreshold = 0.01f
-    )
+    if (discardRequested) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { discardRequested = false },
+        title = { Text(androidx.compose.ui.res.stringResource(com.ivy.ui.R.string.jvy_discard_title)) },
+        text = { Text(androidx.compose.ui.res.stringResource(com.ivy.ui.R.string.jvy_discard_message)) },
+        confirmButton = { com.ivy.design.system.JvyTextButton({
+            if (dismissEnabled) { discardRequested = false; dismiss() }
+        }, enabled = dismissEnabled) { Text(androidx.compose.ui.res.stringResource(com.ivy.ui.R.string.jvy_discard)) } },
+        dismissButton = { com.ivy.design.system.JvyTextButton({ discardRequested = false }) {
+            Text(androidx.compose.ui.res.stringResource(com.ivy.ui.R.string.jvy_keep_editing))
+        } })
 
-    if (visible || blurAlpha > 0.01f) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .alpha(blurAlpha)
-                .background(mediumBlur())
-                .testTag("modal_outside_blur")
-                .clickable(
-                    onClick = {
-                        hideKeyboard(rootView)
-                        dismiss()
-                    },
-                    enabled = visible
-                )
-                .zIndex(1000f)
-        )
-    }
-
-    if (visible || modalPercentVisible > 0.01f) {
-        var actionsRowHeight by remember { mutableIntStateOf(0) }
-
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .layout { measurable, constraints ->
-                    val placeable = measurable.measure(constraints)
-
-                    val height = placeable.height
-                    val y = height * (1 - modalPercentVisible)
-
-                    layout(placeable.width, height) {
-                        placeable.placeRelative(
-                            0,
-                            y.roundToInt()
-                        )
+    Box(Modifier.fillMaxSize().background(mediumBlur())
+        .testTag("modal_outside_blur")
+        .clickable(enabled = dismissEnabled, onClick = requestClose).zIndex(1000f))
+    Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding().padding(com.ivy.design.system.JvySpacing.ModalMargin)
+        .zIndex(1001f), contentAlignment = Alignment.Center) {
+        androidx.compose.material3.Surface(
+            modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
+            shape = com.ivy.design.system.JvyShapes.Sheet,
+            color = androidx.compose.material3.MaterialTheme.colorScheme.surface,
+            contentColor = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
+        ) {
+            Column(Modifier.consumeClicks(rememberInteractionSource())) {
+                if (title != null) {
+                    com.ivy.design.system.JvyDialogHeader(title, requestClose,
+                        closeEnabled = dismissEnabled)
+                } else {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.End) {
+                        com.ivy.design.system.JvyCloseButton(requestClose,
+                            Modifier.testTag("modal_close_button"), enabled = dismissEnabled)
                     }
                 }
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(top = 24.dp)
-                .background(UI.colors.pure, UI.shapes.r2Top)
-                .consumeClicks(rememberInteractionSource())
-                .thenIf(scrollState != null) {
+                Column(Modifier.weight(1f, fill = false).thenIf(scrollState != null) {
                     verticalScroll(scrollState!!)
+                }.thenIf(title != null) {
+                    padding(top = com.ivy.design.system.JvySpacing.Related,
+                        bottom = com.ivy.design.system.JvySpacing.Group)
+                }) { Content() }
+                androidx.compose.material3.HorizontalDivider()
+                FlowRow(Modifier.fillMaxWidth().padding(horizontal = com.ivy.design.system.JvySpacing.PageGutter,
+                    vertical = com.ivy.design.system.JvySpacing.ActionInset),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SecondaryActions?.invoke()
+                    PrimaryAction()
                 }
-                .zIndex(1000f)
-        ) {
-            ModalBackHandling(
-                modalId = id,
-                visible = visible,
-                dismiss = dismiss
-            )
-
-            Content()
-
-            // Bottom padding
-            if (includeActionsRowPadding) {
-                Spacer(Modifier.height(densityScope { actionsRowHeight.toDp() }))
-            }
-
-            if (shiftIfKeyboardShown) {
-                Spacer(Modifier.height(keyboardShownInsetDp))
             }
         }
-
-        ModalActionsRow(
-            visible = visible,
-            modalPercentVisible = modalPercentVisible,
-            keyboardShownInsetDp = keyboardShownInsetDp,
-            navBarPadding = navBarPadding,
-            onHeightChanged = {
-                actionsRowHeight = it
-            },
-            onClose = {
-                hideKeyboard(rootView)
-                dismiss()
-            },
-            SecondaryActions = SecondaryActions,
-            PrimaryAction = PrimaryAction
-        )
     }
 }
 
@@ -220,39 +186,14 @@ fun AddModalBackHandling(
 ) {
     val latestAction by rememberUpdatedState(action)
     val nav = navigation()
-    DisposableEffect(visible) {
-        if (visible) {
-            val lastModalBackHandlingId = nav.lastModalBackHandlerId()
-
-            if (modalId != null && modalId != lastModalBackHandlingId) {
-                nav.modalBackHandling.add(
-                    Navigation.ModalBackHandler(
-                        id = modalId,
-                        onBackPressed = {
-                            if (visible) {
-                                latestAction()
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    )
-                )
+    DisposableEffect(nav, modalId, visible) {
+        val unregister = if (visible && modalId != null) {
+            nav.registerModalBackHandler(modalId) {
+                latestAction()
+                true
             }
-        }
-
-        onDispose {
-            val lastModalBackHandlingId = nav.lastModalBackHandlerId()
-            if (modalId != null && lastModalBackHandlingId == modalId) {
-                removeLastBackHandlerSafe(nav)
-            }
-        }
-    }
-}
-
-private fun removeLastBackHandlerSafe(nav: Navigation) {
-    if (nav.modalBackHandling.isNotEmpty()) {
-        nav.modalBackHandling.pop()
+        } else null
+        onDispose { unregister?.invoke() }
     }
 }
 
@@ -267,7 +208,6 @@ fun ModalActionsRow(
 
     onHeightChanged: (Int) -> Unit,
 
-    onClose: () -> Unit,
     SecondaryActions: (@Composable () -> Unit)? = null,
     PrimaryAction: @Composable () -> Unit
 ) {
@@ -302,11 +242,6 @@ fun ModalActionsRow(
                 .zIndex(1100f)
         ) {
             Spacer(Modifier.width(24.dp))
-
-            CloseButton(
-                modifier = Modifier.testTag("modal_close_button"),
-                onClick = onClose
-            )
 
             SecondaryActions?.invoke()
 

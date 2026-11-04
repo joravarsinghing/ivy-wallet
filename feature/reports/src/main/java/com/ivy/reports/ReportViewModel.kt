@@ -141,6 +141,24 @@ class ReportViewModel @Inject constructor(
     private var savedAnalytics by mutableStateOf<ImmutableList<SavedAnalyticsEntity>>(persistentListOf())
 
     private var tagSearchJob: Job? = null
+    var readyEntry by mutableStateOf<UUID?>(null)
+        private set
+    var startupFailed by mutableStateOf(false)
+        private set
+    var restorationNotice by mutableStateOf(false)
+        private set
+    fun acknowledgeRestoration() { restorationNotice = false }
+    private var startupJob: Job? = null
+    private var startingEntry: UUID? = null
+    private val reportWrites = kotlinx.coroutines.sync.Mutex()
+    private val reportGeneration = java.util.concurrent.atomic.AtomicLong()
+
+    fun savePage(): List<String>? = filter?.let { value ->
+        val query = ReportFilterState.save(value) ?: return null
+        com.ivy.design.system.ProcessDraftState.encode(mapOf("filter" to Json.encodeToString(query),
+            "overlay" to filterOverlayVisible.toString(), "transfers" to treatTransfersAsIncExp.toString(),
+            "upcoming" to upcomingExpanded.toString(), "overdue" to overdueExpanded.toString()))
+    }
     private val tagSearchDebounceTimeInMills: Long = 500
 
     @Composable
@@ -150,10 +168,14 @@ class ReportViewModel @Inject constructor(
 
     @Composable
     override fun uiState(): ReportScreenState {
-        LaunchedEffect(Unit) {
-            start()
-        }
+        return currentState(getShouldShowAccountSpecificColorInTransactions())
+    }
 
+    internal suspend fun awaitWork() {
+        viewModelScope.coroutineContext[Job]?.children?.toList()?.forEach { it.join() }
+    }
+
+    internal fun currentState(showAccountColors: Boolean = false): ReportScreenState {
         return ReportScreenState(
             categories = categories,
             accounts = accounts,
@@ -181,12 +203,13 @@ class ReportViewModel @Inject constructor(
             upcomingTransactions = upcomingTransactions,
             allTags = allTags,
             savedAnalytics = savedAnalytics,
-            showAccountColorsInTransactions = getShouldShowAccountSpecificColorInTransactions()
+            showAccountColorsInTransactions = showAccountColors
         )
     }
 
     override fun onEvent(event: ReportScreenEvent) {
-        viewModelScope.launch(Dispatchers.Default) {
+        viewModelScope.launch {
+            try {
             when (event) {
                 is ReportScreenEvent.OnFilter -> setFilter(event.filter)
                 is ReportScreenEvent.OnExport -> export(event.context)
@@ -208,6 +231,8 @@ class ReportViewModel @Inject constructor(
                 is ReportScreenEvent.OnApplySavedAnalytics -> applySavedAnalytics(event.id)
                 is ReportScreenEvent.OnDeleteSavedAnalytics -> deleteSavedAnalytics(event.id)
             }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) { loading = false; restorationNotice = true }
         }
     }
 
@@ -230,8 +255,16 @@ class ReportViewModel @Inject constructor(
         }
     }
 
-    private fun start() {
-        viewModelScope.launch(Dispatchers.IO) {
+    private fun start() { readyEntry?.let { start(it, savePage(), refresh = true) } }
+
+    fun start(entry: UUID?, saved: List<String>?, refresh: Boolean = false) {
+        if (entry == null || (startingEntry == entry && startupJob?.isActive == true) || (!refresh && readyEntry == entry)) return
+        startupJob?.cancel()
+        startingEntry = entry
+        startupFailed = false
+        startupJob = viewModelScope.launch {
+            try {
+            withContext(Dispatchers.IO) {
             val loadedBaseCurrency = baseCurrencyAct(Unit)
             val loadedAccounts = accountsAct(Unit)
             val loadedCategories =
@@ -242,17 +275,33 @@ class ReportViewModel @Inject constructor(
             categories = loadedCategories
             allTags = tagRepository.findAll().toImmutableList()
             savedAnalytics = savedAnalyticsRepository.findAll().toImmutableList()
+            }
+
+            val fields = com.ivy.design.system.ProcessDraftState.decode(saved)
+            val restored = fields?.get("filter")?.let { encoded -> runCatching {
+                ReportFilterState.restore(json.decodeFromString<List<String>>(encoded), accounts, categories, baseCurrency, allTags)
+            }.getOrNull() }
+            if (saved != null && restored == null) restorationNotice = true
+            if (restored != null) {
+                filterOverlayVisible = fields?.get("overlay") == "true"
+                treatTransfersAsIncExp = fields?.get("transfers") == "true"
+                upcomingExpanded = fields?.get("upcoming") == "true"
+                overdueExpanded = fields?.get("overdue") == "true"
+            }
 
             // Reports open on the current month with every dimension included.
             // This makes the page useful immediately and gives the filter sheet
             // a complete starting point for narrowing one dimension at a time.
             setFilter(
-                ReportFilter.emptyFilter(loadedBaseCurrency).normalized(
+                restored ?: ReportFilter.emptyFilter(baseCurrency).normalized(
                     defaultPeriod = ivyContext.selectedPeriod,
-                    allAccounts = loadedAccounts,
-                    allCategories = loadedCategories
+                    allAccounts = accounts,
+                    allCategories = categories
                 )
             )
+            readyEntry = entry
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) { loading = false; startupFailed = true }
         }
     }
 
@@ -272,18 +321,19 @@ class ReportViewModel @Inject constructor(
     }
 
     private suspend fun applySavedAnalytics(id: UUID) {
-        val saved = savedAnalyticsRepository.findById(id) ?: return
+        val saved = savedAnalyticsRepository.findById(id) ?: run { restorationNotice = true; return }
         val definition = runCatching {
             json.decodeFromString<SavedAnalyticsDefinition>(saved.definition)
-        }.getOrNull() ?: return
+        }.getOrNull() ?: run { restorationNotice = true; return }
 
         val restoredFilter = runCatching {
             definition.toReportFilter(
                 accounts = accounts,
                 categories = categories,
-                baseCurrency = baseCurrency
+                baseCurrency = baseCurrency,
+                tags = tagRepository.findAll(),
             )
-        }.getOrNull() ?: return
+        }.getOrNull() ?: run { restorationNotice = true; return }
         setFilter(restoredFilter)
     }
 
@@ -293,6 +343,11 @@ class ReportViewModel @Inject constructor(
     }
 
     private suspend fun setFilter(reportFilter: ReportFilter?) {
+        val request = reportGeneration.incrementAndGet()
+        loading = true
+        reportWrites.lock()
+        try {
+        if (request != reportGeneration.get()) return
         scopedIOThread { scope ->
             val availableAccounts = accounts.ifEmpty { accountsAct(Unit) }
             val availableCategories = categories.ifEmpty {
@@ -332,7 +387,7 @@ class ReportViewModel @Inject constructor(
                 )
             }
 
-            historyIncomeExpense = calcTrnsIncomeExpenseAct(
+            val calculatedIncomeExpense = calcTrnsIncomeExpenseAct(
                 CalcTrnsIncomeExpenseAct.Input(
                     transactions = tempHistory,
                     accounts = tempAccounts,
@@ -340,13 +395,13 @@ class ReportViewModel @Inject constructor(
                 )
             )
 
-            val tempIncome = historyIncomeExpense.income.toDouble() +
-                    if (treatTransfersAsIncExp) historyIncomeExpense.transferIncome.toDouble() else 0.0
+            val tempIncome = calculatedIncomeExpense.income.toDouble() +
+                    if (treatTransfersAsIncExp) calculatedIncomeExpense.transferIncome.toDouble() else 0.0
 
-            val tempExpenses = historyIncomeExpense.expense.toDouble() +
-                    if (treatTransfersAsIncExp) historyIncomeExpense.transferExpense.toDouble() else 0.0
+            val tempExpenses = calculatedIncomeExpense.expense.toDouble() +
+                    if (treatTransfersAsIncExp) calculatedIncomeExpense.transferExpense.toDouble() else 0.0
 
-            val tempBalance = calculateBalance(historyIncomeExpense).toDouble()
+            val tempBalance = calculateBalance(calculatedIncomeExpense).toDouble()
             val previousPeriodStats = calculatePreviousPeriodStats(
                 filter = effectiveFilter,
                 accounts = tempAccounts,
@@ -388,31 +443,35 @@ class ReportViewModel @Inject constructor(
                 )
             )
 
+            val historyValues = historyWithDateDividers.await().toImmutableList()
+            val upcomingValues = upcomingTransactionsList.map { it.toLegacy(transactionMapper) }.toImmutableList()
+            val overdueValues = overdue.map { it.toLegacy(transactionMapper) }.toImmutableList()
+            val accountIds = accountFilterIdList.await().toImmutableList()
+            val transactionValues = transactionsList.map { it.toLegacy(transactionMapper) }.toImmutableList()
+            uiThread {
+            if (request != reportGeneration.get()) return@uiThread
+            historyIncomeExpense = calculatedIncomeExpense
             setReportValues(
                 income = tempIncome,
                 expense = tempExpenses,
                 upcomingIncomeExpenseTransferPair = upcomingIncomeExpense,
                 overDueIncomeExpenseTransferPair = overdueIncomeExpense,
-                history = historyWithDateDividers.await().toImmutableList(),
-                upcomingTransactions = upcomingTransactionsList.map {
-                    it.toLegacy(transactionMapper)
-                }.toImmutableList(),
-                overdueTransactions = overdue.map {
-                    it.toLegacy(transactionMapper)
-                }.toImmutableList(),
+                history = historyValues,
+                upcomingTransactions = upcomingValues,
+                overdueTransactions = overdueValues,
                 accounts = tempAccounts.toImmutableList(),
                 reportFilter = effectiveFilter,
-                accountIdFilters = accountFilterIdList.await().toImmutableList(),
-                transactions = transactionsList.map {
-                    it.toLegacy(transactionMapper)
-                }.toImmutableList(),
+                accountIdFilters = accountIds,
+                transactions = transactionValues,
                 balanceValue = tempBalance,
                 previousIncomeValue = previousPeriodStats?.first,
                 previousExpensesValue = previousPeriodStats?.second,
             )
 
             loading = false
+            }
         }
+        } finally { reportWrites.unlock() }
     }
 
     private fun setReportValues(
@@ -440,7 +499,7 @@ class ReportViewModel @Inject constructor(
         this.history = history
         this.upcomingTransactions = upcomingTransactions
         this.overdueTransactions = overdueTransactions
-        this.accounts = accounts
+        // Keep all available accounts selectable; accountIdFilters owns the report subset.
         this.filter = reportFilter
         this.accountIdFilters = accountIdFilters
         this.transactions = transactions
@@ -461,6 +520,8 @@ class ReportViewModel @Inject constructor(
             timeConverter,
             timeProvider,
         ) ?: return null
+        // An unbounded report has no equal-length preceding period to compare with.
+        if (currentRange.from == null || currentRange.to == null) return null
         val duration = Duration.between(currentRange.from(), currentRange.to())
         val previousFilter = filter.copy(
             period = com.ivy.legacy.data.model.TimePeriod(

@@ -7,7 +7,7 @@ import org.jetbrains.annotations.VisibleForTesting
 import java.util.UUID
 
 @VisibleForTesting
-class FakeSettingsDao : SettingsDao, WriteSettingsDao {
+class FakeSettingsDao(var implicitCurrencyData: Boolean = false) : SettingsDao, WriteSettingsDao {
     private val items = mutableListOf<SettingsEntity>()
 
     override suspend fun findFirst(): SettingsEntity {
@@ -27,11 +27,22 @@ class FakeSettingsDao : SettingsDao, WriteSettingsDao {
     }
 
     override suspend fun save(value: SettingsEntity) {
+        validateCurrencyChange(value.currency)
+        saveInitialCurrency(value)
+    }
+
+    override suspend fun saveInitialCurrency(value: SettingsEntity) {
+        items.removeAll { it.id == value.id }
         items.add(value)
     }
 
+    override suspend fun currentCurrencyForWrite() = items.firstOrNull()?.currency
+    override suspend fun hasImplicitCurrencyData() = implicitCurrencyData
+
     override suspend fun saveMany(value: List<SettingsEntity>) {
-        items.addAll(value)
+        require(value.map { it.currency.uppercase(java.util.Locale.ROOT) }.distinct().size <= 1)
+        value.forEach { validateCurrencyChange(it.currency) }
+        value.forEach { saveInitialCurrency(it) }
     }
 
     override suspend fun deleteById(id: UUID) {

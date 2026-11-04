@@ -71,6 +71,17 @@ object JvyShapes {
     val Material = Shapes(extraSmall = Control, small = Control, medium = Card, large = Sheet, extraLarge = Sheet)
 }
 
+/** One rhythm for layout ownership; don't add a second gutter inside a padded host. */
+object JvySpacing {
+    val Related = 8.dp
+    val Group = 16.dp
+    val Section = 24.dp
+    val PageGutter = 24.dp
+    val ModalMargin = 16.dp
+    val ActionInset = 12.dp
+    val TouchTarget = 48.dp
+}
+
 object JvyMotion {
     const val FeedbackMillis = 160
     const val TransitionMillis = 240

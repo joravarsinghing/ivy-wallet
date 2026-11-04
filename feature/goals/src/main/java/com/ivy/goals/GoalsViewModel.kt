@@ -30,7 +30,7 @@ class GoalsViewModel @Inject constructor(
     private val baseCurrencyAct: BaseCurrencyAct,
     private val timeProvider: TimeProvider,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(GoalScreenState.empty().copy(loading = true))
+    private val _uiState = MutableStateFlow(GoalScreenState.empty().copy(loading = true, saveSession = UUID.randomUUID().toString()))
     val uiState: StateFlow<GoalScreenState> = _uiState.asStateFlow()
 
     init {

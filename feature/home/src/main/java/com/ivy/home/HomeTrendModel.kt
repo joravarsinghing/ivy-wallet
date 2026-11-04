@@ -131,6 +131,7 @@ data class HomeTrendState(
     ),
     val editorVisible: Boolean = false,
     val loading: Boolean = false,
+    val window: HomeDateWindow? = null,
 ) {
     val hasData: Boolean
         get() = points.any { it.isObserved }

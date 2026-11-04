@@ -8,27 +8,27 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewModelScope
 import com.ivy.base.model.TransactionType
+import com.ivy.base.threading.DispatchersProvider
 import com.ivy.base.time.TimeConverter
 import com.ivy.data.db.dao.read.AccountDao
 import com.ivy.data.db.dao.read.PlannedPaymentRuleDao
 import com.ivy.data.db.dao.read.SettingsDao
-import com.ivy.data.db.dao.write.WritePlannedPaymentRuleDao
 import com.ivy.data.model.Category
 import com.ivy.data.model.CategoryId
 import com.ivy.data.model.IntervalType
 import com.ivy.data.repository.CategoryRepository
-import com.ivy.data.repository.TransactionRepository
 import com.ivy.legacy.datamodel.Account
 import com.ivy.legacy.datamodel.PlannedPaymentRule
 import com.ivy.legacy.datamodel.temp.toLegacyDomain
 import com.ivy.legacy.domain.deprecated.logic.AccountCreator
-import com.ivy.legacy.utils.ioThread
 import com.ivy.navigation.EditPlannedScreen
 import com.ivy.navigation.Navigation
 import com.ivy.ui.ComposeViewModel
 import com.ivy.wallet.domain.action.account.AccountsAct
 import com.ivy.wallet.domain.deprecated.logic.CategoryCreator
-import com.ivy.wallet.domain.deprecated.logic.PlannedPaymentsGenerator
+import com.ivy.wallet.domain.deprecated.logic.PlannedPaymentWriter
+import com.ivy.wallet.domain.deprecated.logic.PlannedPaymentConflict
+import com.ivy.design.system.ProcessDraftState
 import com.ivy.wallet.domain.deprecated.logic.model.CreateAccountData
 import com.ivy.wallet.domain.deprecated.logic.model.CreateCategoryData
 import com.ivy.wallet.ui.theme.modal.RecurringRuleModalData
@@ -39,6 +39,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import javax.inject.Inject
 
@@ -50,13 +51,12 @@ class EditPlannedViewModel @Inject constructor(
     private val settingsDao: SettingsDao,
     private val nav: Navigation,
     private val plannedPaymentRuleDao: PlannedPaymentRuleDao,
-    private val plannedPaymentsGenerator: PlannedPaymentsGenerator,
+    private val plannedWriter: PlannedPaymentWriter,
     private val categoryCreator: CategoryCreator,
     private val accountCreator: AccountCreator,
     private val accountsAct: AccountsAct,
-    private val plannedPaymentRuleWriter: WritePlannedPaymentRuleDao,
-    private val transactionRepository: TransactionRepository,
     private val timeConverter: TimeConverter,
+    private val dispatchers: DispatchersProvider,
 ) : ComposeViewModel<EditPlannedScreenState, EditPlannedScreenEvent>() {
 
     private var transactionType by mutableStateOf(TransactionType.INCOME)
@@ -68,6 +68,7 @@ class EditPlannedViewModel @Inject constructor(
     private var description by mutableStateOf<String?>(null)
     private var account by mutableStateOf<Account?>(null)
     private var category by mutableStateOf<Category?>(null)
+    private var categorySelectionRevision = 0L
     private var amount by mutableDoubleStateOf(0.0)
     private var currency by mutableStateOf("")
     private var categories by mutableStateOf<ImmutableList<Category>>(persistentListOf())
@@ -78,17 +79,37 @@ class EditPlannedViewModel @Inject constructor(
     private var transactionTypeModalVisible by mutableStateOf(false)
     private var amountModalVisible by mutableStateOf(false)
     private var recurringRuleModalData by mutableStateOf<RecurringRuleModalData?>(null)
-    private var categoryModalData by mutableStateOf<CategoryModalData?>(null)
-    private var accountModalData by mutableStateOf<AccountModalData?>(null)
+    val editorModals = com.ivy.legacy.ui.EditorModalHost()
+    private var categoryModalData: CategoryModalData?
+        get() = editorModals.category
+        set(value) { editorModals.category = value }
+    private var accountModalData: AccountModalData?
+        get() = editorModals.account
+        set(value) { editorModals.account = value }
 
     private var loadedRule: PlannedPaymentRule? = null
+    private var committedRule: PlannedPaymentRule? = null
+    var ready by mutableStateOf(false)
+        private set
+    var loadError by mutableStateOf(false)
+        private set
     private var editMode = false
     private var title: String? = null
+    private var startedScreen: EditPlannedScreen? = null
+    private var startedEntryId: java.util.UUID? = null
+    private var unregisterBackGuard: (() -> Unit)? = null
+    private var startupJob: kotlinx.coroutines.Job? = null
+    private val saveMutex = kotlinx.coroutines.sync.Mutex()
+    private var explicitSavePending by mutableStateOf(false)
+    private var saveError by mutableStateOf<String?>(null)
+    private var writeRevision = 0L
 
     @Composable
     override fun uiState(): EditPlannedScreenState {
         return EditPlannedScreenState(
             currency = getCurrency(),
+            saving = explicitSavePending,
+            saveError = saveError,
             categories = getCategories(),
             accounts = getAccounts(),
             transactionType = getTransactionType(),
@@ -218,8 +239,9 @@ class EditPlannedViewModel @Inject constructor(
     }
 
     override fun onEvent(event: EditPlannedScreenEvent) {
+        if (explicitSavePending) return // Also reject late picker callbacks, not only disabled taps.
         when (event) {
-            is EditPlannedScreenEvent.OnSave -> save()
+            is EditPlannedScreenEvent.OnSave -> save(event.closeScreen)
             is EditPlannedScreenEvent.OnDelete -> delete()
             is EditPlannedScreenEvent.OnSetTransactionType ->
                 updateTransactionType(event.newTransactionType)
@@ -227,8 +249,8 @@ class EditPlannedViewModel @Inject constructor(
             is EditPlannedScreenEvent.OnDescriptionChanged ->
                 updateDescription(event.newDescription)
 
-            is EditPlannedScreenEvent.OnCreateAccount -> createAccount(event.data)
-            is EditPlannedScreenEvent.OnCreateCategory -> createCategory(event.data)
+            is EditPlannedScreenEvent.OnCreateAccount -> createAccount(event.data, event.onResult)
+            is EditPlannedScreenEvent.OnCreateCategory -> createCategory(event.data, event.onResult)
             is EditPlannedScreenEvent.OnAccountChanged -> updateAccount(event.newAccount)
             is EditPlannedScreenEvent.OnAmountChanged -> updateAmount(event.newAmount)
             is EditPlannedScreenEvent.OnTitleChanged -> updateTitle(event.newTitle)
@@ -236,15 +258,18 @@ class EditPlannedViewModel @Inject constructor(
                 updateRule(event.startDate, event.oneTime, event.intervalN, event.intervalType)
 
             is EditPlannedScreenEvent.OnCategoryChanged -> updateCategory(event.newCategory)
-            is EditPlannedScreenEvent.OnEditCategory -> editCategory(event.updatedCategory)
+            is EditPlannedScreenEvent.OnEditCategory -> editCategory(event.updatedCategory, event.onResult)
             is EditPlannedScreenEvent.OnCategoryModalVisible ->
                 categoryModalVisible = event.visible
 
             is EditPlannedScreenEvent.OnCategoryModalDataChanged ->
-                categoryModalData = event.categoryModalData
+                if (event.expectedId == null || categoryModalData?.id == event.expectedId) {
+                    categoryModalData = event.categoryModalData
+                }
 
-            is EditPlannedScreenEvent.OnAccountModalDataChanged ->
-                accountModalData = event.accountModalData
+            is EditPlannedScreenEvent.OnAccountModalDataChanged -> {
+                if (event.expectedId == null || accountModalData?.id == event.expectedId) accountModalData = event.accountModalData
+            }
 
             is EditPlannedScreenEvent.OnDescriptionModalVisible ->
                 descriptionModalVisible = event.visible
@@ -263,14 +288,27 @@ class EditPlannedViewModel @Inject constructor(
         }
     }
 
-    fun start(screen: EditPlannedScreen) {
-        viewModelScope.launch {
+    fun start(screen: EditPlannedScreen, restored: List<String>? = null) {
+        unregisterBackGuard?.invoke()
+        unregisterBackGuard = nav.registerScreenBackHandler(screen) { explicitSavePending }
+        val entryId = nav.currentEntryId
+        if (startedScreen == screen && startedEntryId == entryId &&
+            (ready || startupJob?.isActive == true)) return
+        startupJob?.cancel()
+        startedScreen = screen
+        startedEntryId = entryId
+        ready = false
+        loadError = false
+        explicitSavePending = false
+        saveError = null
+        startupJob = viewModelScope.launch {
+            try {
             transactionType = screen.type
             editMode = screen.plannedPaymentRuleId != null
 
             val accounts = accountsAct(Unit)
             if (accounts.isEmpty()) {
-                nav.back()
+                closeScreen()
                 return@launch
             }
             this@EditPlannedViewModel.accounts = accounts
@@ -278,9 +316,13 @@ class EditPlannedViewModel @Inject constructor(
 
             reset()
 
-            loadedRule = screen.plannedPaymentRuleId?.let {
-                ioThread { plannedPaymentRuleDao.findById(it)!!.toLegacyDomain() }
-            } ?: PlannedPaymentRule(
+            val existing = screen.plannedPaymentRuleId?.let { withContext(dispatchers.io) { plannedPaymentRuleDao.findById(it)?.toLegacyDomain() } }
+            if (screen.plannedPaymentRuleId != null && existing == null) {
+                loadError = true
+                return@launch // A deleted edit must never become a new payment.
+            }
+            committedRule = existing
+            loadedRule = existing ?: PlannedPaymentRule(
                 startDate = null,
                 intervalN = null,
                 intervalType = null,
@@ -292,9 +334,57 @@ class EditPlannedViewModel @Inject constructor(
                 title = screen.title,
                 description = screen.description
             )
-
+            if (restored != null) restoreDraft(screen, restored)
+            if (nav.currentEntryId != entryId) return@launch
             display(loadedRule!!)
+            ready = true
+            } catch (error: kotlinx.coroutines.CancellationException) { throw error }
+            catch (_: Exception) { loadedRule = null; loadError = true }
         }
+    }
+
+    fun saveDraft(): List<String>? = loadedRule?.takeIf { ready }?.let { rule ->
+        ProcessDraftState.encode(PlannedEditorDraft.fields(rule) + mapOf(
+            "baseline" to committedRule?.let(PlannedEditorDraft::fingerprint),
+            "creating" to (!editMode).toString(), "categoryVisible" to categoryModalVisible.toString(),
+            "descriptionVisible" to descriptionModalVisible.toString(), "amountVisible" to amountModalVisible.toString(),
+            "typeVisible" to transactionTypeModalVisible.toString(),
+            "recurringId" to recurringRuleModalData?.id?.toString(),
+            "recurringStart" to recurringRuleModalData?.initialStartDate?.toString(),
+            "recurringCount" to recurringRuleModalData?.initialIntervalN?.toString(),
+            "recurringType" to recurringRuleModalData?.initialIntervalType?.name,
+            "recurringOneTime" to recurringRuleModalData?.initialOneTime?.toString(),
+        ))
+    }
+
+    private suspend fun restoreDraft(screen: EditPlannedScreen, payload: List<String>) {
+        val (draft, fields) = PlannedEditorDraft.decode(payload) ?: run {
+            saveError = "The previous draft could not be reopened. Review this payment before saving."
+            return
+        }
+        val current = committedRule
+        val validIdentity = if (editMode) draft.id == screen.plannedPaymentRuleId else fields["creating"] == "true"
+        if (!validIdentity || (current != null && fields["baseline"] != PlannedEditorDraft.fingerprint(current)) ||
+            accounts.none { it.id == draft.accountId } || (draft.categoryId != null && categories.none { it.id.value == draft.categoryId })) {
+            saveError = "This payment changed while Jvy was closed. Review the latest values before saving."
+            return
+        }
+        if (!editMode && withContext(dispatchers.io) { plannedPaymentRuleDao.findById(draft.id) } != null) {
+            // The creation was committed before process death. Don't reopen it as Add.
+            closeScreen()
+            return
+        }
+        loadedRule = (current ?: draft).copy(type = draft.type, accountId = draft.accountId, categoryId = draft.categoryId,
+            amount = draft.amount, title = draft.title, description = draft.description, startDate = draft.startDate,
+            oneTime = draft.oneTime, intervalN = draft.intervalN, intervalType = draft.intervalType)
+        categoryModalVisible = fields["categoryVisible"] == "true"
+        descriptionModalVisible = fields["descriptionVisible"] == "true"
+        amountModalVisible = fields["amountVisible"] == "true"
+        transactionTypeModalVisible = fields["typeVisible"] == "true"
+        recurringRuleModalData = fields["recurringId"]?.let { id -> runCatching {
+            RecurringRuleModalData(fields["recurringStart"]?.let(LocalDateTime::parse), fields["recurringCount"]?.toInt(),
+                fields["recurringType"]?.let(IntervalType::valueOf), fields["recurringOneTime"] == "true", java.util.UUID.fromString(id))
+        }.getOrNull() }
     }
 
     private suspend fun display(rule: PlannedPaymentRule) {
@@ -307,10 +397,10 @@ class EditPlannedViewModel @Inject constructor(
         intervalType = rule.intervalType
         initialTitle = rule.title
         description = rule.description
-        val selectedAccount = ioThread { accountDao.findById(rule.accountId)!!.toLegacyDomain() }
+        val selectedAccount = withContext(dispatchers.io) { accountDao.findById(rule.accountId)!!.toLegacyDomain() }
         account = selectedAccount
         category = rule.categoryId?.let {
-            ioThread { categoryRepository.findById(CategoryId(it)) }
+            withContext(dispatchers.io) { categoryRepository.findById(CategoryId(it)) }
         }
         amount = rule.amount
 
@@ -321,7 +411,7 @@ class EditPlannedViewModel @Inject constructor(
         currency = account.currency ?: baseCurrency()
     }
 
-    private suspend fun baseCurrency(): String = ioThread { settingsDao.findFirst().currency }
+    private suspend fun baseCurrency(): String = withContext(dispatchers.io) { settingsDao.findFirst().currency }
 
     private fun updateRule(
         startDate: LocalDateTime,
@@ -371,6 +461,7 @@ class EditPlannedViewModel @Inject constructor(
     }
 
     private fun updateCategory(newCategory: Category?) {
+        categorySelectionRevision++
         loadedRule = loadedRule().copy(
             categoryId = newCategory?.id?.value
         )
@@ -408,37 +499,38 @@ class EditPlannedViewModel @Inject constructor(
     }
 
     private fun save(closeScreen: Boolean = true) {
-        if (!validate()) {
+        if (!ready || explicitSavePending || !validate()) {
             return
         }
 
+        if (closeScreen) explicitSavePending = true
+        saveError = null
+        val ownerEntryId = startedEntryId
+        val submitted = loadedRule().copy(type = transactionType, startDate = with(timeConverter) { startDate?.toUTC() },
+            intervalN = intervalN, intervalType = intervalType, oneTime = oneTime, categoryId = category?.id?.value,
+            accountId = account?.id ?: return, title = title?.trim(), description = description?.trim(), amount = amount, isSynced = false)
+        val creating = !editMode
+        val revision = ++writeRevision
         viewModelScope.launch {
+            saveMutex.lock()
             try {
-                ioThread {
-                    loadedRule = loadedRule().copy(
-                        type = transactionType ?: error("no transaction type"),
-                        startDate = with(timeConverter) { startDate?.toUTC() }
-                            ?: error("no startDate"),
-                        intervalN = intervalN ?: error("no intervalN"),
-                        intervalType = intervalType ?: error("no intervalType"),
-                        categoryId = category?.id?.value,
-                        accountId = account?.id ?: error("no accountId"),
-                        title = title?.trim(),
-                        description = description?.trim(),
-                        amount = amount ?: error("no amount"),
+                if (startedEntryId != ownerEntryId) return@launch
+                committedRule = plannedWriter.save(submitted, creating, committedRule)
 
-                        isSynced = false
-                    )
-
-                    plannedPaymentRuleWriter.save(loadedRule().toEntity())
-                    plannedPaymentsGenerator.generate(loadedRule())
+                if (closeScreen && nav.currentEntryId == ownerEntryId && revision == writeRevision) {
+                    closeScreen()
                 }
-
-                if (closeScreen) {
-                    nav.back()
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: PlannedPaymentConflict) {
+                if (startedEntryId == ownerEntryId && revision == writeRevision)
+                    saveError = "This payment or its account changed. Close and reopen it to review the latest values."
+            } catch (_: Exception) {
+                if (startedEntryId == ownerEntryId && revision == writeRevision)
+                    saveError = "Could not save. Your changes are still here. Try again."
+            } finally {
+                saveMutex.unlock()
+                if (closeScreen && startedEntryId == ownerEntryId) explicitSavePending = false
             }
         }
     }
@@ -448,11 +540,16 @@ class EditPlannedViewModel @Inject constructor(
             return false
         }
 
-        if (amount == 0.0) {
+        if (!amount.isFinite() || amount <= 0.0) {
             return false
         }
 
         return if (oneTime) validateOneTime() else validateRecurring()
+    }
+
+    override fun onCleared() {
+        unregisterBackGuard?.invoke()
+        super.onCleared()
     }
 
     private fun validateOneTime(): Boolean {
@@ -467,42 +564,60 @@ class EditPlannedViewModel @Inject constructor(
     }
 
     private fun delete() {
+        val rule = loadedRule ?: return
+        if (!ready || explicitSavePending) return
+        explicitSavePending = true
+        val owner = startedEntryId
         viewModelScope.launch {
-            deleteTransactionModalVisible = false
-            ioThread {
-                loadedRule?.let {
-                    plannedPaymentRuleWriter.deleteById(it.id)
-                    transactionRepository.deletedByRecurringRuleIdAndNoDateTime(
-                        recurringRuleId = it.id
-                    )
+            saveMutex.lock()
+            try {
+                if (startedEntryId != owner) return@launch
+                plannedWriter.delete(rule.id)
+                if (nav.currentEntryId == owner) closeScreen()
+            } catch (error: kotlinx.coroutines.CancellationException) { throw error }
+            catch (_: Exception) {
+                if (startedEntryId == owner) saveError = "Could not delete. Your payment is still here. Try again."
+            } finally {
+                saveMutex.unlock()
+                if (startedEntryId == owner) { explicitSavePending = false; deleteTransactionModalVisible = false }
+            }
+        }
+    }
+
+    fun closeScreen() {
+        if (!nav.back()) { nav.resetBackStack(); nav.navigateTo(com.ivy.navigation.PlannedPaymentsScreen) }
+    }
+
+    private fun createCategory(data: CreateCategoryData, onResult: (Result<Unit>) -> Unit) {
+        val entry = nav.currentEntryId
+        val selectionRevision = categorySelectionRevision
+        viewModelScope.launch {
+            categoryCreator.createCategory(data, onResult) {
+                val refreshed = categoryRepository.findAll().toImmutableList()
+                if (nav.currentEntryId == entry) {
+                    categories = refreshed
+                    if (categorySelectionRevision == selectionRevision) updateCategory(it)
                 }
-                nav.back()
             }
         }
     }
 
-    private fun createCategory(data: CreateCategoryData) {
+    private fun editCategory(updatedCategory: Category, onResult: (Result<Unit>) -> Unit) {
+        val entry = nav.currentEntryId
         viewModelScope.launch {
-            categoryCreator.createCategory(data) {
-                categories = categoryRepository.findAll().toImmutableList()
-
-                updateCategory(it)
+            categoryCreator.editCategory(updatedCategory, onResult) {
+                val refreshed = categoryRepository.findAll().toImmutableList()
+                if (nav.currentEntryId == entry) categories = refreshed
             }
         }
     }
 
-    private fun editCategory(updatedCategory: Category) {
+    private fun createAccount(data: CreateAccountData, onResult: (Result<Unit>) -> Unit) {
+        val entry = nav.currentEntryId
         viewModelScope.launch {
-            categoryCreator.editCategory(updatedCategory) {
-                categories = categoryRepository.findAll().toImmutableList()
-            }
-        }
-    }
-
-    private fun createAccount(data: CreateAccountData) {
-        viewModelScope.launch {
-            accountCreator.createAccount(data) {
-                accounts = accountsAct(Unit)
+            accountCreator.createAccount(data, onResult) {
+                val refreshed = accountsAct(Unit)
+                if (nav.currentEntryId == entry) accounts = refreshed
             }
         }
     }

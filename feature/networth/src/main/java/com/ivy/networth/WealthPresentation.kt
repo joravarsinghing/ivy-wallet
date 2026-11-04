@@ -34,7 +34,7 @@ internal fun WealthSummary(result: WealthResult, hidden: Boolean) {
                 Text("Bring together your savings, things you own and debts. Start with what you know — you can add more later.")
                 Text("Nothing entered yet is not the same as a net worth of zero.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
-                Text(money(result.netWorth, result.currency, hidden), style = JvyTypography.Amount)
+                Text(com.ivy.design.system.financialText(money(result.netWorth, result.currency, hidden)), style = JvyTypography.Amount)
                 Text("What you own − what you owe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 WealthSummaryMetric("What I own", result.assets, result.currency, hidden, false)
                 WealthSummaryMetric("What I owe", result.liabilities, result.currency, hidden, true)
@@ -58,7 +58,7 @@ private fun WealthSummaryMetric(label: String, value: BigDecimal, currency: Stri
                 Icon(if (debt) Icons.Outlined.RemoveCircleOutline else Icons.Outlined.AddCircleOutline, null, Modifier.size(20.dp), tint = ink)
                 Text(label, style = MaterialTheme.typography.labelLarge, color = ink)
             }
-            Text(money(value, currency, hidden), style = JvyTypography.AmountSmall, color = ink)
+            Text(com.ivy.design.system.financialText(money(value, currency, hidden)), style = JvyTypography.AmountSmall, color = ink)
         }
     }
 }
@@ -88,7 +88,7 @@ internal fun WealthPositionRow(line: WealthLine, currency: String, hidden: Boole
                 }
                 Icon(Icons.AutoMirrored.Outlined.ArrowForward, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text(if (!line.included) "Not counted in your total" else money(line.reportingAmount?.abs(), currency, hidden), style = JvyTypography.AmountSmall, color = ink)
+            Text(if (!line.included) "Not counted in your total" else com.ivy.design.system.financialText(money(line.reportingAmount?.abs(), currency, hidden)), style = JvyTypography.AmountSmall, color = ink)
             Text(when (line.item.source) {
                 WealthSource.ACCOUNT -> "Linked to your wallet balance"
                 WealthSource.LOAN -> "Linked to your loan record"
@@ -102,10 +102,10 @@ internal fun WealthPositionRow(line: WealthLine, currency: String, hidden: Boole
 
 @Composable
 internal fun WealthAllocationRow(kind: WealthKind, amount: BigDecimal, assets: BigDecimal, currency: String, hidden: Boolean) {
-    val fraction = if (hidden || assets.signum() <= 0) 0f else amount.divide(assets, 6, RoundingMode.HALF_UP).toFloat().coerceIn(0f, 1f)
+    val fraction = if (hidden || com.ivy.design.system.LocalFinancialVisibility.current.hidden || assets.signum() <= 0) 0f else amount.divide(assets, 6, RoundingMode.HALF_UP).toFloat().coerceIn(0f, 1f)
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(kind.title(), style = MaterialTheme.typography.titleSmall)
-        Text(money(amount, currency, hidden), style = JvyTypography.AmountSmall)
+        Text(com.ivy.design.system.financialText(money(amount, currency, hidden)), style = JvyTypography.AmountSmall)
         LinearProgressIndicator(progress = fraction, modifier = Modifier.fillMaxWidth().height(6.dp), color = JvyFinanceColors.asset(), trackColor = JvyFinanceColors.assetSurface())
     }
 }

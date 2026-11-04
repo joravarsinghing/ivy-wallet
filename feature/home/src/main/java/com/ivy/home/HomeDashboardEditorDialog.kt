@@ -1,5 +1,6 @@
 package com.ivy.home
 
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +28,11 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
+import com.ivy.design.system.JvyButton
+import com.ivy.design.system.JvyFormDialogFrame
+import com.ivy.design.system.JvyTypography
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TextButton
 
 /** Presentation-only editor for the cards shown on Home. */
 @Composable
@@ -41,30 +47,25 @@ fun HomeDashboardEditorDialog(
         onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(UI.colors.medium)
-                .padding(horizontal = 24.dp, vertical = 24.dp),
-        ) {
-            Text(
-                text = "Edit Home",
-                style = UI.typo.b1.style(
-                    color = UI.colors.pureInverse,
-                    fontWeight = FontWeight.ExtraBold,
-                ),
-            )
-            Spacer(Modifier.size(6.dp))
+        HomeDashboardEditorContent(visibleCards, onCardToggle, onClose, onRestoreDefaults, cards)
+    }
+}
+
+@Composable
+internal fun HomeDashboardEditorContent(visibleCards: Set<HomeDashboardCardId>, onCardToggle: (HomeDashboardCardId) -> Unit,
+                                        onClose: () -> Unit, onRestoreDefaults: () -> Unit,
+                                        cards: List<HomeDashboardCardDefinition> = defaultHomeDashboardCards) {
+    JvyFormDialogFrame("Edit Home", onClose, footer = {
+        Column(Modifier.fillMaxWidth()) {
+            TextButton(onRestoreDefaults, Modifier.fillMaxWidth()) { Text("Restore defaults") }
+            JvyButton(onClose, Modifier.fillMaxWidth()) { Text("Done") }
+        }
+    }) {
             Text(
                 text = "Choose the cards you want to see on Home.",
-                style = UI.typo.c.style(
-                    color = UI.colors.gray,
-                    fontWeight = FontWeight.Medium,
-                ),
+                style = JvyTypography.Supporting,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.size(18.dp))
 
             cards.forEach { card ->
                 HomeDashboardToggleRow(
@@ -72,47 +73,7 @@ fun HomeDashboardEditorDialog(
                     checked = card.id in visibleCards,
                     onClick = { onCardToggle(card.id) },
                 )
-                Spacer(Modifier.size(8.dp))
             }
-
-            Spacer(Modifier.size(10.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable(onClick = onRestoreDefaults)
-                        .semantics {
-                            role = Role.Button
-                            contentDescription = "Restore default Home cards"
-                        }
-                        .padding(horizontal = 8.dp, vertical = 10.dp),
-                    text = "Restore defaults",
-                    style = UI.typo.c.style(
-                        color = UI.colors.gray,
-                        fontWeight = FontWeight.Bold,
-                    ),
-                )
-                Text(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable(onClick = onClose)
-                        .semantics {
-                            role = Role.Button
-                            contentDescription = "Close Home editor"
-                        }
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    text = "Done",
-                    style = UI.typo.b2.style(
-                        color = UI.colors.primary,
-                        fontWeight = FontWeight.Bold,
-                    ),
-                )
-            }
-        }
     }
 }
 
@@ -127,7 +88,7 @@ private fun HomeDashboardToggleRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(UI.colors.pure)
-            .clickable(onClick = onClick)
+            .toggleable(checked, role = Role.Checkbox, onValueChange = { onClick() })
             .semantics {
                 role = Role.Checkbox
                 contentDescription = "Show ${card.label}"

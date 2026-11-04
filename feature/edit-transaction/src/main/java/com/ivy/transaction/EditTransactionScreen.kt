@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
@@ -98,15 +99,26 @@ import kotlin.math.roundToInt
 @Composable
 fun BoxWithConstraintsScope.EditTransactionScreen(screen: EditTransactionScreen) {
     val viewModel: EditTransactionViewModel = screenScopedViewModel()
+    val restoration = com.ivy.design.system.rememberProcessRestoration("transaction-draft", viewModel::saveDraft)
     val uiState = viewModel.uiState()
+    val modalsResolved = com.ivy.legacy.ui.rememberEditorModalRestoration(viewModel.editorModals, viewModel.ready, uiState.currency,
+        uiState.accounts, uiState.categories, uiState.tags)
 
     LaunchedEffect(Unit) {
-        viewModel.start(screen)
+        viewModel.start(screen, restoration.payload)
     }
+
+    if (!viewModel.ready || !modalsResolved) {
+        com.ivy.design.system.JvyEditorLoading(stringResource(R.string.transactions), viewModel.loadError,
+            viewModel::closeScreen, { viewModel.start(screen, restoration.payload) })
+        return
+    }
+    androidx.compose.runtime.SideEffect { restoration.consumed = true }
 
     val view = LocalView.current
 
     UI(
+        editorModals = viewModel.editorModals,
         screen = screen,
         transactionType = uiState.transactionType,
         baseCurrency = uiState.currency,
@@ -124,6 +136,8 @@ fun BoxWithConstraintsScope.EditTransactionScreen(screen: EditTransactionScreen)
         rememberCategoryRule = uiState.rememberCategoryRule,
         loanData = uiState.displayLoanHelper,
         backgroundProcessing = uiState.backgroundProcessingStarted,
+        saveError = uiState.saveError,
+        saving = uiState.saving,
         customExchangeRateState = uiState.customExchangeRateState,
 
         categories = uiState.categories,
@@ -164,11 +178,11 @@ fun BoxWithConstraintsScope.EditTransactionScreen(screen: EditTransactionScreen)
         onSetTransactionType = {
             viewModel.onEvent(EditTransactionViewEvent.OnSetTransactionType(it))
         },
-        onCreateCategory = {
-            viewModel.onEvent(EditTransactionViewEvent.CreateCategory(it))
+        onCreateCategory = { data, complete ->
+            viewModel.onEvent(EditTransactionViewEvent.CreateCategory(data, complete))
         },
-        onEditCategory = {
-            viewModel.onEvent(EditTransactionViewEvent.EditCategory(it))
+        onEditCategory = { category, complete ->
+            viewModel.onEvent(EditTransactionViewEvent.EditCategory(category, complete))
         },
         onPayPlannedPayment = {
             viewModel.onEvent(EditTransactionViewEvent.OnPayPlannedPayment)
@@ -186,8 +200,8 @@ fun BoxWithConstraintsScope.EditTransactionScreen(screen: EditTransactionScreen)
         onDuplicate = {
             viewModel.onEvent(EditTransactionViewEvent.Duplicate)
         },
-        onCreateAccount = {
-            viewModel.onEvent(EditTransactionViewEvent.CreateAccount(it))
+        onCreateAccount = { data, complete ->
+            viewModel.onEvent(EditTransactionViewEvent.CreateAccount(data, complete))
         },
         onExchangeRateChange = {
             viewModel.onEvent(EditTransactionViewEvent.UpdateExchangeRate(it))
@@ -201,7 +215,7 @@ fun BoxWithConstraintsScope.EditTransactionScreen(screen: EditTransactionScreen)
 @Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod")
 @ExperimentalFoundationApi
 @Composable
-private fun BoxWithConstraintsScope.UI(
+internal fun BoxWithConstraintsScope.UI(
     screen: EditTransactionScreen,
     transactionType: TransactionType,
     baseCurrency: String,
@@ -235,30 +249,33 @@ private fun BoxWithConstraintsScope.UI(
     onSetTime: () -> Unit,
     onSetTransactionType: (TransactionType) -> Unit,
 
-    onCreateCategory: (CreateCategoryData) -> Unit,
-    onEditCategory: (Category) -> Unit,
+    onCreateCategory: (CreateCategoryData, (Result<Unit>) -> Unit) -> Unit,
+    onEditCategory: (Category, (Result<Unit>) -> Unit) -> Unit,
     onPayPlannedPayment: () -> Unit,
     onSave: (closeScreen: Boolean) -> Unit,
     onSetHasChanges: (hasChanges: Boolean) -> Unit,
     onDelete: () -> Unit,
     onDuplicate: () -> Unit,
-    onCreateAccount: (CreateAccountData) -> Unit,
+    onCreateAccount: (CreateAccountData, (Result<Unit>) -> Unit) -> Unit,
     onExchangeRateChange: (Double?) -> Unit = { },
     onTagOperation: (EditTransactionViewEvent.TagEvent) -> Unit = {},
     loanData: EditTransactionDisplayLoan = EditTransactionDisplayLoan(),
     backgroundProcessing: Boolean = false,
+    saveError: String? = null,
+    saving: Boolean = false,
     hasChanges: Boolean = false,
+    editorModals: com.ivy.legacy.ui.EditorModalHost = remember { com.ivy.legacy.ui.EditorModalHost() },
 
     ) {
-    var chooseCategoryModalVisible by remember { mutableStateOf(false) }
-    var tagModelVisible by remember { mutableStateOf(false) }
-    var categoryModalData: CategoryModalData? by remember { mutableStateOf(null) }
-    var accountModalData: AccountModalData? by remember { mutableStateOf(null) }
-    var descriptionModalVisible by remember { mutableStateOf(false) }
+    var chooseCategoryModalVisible by rememberSaveable { mutableStateOf(false) }
+    var tagModelVisible by rememberSaveable { mutableStateOf(false) }
+    val categoryModalData = editorModals.category
+    val accountModalData = editorModals.account
+    var descriptionModalVisible by rememberSaveable { mutableStateOf(false) }
     var deleteTrnModalVisible by remember { mutableStateOf(false) }
-    var changeTransactionTypeModalVisible by remember { mutableStateOf(false) }
-    var amountModalShown by remember { mutableStateOf(false) }
-    var exchangeRateAmountModalShown by remember { mutableStateOf(false) }
+    var changeTransactionTypeModalVisible by rememberSaveable { mutableStateOf(false) }
+    var amountModalShown by rememberSaveable { mutableStateOf(false) }
+    var exchangeRateAmountModalShown by rememberSaveable { mutableStateOf(false) }
     var accountChangeModal by remember { mutableStateOf(false) }
     val waitModalVisible by remember(backgroundProcessing) {
         mutableStateOf(backgroundProcessing)
@@ -268,11 +285,9 @@ private fun BoxWithConstraintsScope.UI(
     }
 
     val amountModalId =
-        remember(screen.initialTransactionId, customExchangeRateState.exchangeRate) {
-            UUID.randomUUID()
-        }
+        UUID.fromString(rememberSaveable(screen.initialTransactionId, customExchangeRateState.exchangeRate) { UUID.randomUUID().toString() })
 
-    var titleTextFieldValue by remember(initialTitle) {
+    var titleTextFieldValue by rememberSaveable(screen.initialTransactionId, initialTitle, stateSaver = TextFieldValue.Saver) {
         mutableStateOf(
             TextFieldValue(
                 initialTitle ?: ""
@@ -290,19 +305,11 @@ private fun BoxWithConstraintsScope.UI(
         scrollState.animateScrollTo(scrollInt)
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .verticalScroll(scrollState)
-    ) {
-        Spacer(Modifier.height(16.dp))
-
+    val editorHeader: @Composable () -> Unit = {
         Toolbar(
-            // Setting the transaction type to TransactionType.TRANSFER for transactions associated
-            // with loan record to hide the ChangeTransactionType Button
-            type = if (loanData.isLoanRecord) TransactionType.TRANSFER else transactionType,
+            type = transactionType,
+            allowTypeChange = !loanData.isLoanRecord,
+            enabled = !saving,
             initialTransactionId = screen.initialTransactionId,
             onDeleteTrnModal = {
                 deleteTrnModalVisible = true
@@ -313,9 +320,8 @@ private fun BoxWithConstraintsScope.UI(
             showDuplicateButton = true,
             onDuplicate = onDuplicate
         )
-
-        Spacer(Modifier.height(32.dp))
-
+    }
+    val editorContent: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit = {
         Title(
             type = transactionType,
             titleFocus = titleFocus,
@@ -470,17 +476,23 @@ private fun BoxWithConstraintsScope.UI(
                 }
             )
         }
-
-        Spacer(Modifier.height(600.dp)) // scroll hack
     }
 
+    var initialFlowStarted by rememberSaveable(screen.initialTransactionId) { mutableStateOf(false) }
     onScreenStart {
+        if (!initialFlowStarted) {
+        initialFlowStarted = true
         if (screen.initialTransactionId == null) {
             amountModalShown = true
+        }
         }
     }
 
     EditBottomSheet(
+        Header = editorHeader,
+        FormContent = editorContent,
+        formScrollState = scrollState,
+        saveError = saveError,
         initialTransactionId = screen.initialTransactionId,
         type = transactionType,
         accounts = accounts,
@@ -492,41 +504,17 @@ private fun BoxWithConstraintsScope.UI(
         convertedAmountCurrencyCode = customExchangeRateState.toCurrencyCode,
 
         ActionButton = {
-            if (screen.initialTransactionId != null) {
-                // Edit mode
-                if (dueDate != null) {
-                    // due date stuff
-                    if (hasChanges) {
-                        // has changes
-                        ModalSave {
-                            onSave(false)
-                            onSetHasChanges(false)
-                        }
-                    } else {
-                        // no changes, pay
-                        ModalCheck(
-                            label = if (transactionType == TransactionType.EXPENSE) {
-                                stringResource(
-                                    R.string.pay
-                                )
-                            } else {
-                                stringResource(R.string.get)
-                            }
-                        ) {
-                            onPayPlannedPayment()
-                        }
-                    }
-                } else {
-                    // normal transaction
-                    ModalSave {
-                        onSave(true)
-                    }
-                }
-            } else {
-                // create new mode
-                ModalAdd {
-                    onSave(true)
-                }
+            val payOrGet = screen.initialTransactionId != null && dueDate != null && !hasChanges
+            val label = when {
+                payOrGet -> if (transactionType == TransactionType.EXPENSE) R.string.pay else R.string.get
+                screen.initialTransactionId == null -> R.string.add
+                else -> R.string.save
+            }
+            com.ivy.design.system.JvyButton({
+                if (payOrGet) onPayPlannedPayment()
+                else onSave(!(screen.initialTransactionId != null && dueDate != null))
+            }, Modifier.fillMaxWidth(), enabled = !saving) {
+                androidx.compose.material3.Text(stringResource(label))
             }
         },
 
@@ -553,7 +541,7 @@ private fun BoxWithConstraintsScope.UI(
         },
         onToAccountChanged = onToAccountChange,
         onAddNewAccount = {
-            accountModalData = AccountModalData(
+            editorModals.account = AccountModalData(
                 account = null, baseCurrency = baseCurrency, balance = 0.0
             )
         }
@@ -564,7 +552,7 @@ private fun BoxWithConstraintsScope.UI(
         visible = chooseCategoryModalVisible,
         initialCategory = category,
         categories = categories,
-        showCategoryModal = { categoryModalData = CategoryModalData(it) },
+        showCategoryModal = { editorModals.category = CategoryModalData(it) },
         onCategoryChanged = {
             onCategoryChange(it)
             if (shouldFocusTitle(titleTextFieldValue, transactionType)) {
@@ -578,19 +566,21 @@ private fun BoxWithConstraintsScope.UI(
         }
     )
 
-    CategoryModal(modal = categoryModalData, onCreateCategory = { createData ->
-        onCreateCategory(createData)
-        chooseCategoryModalVisible = false
+    CategoryModal(modal = categoryModalData, onCreateCategory = { createData, complete ->
+        onCreateCategory(createData) { result ->
+            if (result.isSuccess) chooseCategoryModalVisible = false
+            complete(result)
+        }
     }, onEditCategory = onEditCategory, dismiss = {
-        categoryModalData = null
+        editorModals.closeCategory(categoryModalData?.id)
     })
 
     AccountModal(
         modal = accountModalData,
         onCreateAccount = onCreateAccount,
-        onEditAccount = { _, _ -> },
+        onEditAccount = { _, _, complete -> complete(Result.failure(IllegalStateException("Editing is unavailable in this create-only context."))) },
         dismiss = {
-            accountModalData = null
+            editorModals.closeAccount(accountModalData?.id)
         }
     )
 
@@ -658,6 +648,7 @@ private fun BoxWithConstraintsScope.UI(
     )
 
     ShowTagModal(
+        editorHost = editorModals.tags,
         visible = tagModelVisible,
         onDismiss = {
             tagModelVisible = false
@@ -666,20 +657,20 @@ private fun BoxWithConstraintsScope.UI(
         },
         allTagList = tags,
         selectedTagList = transactionAssociatedTags,
-        onTagAdd = {
-            onTagOperation(EditTransactionViewEvent.TagEvent.SaveTag(name = it))
+        onTagAdd = { id, name, complete ->
+            onTagOperation(EditTransactionViewEvent.TagEvent.SaveTag(id, name, complete))
         },
-        onTagEdit = { oldTag, newTag ->
-            onTagOperation(EditTransactionViewEvent.TagEvent.OnTagEdit(oldTag, newTag))
+        onTagEdit = { oldTag, newTag, complete ->
+            onTagOperation(EditTransactionViewEvent.TagEvent.OnTagEdit(oldTag, newTag, complete))
         },
-        onTagDelete = {
-            onTagOperation(EditTransactionViewEvent.TagEvent.OnTagDelete(it))
+        onTagDelete = { tag, complete ->
+            onTagOperation(EditTransactionViewEvent.TagEvent.OnTagDelete(tag, complete))
         },
-        onTagSelected = {
-            onTagOperation(EditTransactionViewEvent.TagEvent.OnTagSelect(it))
+        onTagSelected = { tag, complete ->
+            onTagOperation(EditTransactionViewEvent.TagEvent.OnTagSelect(tag, complete))
         },
-        onTagDeSelected = {
-            onTagOperation(EditTransactionViewEvent.TagEvent.OnTagDeSelect(it))
+        onTagDeSelected = { tag, complete ->
+            onTagOperation(EditTransactionViewEvent.TagEvent.OnTagDeSelect(tag, complete))
         },
         onTagSearch = {
             onTagOperation(EditTransactionViewEvent.TagEvent.OnTagSearch(it))
@@ -739,14 +730,14 @@ private fun BoxWithConstraintsScope.Preview(isDark: Boolean = false) {
             onAmountChange = {},
             onRememberCategoryRuleChange = {},
 
-            onCreateCategory = { },
-            onEditCategory = {},
+            onCreateCategory = { _, _ -> },
+            onEditCategory = { _, _ -> },
             onPayPlannedPayment = {},
             onSave = {},
             onSetHasChanges = {},
             onDelete = {},
             onDuplicate = {},
-            onCreateAccount = { },
+            onCreateAccount = { _, _ -> },
             onSetDate = {},
             onSetTime = {},
             onSetTransactionType = {}

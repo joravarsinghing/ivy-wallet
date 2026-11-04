@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -24,6 +25,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -68,138 +71,116 @@ fun BoxWithConstraintsScope.OnboardingAccounts(
 
     suggestions: List<CreateAccountData>,
     accounts: List<AccountBalance>,
+    suggestionSubmission: com.ivy.design.system.EditorSubmission = remember { com.ivy.design.system.EditorSubmission { com.ivy.wallet.ui.theme.modal.edit.accountSuggestionErrorMessage(it) } },
+    editorModals: com.ivy.legacy.ui.EditorModalHost = remember { com.ivy.legacy.ui.EditorModalHost() },
 
-    onCreateAccount: (CreateAccountData) -> Unit = { },
-    onEditAccount: (Account, Double) -> Unit = { _, _ -> },
+    onCreateAccount: (CreateAccountData, (Result<Unit>) -> Unit) -> Unit = { _, _ -> },
+    onAddSuggestedAccount: (CreateAccountData, (Result<Unit>) -> Unit) -> Unit = onCreateAccount,
+    onEditAccount: (Account, Double, (Result<Unit>) -> Unit) -> Unit = { _, _, _ -> },
 
     onSkip: () -> Unit = {},
     onDoneClick: () -> Unit = {}
 ) {
-    var accountModalData: AccountModalData? by remember { mutableStateOf(null) }
+    val accountModalData = editorModals.account
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .statusBarsPadding()
-            .navigationBarsPadding()
+    val pendingBackId = remember { java.util.UUID.randomUUID() }
+    com.ivy.wallet.ui.theme.modal.AddModalBackHandling(pendingBackId, suggestionSubmission.saving) {}
+    val nav = navigation()
+    com.ivy.design.system.JvySubsectionScaffold(
+        title = stringResource(R.string.add_accounts),
+        onBack = { nav.onBackPressed() },
+        backEnabled = !suggestionSubmission.saving,
+        actions = {
+            if (accounts.isEmpty()) com.ivy.design.system.JvyTextButton(onSkip, enabled = !suggestionSubmission.saving) {
+                Text(stringResource(R.string.skip))
+            }
+        },
+        footer = {
+            if (suggestionSubmission.saving) androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth())
+            suggestionSubmission.error?.let { error ->
+                Text(error, Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite },
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.error, style = com.ivy.design.system.JvyTypography.Supporting)
+            }
+            if (accounts.isNotEmpty()) com.ivy.design.system.JvyPrimaryAction(
+                stringResource(R.string.next), onDoneClick, enabled = !suggestionSubmission.saving)
+        },
     ) {
-        stickyHeader {
-            val nav = navigation()
-            OnboardingToolbar(
-                hasSkip = accounts.isEmpty(),
-                onBack = { nav.onBackPressed() },
-                onSkip = onSkip
-            )
-        }
+        LazyColumn(Modifier.fillMaxSize()) {
+            item {
+                Column {
+                    Spacer(Modifier.height(8.dp))
 
-        item {
-            Column {
-                Spacer(Modifier.height(8.dp))
+                    if (accounts.isEmpty()) {
+                        Spacer(Modifier.height(16.dp))
 
-                Text(
-                    modifier = Modifier.padding(horizontal = 32.dp),
-                    text = stringResource(R.string.add_accounts),
-                    style = UI.typo.h2.style(
-                        fontWeight = FontWeight.Black
+                        Image(
+                            modifier = Modifier.align(Alignment.CenterHorizontally).fillMaxWidth()
+                                .heightIn(max = 160.dp),
+                            painter = painterResource(id = R.drawable.onboarding_illustration_accounts),
+                            contentDescription = "account illustration"
+                        )
+
+                        OnboardingProgressSlider(
+                            modifier = Modifier.align(Alignment.CenterHorizontally),
+                            selectedStep = 2,
+                            stepsCount = 4,
+                            selectedColor = Orange
+                        )
+
+                        Spacer(Modifier.height(48.dp))
+                    } else {
+                        Spacer(Modifier.height(24.dp))
+                    }
+
+                    Accounts(
+                        enabled = !suggestionSubmission.saving,
+                        baseCurrency = baseCurrency,
+                        accounts = accounts,
+                        onClick = {
+                            editorModals.account = AccountModalData(
+                                account = it.account,
+                                baseCurrency = baseCurrency,
+                                balance = it.balance,
+                                autoFocusKeyboard = false
+                            )
+                        }
                     )
-                )
 
-//                PremiumInfo(
-//                    itemLabelPlural = "accounts",
-//                    itemsCount = accounts.size,
-//                    freeItemsCount = Constants.FREE_ACCOUNTS
-//                )
+                    if (accounts.isNotEmpty()) {
+                        Spacer(Modifier.height(20.dp))
+                    }
 
-                if (accounts.isEmpty()) {
+                    Text(
+                        modifier = Modifier.padding(horizontal = 24.dp),
+                        text = stringResource(R.string.suggestions),
+                        style = UI.typo.b1.style(
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    )
+
                     Spacer(Modifier.height(16.dp))
 
-                    Image(
-                        modifier = Modifier.align(Alignment.CenterHorizontally),
-                        painter = painterResource(id = R.drawable.onboarding_illustration_accounts),
-                        contentDescription = "account illustration"
+                    Suggestions(
+                        enabled = !suggestionSubmission.saving,
+                        suggestions = suggestions.filter { suggestion ->
+                            accounts.map { it.account.name.toLowerCaseLocal() }
+                                .contains(suggestion.name.toLowerCaseLocal()).not()
+                        },
+                        onAddSuggestion = {
+                            suggestionSubmission.submit({ complete -> onAddSuggestedAccount(it as CreateAccountData, complete) }, onSuccess = {})
+                        },
+                        onAddNew = {
+                            editorModals.account = AccountModalData(
+                                account = null,
+                                baseCurrency = baseCurrency,
+                                balance = 0.0
+                            )
+                        }
                     )
 
-                    OnboardingProgressSlider(
-                        modifier = Modifier.align(Alignment.CenterHorizontally),
-                        selectedStep = 2,
-                        stepsCount = 4,
-                        selectedColor = Orange
-                    )
-
-                    Spacer(Modifier.height(48.dp))
-                } else {
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(16.dp))
                 }
-
-                Accounts(
-                    baseCurrency = baseCurrency,
-                    accounts = accounts,
-                    onClick = {
-                        accountModalData = AccountModalData(
-                            account = it.account,
-                            baseCurrency = baseCurrency,
-                            balance = it.balance,
-                            autoFocusKeyboard = false
-                        )
-                    }
-                )
-
-                if (accounts.isNotEmpty()) {
-                    Spacer(Modifier.height(20.dp))
-                }
-
-                Text(
-                    modifier = Modifier.padding(horizontal = 32.dp),
-                    text = stringResource(R.string.suggestions),
-                    style = UI.typo.b1.style(
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                )
-
-                Spacer(Modifier.height(16.dp))
-
-                Suggestions(
-                    suggestions = suggestions.filter { suggestion ->
-                        accounts.map { it.account.name.toLowerCaseLocal() }
-                            .contains(suggestion.name.toLowerCaseLocal()).not()
-                    },
-                    onAddSuggestion = {
-                        onCreateAccount(it as CreateAccountData)
-                    },
-                    onAddNew = {
-                        accountModalData = AccountModalData(
-                            account = null,
-                            baseCurrency = baseCurrency,
-                            balance = 0.0
-                        )
-                    }
-                )
-
-                Spacer(Modifier.height(96.dp))
             }
-        }
-    }
-
-    GradientCutBottom(
-        height = 96.dp
-    )
-
-    if (accounts.isNotEmpty()) {
-        OnboardingButton(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(bottom = 20.dp),
-
-            text = stringResource(R.string.next),
-            textColor = White,
-            backgroundGradient = GradientIvy,
-            hasNext = true,
-            enabled = true
-        ) {
-            onDoneClick()
         }
     }
 
@@ -208,7 +189,7 @@ fun BoxWithConstraintsScope.OnboardingAccounts(
         onCreateAccount = onCreateAccount,
         onEditAccount = onEditAccount,
         dismiss = {
-            accountModalData = null
+            editorModals.closeAccount(accountModalData?.id)
         }
     )
 }
@@ -217,12 +198,14 @@ fun BoxWithConstraintsScope.OnboardingAccounts(
 private fun Accounts(
     baseCurrency: String,
     accounts: List<AccountBalance>,
+    enabled: Boolean = true,
     onClick: (AccountBalance) -> Unit
 ) {
     for (account in accounts) {
         AccountCard(
             baseCurrency = baseCurrency,
-            accountBalance = account
+            accountBalance = account,
+            enabled = enabled
         ) {
             onClick(account)
         }
@@ -235,54 +218,37 @@ private fun Accounts(
 private fun AccountCard(
     baseCurrency: String,
     accountBalance: AccountBalance,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     val account = accountBalance.account
     val accountColor = account.color.toComposeColor()
-    val dynamicContrast = accountColor.dynamicContrast()
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clip(UI.shapes.r3)
-            .background(accountColor, UI.shapes.r3)
-            .clickable {
-                onClick()
-            },
-        verticalAlignment = Alignment.CenterVertically
+    androidx.compose.material3.OutlinedCard(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+        shape = com.ivy.design.system.JvyShapes.Card,
     ) {
-        Spacer(Modifier.width(24.dp))
-
-        ItemIconMDefaultIcon(
-            modifier = Modifier
-                .padding(vertical = 16.dp)
-                .background(dynamicContrast, CircleShape),
-            iconName = account.icon,
-            defaultIcon = R.drawable.ic_custom_account_m,
-            tint = accountColor
-        )
-
-        Spacer(Modifier.width(20.dp))
-
-        Column {
-            Text(
-                text = account.name,
-                style = UI.typo.b1.style(
-                    fontWeight = FontWeight.ExtraBold,
-                    color = dynamicContrast
+        Column(Modifier.padding(16.dp),
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)) {
+                ItemIconMDefaultIcon(
+                    modifier = Modifier.background(accountColor, CircleShape),
+                    iconName = account.icon, defaultIcon = R.drawable.ic_custom_account_m,
+                    tint = findContrastTextColor(accountColor),
                 )
-            )
-
-            AmountCurrencyB1Row(
-                amount = accountBalance.balance,
-                currency = account.currency ?: baseCurrency,
-                amountFontWeight = FontWeight.ExtraBold,
-                textColor = findContrastTextColor(accountColor)
-            )
+                Text(account.name, Modifier.weight(1f),
+                    style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface)
+            }
+            val amount = if (accountBalance.balance.isFinite())
+                com.ivy.ui.money.formatDecimalMoney(accountBalance.balance.toBigDecimal(), account.currency ?: baseCurrency)
+                else "—"
+            Text(com.ivy.design.system.financialText(amount),
+                style = com.ivy.design.system.JvyTypography.AmountSmall,
+                color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface)
         }
-
-        Spacer(Modifier.width(24.dp))
     }
 }
 

@@ -4,6 +4,7 @@ import com.ivy.domain.RootScreen
 
 sealed interface SettingsEvent {
     data class SetCurrency(val newCurrency: String) : SettingsEvent
+    data object DismissCurrencyError : SettingsEvent
     data class SetName(val newName: String) : SettingsEvent
     data class ExportToCsv(val rootScreen: RootScreen) : SettingsEvent
     data class BackupData(val rootScreen: RootScreen) : SettingsEvent

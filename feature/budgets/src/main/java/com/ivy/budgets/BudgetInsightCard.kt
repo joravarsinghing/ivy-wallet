@@ -21,9 +21,9 @@ import com.ivy.design.l0_system.style
 import com.ivy.legacy.utils.format
 
 @Composable
-fun BudgetInsightCard(insight: BudgetInsight, currency: String, overlappingLimits: Boolean = false) {
+fun BudgetInsightCard(insight: BudgetInsight, currency: String, modifier: Modifier = Modifier, overlappingLimits: Boolean = false) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(JvyShapes.Card)
             .background(MaterialTheme.colorScheme.surfaceVariant)
@@ -56,9 +56,9 @@ fun BudgetInsightCard(insight: BudgetInsight, currency: String, overlappingLimit
 }
 
 @Composable
-private fun InsightValue(label: String, value: String, modifier: Modifier) {
+private fun InsightValue(label: String, value: String, modifier: Modifier = Modifier) {
     Column(modifier) {
         Text(label, style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = JvyTypography.AmountSmall)
+        Text(com.ivy.design.system.financialText(value), style = JvyTypography.AmountSmall)
     }
 }

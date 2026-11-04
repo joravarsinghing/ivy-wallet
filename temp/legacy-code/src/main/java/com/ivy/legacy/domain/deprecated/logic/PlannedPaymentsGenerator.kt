@@ -17,29 +17,29 @@ class PlannedPaymentsGenerator @Inject constructor(
         private const val GENERATED_INSTANCES_LIMIT = 72
     }
 
-    suspend fun generate(rule: PlannedPaymentRule) {
+    suspend fun generate(rule: PlannedPaymentRule, requireComplete: Boolean = false) {
         // delete all not happened transactions
         transactionRepository.deletedByRecurringRuleIdAndNoDateTime(
             recurringRuleId = rule.id
         )
 
         if (rule.oneTime) {
-            generateOneTime(rule)
+            generateOneTime(rule, requireComplete)
         } else {
-            generateRecurring(rule)
+            generateRecurring(rule, requireComplete)
         }
     }
 
-    private suspend fun generateOneTime(rule: PlannedPaymentRule) {
+    private suspend fun generateOneTime(rule: PlannedPaymentRule, requireComplete: Boolean) {
         val trns = transactionRepository.findAllByRecurringRuleId(recurringRuleId = rule.id)
 
         if (trns.isEmpty()) {
-            generateTransaction(rule, rule.startDate!!)
+            generateTransaction(rule, rule.startDate!!, requireComplete)
         }
     }
 
     @Suppress("MagicNumber")
-    private suspend fun generateRecurring(rule: PlannedPaymentRule) {
+    private suspend fun generateRecurring(rule: PlannedPaymentRule, requireComplete: Boolean) {
         val startDate = rule.startDate!!
         val endDate = startDate.plusSeconds(94_608_000)
 
@@ -61,7 +61,8 @@ class PlannedPaymentsGenerator @Inject constructor(
                 // generate transaction
                 generateTransaction(
                     rule = rule,
-                    dueDate = date
+                    dueDate = date,
+                    requireComplete = requireComplete,
                 )
                 generatedTransactions++
             }
@@ -74,8 +75,8 @@ class PlannedPaymentsGenerator @Inject constructor(
         }
     }
 
-    private suspend fun generateTransaction(rule: PlannedPaymentRule, dueDate: Instant) {
-        Transaction(
+    private suspend fun generateTransaction(rule: PlannedPaymentRule, dueDate: Instant, requireComplete: Boolean) {
+        val transaction = Transaction(
             type = rule.type,
             accountId = rule.accountId,
             recurringRuleId = rule.id,
@@ -87,8 +88,8 @@ class PlannedPaymentsGenerator @Inject constructor(
             dateTime = null,
             toAccountId = null,
             isSynced = false
-        ).toDomain(transactionMapper)?.let {
-            transactionRepository.save(it)
-        }
+        ).toDomain(transactionMapper)
+        check(!requireComplete || transaction != null) { "Planned entry could not be created" }
+        transaction?.let { transactionRepository.save(it) }
     }
 }

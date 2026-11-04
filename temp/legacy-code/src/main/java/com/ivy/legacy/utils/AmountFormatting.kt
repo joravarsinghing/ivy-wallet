@@ -72,8 +72,12 @@ fun Double.format(currency: IvyCurrency?): String {
     }
 }
 
-fun Double.formatCrypto(): String {
-    val pattern = "###,###,##0.${"0".repeat(9)}"
+fun Double.formatCrypto(): String = formatCrypto(9)
+
+/** The default remains unchanged; exact receiving equivalents may need up to 18 places. */
+fun Double.formatCrypto(precision: Int): String {
+    require(precision in 1..18)
+    val pattern = "###,###,##0.${"0".repeat(precision)}"
     val format = DecimalFormat(pattern)
     val numberStringWithZeros = format.format(this)
 

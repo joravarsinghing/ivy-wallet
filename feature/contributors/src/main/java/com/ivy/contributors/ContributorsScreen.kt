@@ -1,5 +1,7 @@
 package com.ivy.contributors
 
+import com.ivy.design.system.JvyTopAppBar
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -73,9 +75,7 @@ private fun ContributorsUi(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    TopAppBarTitle(
+            JvyTopAppBar(
                         title = when (uiState.contributorsResponse) {
                             is ContributorsResponse.Error, ContributorsResponse.Loading ->
                                 stringResource(R.string.project_contributors)
@@ -85,12 +85,8 @@ private fun ContributorsUi(
                                     R.string.contributors_number,
                                     uiState.contributorsResponse.contributors.size
                                 )
-                        }
-                    )
-                },
-                navigationIcon = {
-                    BackButton(nav = nav)
-                }
+                        },
+                onBack = { nav.back() },
             )
         },
         content = {
@@ -117,18 +113,6 @@ private fun TopAppBarTitle(title: String) {
         maxLines = 1,
         overflow = TextOverflow.Ellipsis
     )
-}
-
-@Composable
-private fun BackButton(nav: Navigation) {
-    IconButton(onClick = {
-        nav.back()
-    }) {
-        Icon(
-            imageVector = Icons.Filled.ArrowBack,
-            contentDescription = "Back"
-        )
-    }
 }
 
 @Composable

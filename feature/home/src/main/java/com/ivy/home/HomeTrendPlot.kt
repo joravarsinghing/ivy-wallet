@@ -87,7 +87,7 @@ private data class CachedTrendPath(val line: Path, val area: Path, val color: Co
                                   val stroke: Stroke, val filled: Boolean, val underlay: Stroke?)
 
 @Composable
-private fun TrendOverlayPlot(band: TrendBand, style: HomeTrendPlotStyle, modifier: Modifier, reveal: () -> Float) {
+private fun TrendOverlayPlot(band: TrendBand, style: HomeTrendPlotStyle, modifier: Modifier = Modifier, reveal: () -> Float) {
     val colors = band.series.associate { it.metric to it.metric.plotColor() }
     val grid = MaterialTheme.colorScheme.outlineVariant
     val surface = MaterialTheme.colorScheme.surfaceVariant

@@ -1,5 +1,7 @@
 package com.ivy.features
 
+import com.ivy.design.system.JvyTopAppBar
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -50,16 +52,10 @@ private fun FeaturesUi(
     uiState: FeaturesUiState,
     onEvent: (FeaturesUiEvent) -> Unit,
 ) {
+    val nav = navigation()
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Title()
-                },
-                navigationIcon = {
-                    BackButton()
-                },
-            )
+            JvyTopAppBar("Features", { nav.back() })
         },
         content = { innerPadding ->
             Content(
@@ -71,24 +67,6 @@ private fun FeaturesUi(
             )
         }
     )
-}
-
-@Composable
-private fun BackButton(
-    modifier: Modifier = Modifier,
-) {
-    val nav = navigation()
-    IconButton(
-        modifier = modifier,
-        onClick = {
-            nav.back()
-        }
-    ) {
-        Icon(
-            imageVector = Icons.Filled.ArrowBack,
-            contentDescription = "Back"
-        )
-    }
 }
 
 @Composable

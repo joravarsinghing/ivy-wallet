@@ -2,17 +2,17 @@ package com.ivy.legacy.ui.component
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -43,13 +43,11 @@ fun IncomeExpensesCards(
     expenseHeaderCardClicked: () -> Unit = {},
     onAddTransaction: (TransactionType) -> Unit = {},
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Spacer(Modifier.width(16.dp))
-
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+        val stacked = maxWidth < 320.dp || LocalDensity.current.fontScale > 1.3f
+        val cards: @Composable (Modifier) -> Unit = { cardModifier ->
         HeaderCard(
+            modifier = cardModifier,
             title = stringRes(R.string.income_uppercase),
             currencyCode = currency,
             amount = income,
@@ -65,9 +63,8 @@ fun IncomeExpensesCards(
             onAddTransaction(TransactionType.INCOME)
         }
 
-        Spacer(Modifier.width(12.dp))
-
         HeaderCard(
+            modifier = cardModifier,
             title = stringRes(R.string.expenses_uppercase),
             currencyCode = currency,
             amount = expenses,
@@ -83,13 +80,20 @@ fun IncomeExpensesCards(
             onAddTransaction(TransactionType.EXPENSE)
         }
 
-        Spacer(Modifier.width(16.dp))
+        }
+        if (stacked) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { cards(Modifier.fillMaxWidth()) }
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
+                cards(Modifier.weight(1f))
+            }
+        }
     }
 }
 
 @Composable
 @Suppress("ParameterNaming")
-private fun RowScope.HeaderCard(
+private fun HeaderCard(
     title: String,
     currencyCode: String,
     amount: Double,
@@ -100,24 +104,21 @@ private fun RowScope.HeaderCard(
 
     itemColor: Color,
 
+    modifier: Modifier = Modifier,
     onHeaderCardClicked: () -> Unit = {},
     onAddClick: () -> Unit
 ) {
     val contrastColor = findContrastTextColor(itemColor)
 
     Column(
-        modifier = Modifier
-            .weight(1f)
-            .padding(horizontal = 4.dp),
+        modifier = modifier,
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { onHeaderCardClicked() }
-                .padding(horizontal = 8.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(vertical = 8.dp),
         ) {
-            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
                     style = UI.typo.c.style(
@@ -126,13 +127,12 @@ private fun RowScope.HeaderCard(
                     ),
                 )
                 Text(
-                    text = amount.format(currencyCode),
+                    text = com.ivy.design.system.financialText(amount.format(currencyCode)),
                     style = UI.typo.b1.style(
                         color = contrastColor,
                         fontWeight = FontWeight.ExtraBold,
                     ),
                 )
-            }
             Text(
                 text = "$transactionCount ${stringRes(R.string.transactions)}",
                 style = UI.typo.c.style(

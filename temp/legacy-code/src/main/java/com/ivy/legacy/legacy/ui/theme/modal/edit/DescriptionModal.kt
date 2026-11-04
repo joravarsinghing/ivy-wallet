@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -50,7 +51,7 @@ fun BoxWithConstraintsScope.DescriptionModal(
     onDescriptionChanged: (String?) -> Unit,
     dismiss: () -> Unit,
 ) {
-    var descTextFieldValue by remember(description) {
+    var descTextFieldValue by rememberSaveable(description, stateSaver = androidx.compose.ui.text.input.TextFieldValue.Saver) {
         mutableStateOf(selectEndTextFieldValue(description))
     }
     val view = rootView()

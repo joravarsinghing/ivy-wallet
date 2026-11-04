@@ -2,6 +2,7 @@ package com.ivy.wallet.domain.deprecated.logic.csv.model
 
 import com.ivy.base.legacy.Transaction
 import com.ivy.data.model.Category
+import java.util.UUID
 
 data class RowMapping(
     val type: Int? = null,
@@ -47,7 +48,7 @@ data class RowMapping(
             transaction
         },
 
-    val joinTransactions: (List<Transaction>) -> JoinResult = { transactions ->
+    val joinTransactions: (transactions: List<Transaction>, signedAmounts: Map<UUID, Double>) -> JoinResult = { transactions, _ ->
         JoinResult(transactions = transactions, mergedCount = 0)
     }
 )

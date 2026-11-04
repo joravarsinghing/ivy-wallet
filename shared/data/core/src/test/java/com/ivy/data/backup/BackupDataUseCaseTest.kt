@@ -44,6 +44,27 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
 class BackupDataUseCaseTest {
+    @Test fun `foreign wallet currency is refused before any merge writes`() = runTest {
+        val settings = FakeSettingsDao(implicitCurrencyData = true)
+        settings.saveInitialCurrency(com.ivy.data.db.entity.SettingsEntity(com.ivy.base.legacy.Theme.LIGHT, "AED", 0.0, "Owner"))
+        val accounts = FakeAccountDao()
+        val planning = PlanningStore()
+        val useCase = newBackupDataUseCase(settingsDao = settings, accountDao = accounts, planning = planning)
+        val incoming = IvyWalletCompleteData(
+            accounts = listOf(AccountEntity("Imported", "USD", 0)),
+            settings = listOf(com.ivy.data.db.entity.SettingsEntity(com.ivy.base.legacy.Theme.DARK, "USD", 0.0, "Imported")),
+            goals = listOf(GoalEntity("Imported goal", GoalKind.CUSTOM, 500.0, createdAt = fixtureTime)),
+        )
+        try {
+            useCase.importJson(KotlinxSerializationModule.provideJson().encodeToString(incoming))
+            org.junit.Assert.fail("Must not reinterpret existing implicit units")
+        } catch (_: com.ivy.data.repository.WalletCurrencyChangeBlocked) { }
+        accounts.findAll().size shouldBe 0
+        planning.goals.size shouldBe 0
+        settings.findFirst().currency shouldBe "AED"
+        settings.findFirst().name shouldBe "Owner"
+    }
+
     @Test fun `marketing backup restores and round trips all current planning records`() = runTest {
         val json = KotlinxSerializationModule.provideJson()
         val planning = PlanningStore()

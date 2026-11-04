@@ -27,6 +27,52 @@ This distinction matters:
 
 The repository now includes a contract smoke test and sanitized one-row fixtures for all ten registered CSV adapters. These fixtures validate the registered column positions and required fields; they are not substitutes for release-grade testing with a real export from each app. One real, non-personal export per app is still required before claiming version-wide compatibility. No private user export is committed to the repository.
 
+## CSV validation safety
+
+The public-release hardening tests also exercise date parsing for all ten supplied
+fixtures, plus real importer rejection and one valid income write. These remain
+sanitized examples, not verification of every source-app version or locale.
+
+- Unrecognized/impossible dates are rejected, not replaced with a date one year
+  ago. A supplied source date format is respected without silently swapping month
+  and day. A bad nonempty date or due date fails the row instead of changing a
+  completed record into a planned one or dropping its deadline.
+- Legacy mapped CSV amounts use a dot decimal. Correctly grouped commas such as
+  `1,234.56` are supported; malformed grouping, decimal-comma `1,50`, NaN and
+  infinity are rejected rather than changing the amount. Manual mapping shares
+  this rule; it does not guess decimal-comma locales. Normalize unsupported
+  exports to checked dot-decimal amounts, using the AI conversion guide if needed.
+- Rejected rows retain their original CSV line number and content in the in-app
+  result. Malformed dates/amounts are checked before creating transfer accounts.
+  Import diagnostics do not print complete financial rows or exception payloads.
+  Hidden balances mask complete raw row contents, not guessed amount columns;
+  temporarily show balances only when you intend to review that private data.
+- Local CSV timestamps are converted exactly once with the historical timezone
+  offset; explicit ISO/RFC offsets retain their instant. Date-only legacy records
+  retain local noon. This corrects the former double-adjustment of non-UTC dates.
+- Manual transfers preserve separate source/receiving amounts and assets.
+  Financisto pairs require adjacent opposite-sign halves, matching timestamps and
+  distinct accounts; either row order is supported. Unmatched rows remain failed
+  rows, not guessed transfers or swallowed income/expenses.
+- Explicit account currency conflicts and unsupported new codes fail validation
+  before either transfer account is created. Omitting a currency on an existing
+  account preserves that account's unit, not the app's base currency. Cross-currency
+  legacy transfers require a receiving amount; missing rates/values are not guessed.
+- Both CSV importers share an atomic write boundary. Reversible-store unit tests
+  cover write failure/cancellation and retry, not actual SQLite rollback. Canonical
+  duplicate keys match stored income/expenses and distinguish planned due dates.
+  Identical source rows without a shared external ID can still be ambiguous;
+  reconcile counts instead of treating fingerprint matching as perfect identity.
+- Genuine-export/timezone/currency/paired-transfer reconciliation and actual
+  interrupted SQLite storage remain release gates. See the
+  [2 November checkpoint](../plans/004-v2-import-checkpoint-2026-11-02.md).
+
+These corrections affect future imports only. They do not move or rewrite
+transactions previously imported with a fallback/double-shifted date or incorrect
+transfer value. Keep a full native backup and reconcile affected records before
+reimporting an older file: incorrect old dates/amounts can prevent fingerprint
+matching from recognizing it. Do not blindly reimport to repair an existing wallet.
+
 ## Public references
 
 - [Ivy Wallet data model and CSV fields](https://github.com/Ivy-Apps/ivy-wallet/wiki)

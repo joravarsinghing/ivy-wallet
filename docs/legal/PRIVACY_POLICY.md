@@ -1,6 +1,6 @@
 # Jvy Wallet Privacy Policy
 
-**Effective date:** 25 October 2026
+**Effective date:** 28 October 2026 (next public release)
 
 **App:** Jvy Wallet  
 **Maintainer:** Joravar Singh
@@ -13,7 +13,7 @@ Jvy Wallet is a local-first Android money manager. This policy explains what the
 - Jvy Wallet does not require an account, connect to your bank, or provide automatic bank synchronization.
 - We do not sell your financial data or use it to build an advertising profile.
 - Imports, exports, and backups happen when you choose them. Backup files can contain sensitive financial information.
-- The app may send technical crash diagnostics when crash reporting is enabled in the installed build.
+- This release does not automatically send crash reports or survey responses.
 
 ## Information stored in the app
 
@@ -55,9 +55,7 @@ If you enable reminders, Jvy Wallet can schedule local Android notifications to 
 
 ## Crash diagnostics
 
-The current Android build includes Firebase Crashlytics support. When crash reporting is enabled, a crash report may contain technical information such as the app version, Android version, device model, stack trace, crash time, and an app-instance identifier. This information is used to diagnose stability problems, not to sell or advertise against your financial history.
-
-Crashlytics is provided by Google and is subject to [Google’s privacy policy](https://policies.google.com/privacy). Jvy Wallet does not intentionally place transaction amounts, account names, or backup contents in crash reports. If a future release changes diagnostics or adds another service, this policy will be updated.
+Automatic crash diagnostics are off for this public release. Firebase Crashlytics and the inherited online poll backend are not included in the app. Compatibility logging methods do not forward exception messages or financial data to any service. If diagnostics are introduced later, that requires a separate privacy review and an updated policy.
 
 ## Sharing and external links
 
@@ -69,7 +67,7 @@ The app may link to external services such as GitHub, LinkedIn, and the maintain
 
 Your wallet data remains on the device until you delete it in the app, clear the app’s storage, or uninstall the app, subject to Android behavior and any copies you exported elsewhere.
 
-Deleting data from Jvy Wallet does not delete backups, CSV files, screenshots, or copies already shared outside the app. Those must be deleted from their separate locations. Technical crash reports may be retained by the service provider according to its policies.
+Deleting data from Jvy Wallet does not delete backups, CSV files, screenshots, or copies already shared outside the app. Those must be deleted from their separate locations. Reports sent by an older installed build remain subject to that build's policy and the service provider's retention rules.
 
 ## Children
 
@@ -83,4 +81,4 @@ This policy may be updated when the app’s data practices change or when clarif
 
 For privacy questions or requests, contact Joravar Singh through [LinkedIn](https://www.linkedin.com/in/joravarsingh/) or open an issue in the [Jvy Wallet repository](https://github.com/joravarsinghing/ivy-wallet/issues).
 
-This policy describes the current Jvy Wallet implementation. It is not a promise that Android, Firebase, GitHub, LinkedIn, or any other third-party service will operate outside its own published terms and policies.
+This policy describes this release's Jvy Wallet implementation. It is not a promise that Android, GitHub, LinkedIn, or any other third-party service will operate outside its own published terms and policies.

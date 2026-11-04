@@ -58,6 +58,7 @@ fun BoxWithConstraintsScope.ImportFrom(
         stickyHeader {
             val nav = navigation()
             OnboardingToolbar(
+                title = stringResource(R.string.import_from),
                 hasSkip = hasSkip,
                 onBack = { nav.onBackPressed() },
                 onSkip = onSkip
@@ -95,13 +96,6 @@ fun BoxWithConstraintsScope.ImportFrom(
         item {
             Spacer(Modifier.height(8.dp))
 
-            Text(
-                modifier = Modifier.padding(start = 32.dp),
-                text = stringResource(R.string.import_from),
-                style = UI.typo.h2.style(
-                    fontWeight = FontWeight.Black
-                )
-            )
 
             Spacer(Modifier.height(24.dp))
         }

@@ -20,13 +20,14 @@ fun buildHomeTrendPoints(
     points: List<HomeTrendPoint>,
     range: HomeTrendRange,
     anchorDate: LocalDate? = null,
+    firstRecordedActivity: LocalDate? = null,
 ): List<HomeTrendPoint> {
     if (points.isEmpty()) return emptyList()
 
     return if (points.all { it.periodIdentity is HomeTrendPeriodIdentity.Legacy }) {
         buildLegacyHomeTrendPoints(points, range)
     } else {
-        buildCoveredHomeTrendPoints(points, range, anchorDate)
+        buildCoveredHomeTrendPoints(points, range, anchorDate, firstRecordedActivity)
     }
 }
 
@@ -38,15 +39,18 @@ private fun buildCoveredHomeTrendPoints(
     points: List<HomeTrendPoint>,
     range: HomeTrendRange,
     anchorDate: LocalDate?,
+    firstRecordedActivity: LocalDate?,
 ): List<HomeTrendPoint> {
     val explicitPoints = points.filter { it.periodIdentity.startDate != null }
     if (explicitPoints.isEmpty()) return emptyList()
 
     val anchor = anchorDate ?: explicitPoints.maxOf { it.periodIdentity.startDate!! }
     val end = periodStart(anchor, range.bucket)
-    val firstObserved = explicitPoints
+    val firstInWindow = explicitPoints
         .filter { it.isObserved && it.periodIdentity.bucket.canContributeTo(range.bucket) }
         .minOfOrNull { it.periodIdentity.startDate!! }
+    val firstObserved = listOfNotNull(firstInWindow, firstRecordedActivity)
+        .minOrNull()?.let { periodStart(it, range.bucket) }
 
     val bucketed = explicitPoints
         .filter { it.periodIdentity.bucket.canContributeTo(range.bucket) }

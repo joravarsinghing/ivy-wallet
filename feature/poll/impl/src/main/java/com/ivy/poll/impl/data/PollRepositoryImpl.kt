@@ -4,9 +4,6 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import arrow.core.Either
-import com.google.firebase.firestore.FieldValue
-import com.google.firebase.firestore.ktx.firestore
-import com.google.firebase.ktx.Firebase
 import com.ivy.data.datastore.IvyDataStore
 import com.ivy.domain.usecase.android.DeviceId
 import com.ivy.poll.data.PollRepository
@@ -35,30 +32,7 @@ class PollRepositoryImpl @Inject constructor(
     deviceId: DeviceId,
     poll: PollId,
     option: PollOptionId
-  ): Either<String, Unit> = suspendCoroutine { cont ->
-    // Define a reference to the document using the deviceId as its ID
-    val voteDocRef = Firebase.firestore
-      .collection("polls")
-      .document(poll.id)
-      .collection("votes")
-      .document(deviceId.value)
-
-    // Prepare the data for the vote
-    val voteData = mapOf(
-      "option" to option.value,
-      "timestamp" to FieldValue.serverTimestamp() // Good practice to store a timestamp
-    )
-
-    // Use .set() to create or overwrite the document with the specific ID
-    voteDocRef.set(voteData)
-      .addOnSuccessListener {
-        cont.resume(Either.Right(Unit))
-      }
-      .addOnFailureListener { e ->
-        val message = e.message ?: "null message"
-        cont.resume(Either.Left("FireStore - $message"))
-      }
-  }
+  ): Either<String, Unit> = Either.Left("This inherited survey is closed. No response was sent.")
 
   private fun votedKey(poll: PollId): Preferences.Key<Boolean> {
     return booleanPreferencesKey("poll.${poll.id}_voted")

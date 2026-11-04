@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -33,7 +34,7 @@ fun BoxWithConstraintsScope.NameModal(
     id: UUID = UUID.randomUUID(),
     onNameChanged: (String) -> Unit
 ) {
-    var modalName by remember(id) { mutableStateOf(selectEndTextFieldValue(name)) }
+    var modalName by rememberSaveable(id, stateSaver = androidx.compose.ui.text.input.TextFieldValue.Saver) { mutableStateOf(selectEndTextFieldValue(name)) }
 
     IvyModal(
         id = id,

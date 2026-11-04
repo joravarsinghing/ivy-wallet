@@ -1,6 +1,10 @@
 package com.ivy.base.legacy
 
 import android.content.Context
+import android.content.SharedPreferences
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
@@ -43,6 +47,16 @@ class SharedPrefs @Inject constructor(
     }
 
     private val preferences = appContext.getSharedPreferences(PREFS_FILENAME, Context.MODE_PRIVATE)
+
+    /** Listen before the first read so preference changes cannot race initialization. */
+    fun observeBoolean(key: String, default: Boolean = false) = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, changed ->
+            if (changed == key || changed == null) trySend(preferences.getBoolean(key, default))
+        }
+        preferences.registerOnSharedPreferenceChangeListener(listener)
+        trySend(preferences.getBoolean(key, default))
+        awaitClose { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
 
     fun has(key: String): Boolean {
         return preferences.contains(key)

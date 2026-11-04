@@ -3,6 +3,7 @@ package com.ivy.wallet.ui.theme.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -36,8 +37,9 @@ import com.ivy.legacy.utils.hideKeyboard
 import com.ivy.legacy.utils.isNotNullOrBlank
 
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
-@Suppress("ParameterNaming")
 @Composable
+// Preserve this established positional adapter; migrate callers before reordering its API.
+@Suppress("ParameterNaming", "ComposeParameterOrder")
 fun IvyNameTextField(
     modifier: Modifier = Modifier,
     underlineModifier: Modifier = Modifier,
@@ -53,57 +55,23 @@ fun IvyNameTextField(
     ),
     focusRequester: FocusRequester = remember { FocusRequester() },
     keyboardActions: KeyboardActions? = null,
+    inputTestTag: String = "base_input",
+    enabled: Boolean = true,
     onValueChanged: (TextFieldValue) -> Unit
 ) {
-    Column {
-        val isEmpty = value.text.isBlank()
-
-        Box(
-            modifier = modifier,
-            contentAlignment = Alignment.CenterStart
-        ) {
-            if (isEmpty && hint.isNotNullOrBlank()) {
-                Text(
-                    modifier = Modifier,
-                    text = hint!!,
-                    style = UI.typo.b2.style(
-                        color = UI.colors.gray,
-                        fontWeight = FontWeight.SemiBold,
-                        textAlign = TextAlign.Start
-                    ),
-                )
-            }
-
-            val view = LocalView.current
-            BasicTextField(
-                modifier = Modifier
-                    .testTag("base_input")
-                    .focusRequester(focusRequester),
-                value = value,
-                onValueChange = onValueChanged,
-                textStyle = UI.typo.b1.style(
-                    color = textColor,
-                    fontWeight = FontWeight.ExtraBold,
-                    textAlign = TextAlign.Start
-                ),
-                singleLine = false,
-                cursorBrush = SolidColor(UI.colors.pureInverse),
-                visualTransformation = visualTransformation,
-                keyboardOptions = keyboardOptions,
-                keyboardActions = keyboardActions ?: KeyboardActions(
-                    onDone = {
-                        hideKeyboard(view)
-                    }
-                )
-            )
-        }
-
-        Spacer(Modifier.height(8.dp))
-
-        IvyDividerLineRounded(
-            modifier = underlineModifier
-        )
-    }
+    // Preserve the legacy API while sharing labelled Material controls and Jvy tokens.
+    val view = LocalView.current
+    androidx.compose.material3.OutlinedTextField(
+        value = value, onValueChange = onValueChanged, enabled = enabled,
+        modifier = modifier.fillMaxWidth().testTag(inputTestTag).focusRequester(focusRequester),
+        label = { if (!hint.isNullOrBlank()) Text(hint) },
+        textStyle = com.ivy.design.system.JvyTypography.Body,
+        shape = com.ivy.design.system.JvyShapes.Control,
+        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+            focusedTextColor = textColor, unfocusedTextColor = textColor),
+        visualTransformation = visualTransformation, keyboardOptions = keyboardOptions,
+        keyboardActions = keyboardActions ?: KeyboardActions(onDone = { hideKeyboard(view) }),
+    )
 }
 
 @Preview

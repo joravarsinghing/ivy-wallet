@@ -35,7 +35,11 @@ fun ImportProcessing(
             .systemBarsPadding(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(Modifier.height(80.dp))
+        androidx.activity.compose.BackHandler { /* Do not interrupt a financial import in flight. */ }
+        val nav = com.ivy.navigation.navigation()
+        com.ivy.design.system.JvyScreenHeader(stringResource(R.string.import_csv_file), { nav.onBackPressed() },
+            backEnabled = false)
+        Spacer(Modifier.height(16.dp))
 
         Text(
             text = stringResource(R.string.please_wait),

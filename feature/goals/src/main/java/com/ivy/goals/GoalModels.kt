@@ -74,6 +74,8 @@ data class GoalScreenState(
     val saving: Boolean = false,
     val error: String? = null,
     val saveRevision: Long = 0,
+    // Live acknowledgement identity, not a persisted financial field or a credential.
+    val saveSession: String = "preview",
 ) {
     val reservedAmount: Double
         get() = goals.sumOf { it.savedAmount }

@@ -143,10 +143,10 @@ fun MonthlySavingsInsightCard(
 
 @Composable
 private fun MonthlyMetric(
-    modifier: Modifier,
     label: String,
     amount: BigDecimal,
     color: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
         Text(

@@ -12,6 +12,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE isDeleted = 0 ORDER BY dateTime DESC, dueDate ASC")
     suspend fun findAll(): List<TransactionEntity>
 
+    @Query("SELECT MIN(dateTime) FROM transactions WHERE isDeleted = 0 AND dateTime IS NOT NULL AND accountId IN (:accountIds)")
+    suspend fun findFirstSettledTime(accountIds: List<UUID>): Instant?
+
     @Suppress("FunctionNaming")
     @Deprecated("legacy remove")
     @Query("SELECT * FROM transactions WHERE isDeleted = 0 LIMIT 1")

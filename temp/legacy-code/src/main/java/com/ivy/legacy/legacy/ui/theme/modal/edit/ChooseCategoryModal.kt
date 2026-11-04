@@ -51,7 +51,6 @@ import com.ivy.wallet.ui.theme.components.WrapContentRow
 import com.ivy.wallet.ui.theme.findContrastTextColor
 import com.ivy.wallet.ui.theme.modal.IvyModal
 import com.ivy.wallet.ui.theme.modal.ModalSkip
-import com.ivy.wallet.ui.theme.modal.ModalTitle
 import com.ivy.wallet.ui.theme.toComposeColor
 import java.util.UUID
 
@@ -76,6 +75,7 @@ fun BoxWithConstraintsScope.ChooseCategoryModal(
     IvyModal(
         id = id,
         visible = visible,
+        title = stringResource(R.string.choose_category),
         dismiss = dismiss,
         PrimaryAction = {
             ModalSkip {
@@ -91,14 +91,6 @@ fun BoxWithConstraintsScope.ChooseCategoryModal(
         onScreenStart {
             hideKeyboard(view)
         }
-
-        Spacer(Modifier.height(32.dp))
-
-        ModalTitle(
-            text = stringResource(R.string.choose_category)
-        )
-
-        Spacer(Modifier.height(24.dp))
 
         CategoryPicker(
             categories = categories,
@@ -117,7 +109,6 @@ fun BoxWithConstraintsScope.ChooseCategoryModal(
             )
         }
 
-        Spacer(Modifier.height(56.dp))
     }
 }
 

@@ -4,6 +4,7 @@ import com.ivy.base.model.TransactionType
 import com.ivy.data.model.IntervalType
 import com.ivy.data.model.Category
 import com.ivy.data.model.TagId
+import com.ivy.data.model.Tag
 import com.ivy.legacy.data.model.FromToTimeRange
 import com.ivy.legacy.data.model.LastNTimeRange
 import com.ivy.legacy.data.model.Month
@@ -60,7 +61,6 @@ enum class Visualization {
     AREA,
     DONUT,
 }
-
 enum class Grouping {
     CATEGORY,
     ACCOUNT,
@@ -106,18 +106,21 @@ fun SavedAnalyticsDefinition.toReportFilter(
     accounts: List<Account>,
     categories: List<Category>,
     baseCurrency: String,
-): ReportFilter? {
-    val parsedTypes = filter.transactionTypes.mapNotNull {
-        runCatching { TransactionType.valueOf(it) }.getOrNull()
-    }
-    val accountIds = filter.accountIds.mapNotNull { it.toUuidOrNull() }.toSet()
-    val categoryIds = filter.categoryIds.mapNotNull { it.toUuidOrNull() }.toSet()
-    val includedTagIds = filter.includedTagIds.mapNotNull { it.toUuidOrNull() }
-        .map(::TagId)
-    val excludedTagIds = filter.excludedTagIds.mapNotNull { it.toUuidOrNull() }
-        .map(::TagId)
+    tags: List<Tag>? = null,
+    validateBounds: Boolean = true,
+): ReportFilter? = runCatching {
+    require(schemaVersion == 1)
+    val parsedTypes = filter.transactionTypes.map(TransactionType::valueOf)
+    fun ids(values: List<String>) = values.map { value -> UUID.fromString(value).also { require(it.toString() == value.lowercase()) } }
+    val accountIds = ids(filter.accountIds).toSet()
+    val categoryIds = ids(filter.categoryIds).toSet()
+    val includedTagIds = ids(filter.includedTagIds).map(::TagId)
+    val excludedTagIds = ids(filter.excludedTagIds).map(::TagId)
+    require(accounts.map { it.id }.containsAll(accountIds))
+    require(categories.map { it.id.value }.containsAll(categoryIds))
+    if (tags != null) require(tags.map { it.id }.containsAll(includedTagIds + excludedTagIds))
 
-    return ReportFilter(
+    ReportFilter(
         trnTypes = parsedTypes,
         period = filter.period?.toTimePeriod(),
         accounts = accounts.filter { it.id in accountIds },
@@ -129,10 +132,19 @@ fun SavedAnalyticsDefinition.toReportFilter(
         excludeKeywords = filter.excludeKeywords,
         includedTags = includedTagIds,
         excludedTags = excludedTagIds,
-    )
-}
+    ).also { if (validateBounds) require(it.validate()) }
+}.getOrNull()
 
 private fun SavedPeriodDefinition.toTimePeriod(): TimePeriod? {
+    // An explicitly present empty period is the existing encoding of all-time.
+    // A null period still means the app's default period; never conflate them.
+    if (month == null && year == null && fromEpochMillis == null && toEpochMillis == null && lastN == null && lastNType == null)
+        return TimePeriod(fromToRange = FromToTimeRange(null, null))
+    require(year == null || year in -999999999..999999999)
+    require(month == null || month in 1..12)
+    require(year == null || month != null)
+    require(listOf(month != null, fromEpochMillis != null || toEpochMillis != null, lastN != null || lastNType != null).count { it } == 1)
+    require(fromEpochMillis == null || toEpochMillis == null || fromEpochMillis <= toEpochMillis)
     val range = if (fromEpochMillis != null || toEpochMillis != null) {
         FromToTimeRange(
             from = fromEpochMillis?.let(Instant::ofEpochMilli),
@@ -145,10 +157,10 @@ private fun SavedPeriodDefinition.toTimePeriod(): TimePeriod? {
     val lastNValue = lastN
     val lastNTypeValue = lastNType
     val lastNRange = if (lastNValue != null && lastNTypeValue != null) {
-        runCatching {
-            LastNTimeRange(lastNValue, IntervalType.valueOf(lastNTypeValue))
-        }.getOrNull()
+        require(lastNValue > 0)
+        LastNTimeRange(lastNValue, IntervalType.valueOf(lastNTypeValue))
     } else {
+        require(lastNValue == null && lastNTypeValue == null)
         null
     }
 
@@ -163,5 +175,3 @@ private fun SavedPeriodDefinition.toTimePeriod(): TimePeriod? {
         null
     }
 }
-
-private fun String.toUuidOrNull(): UUID? = runCatching { UUID.fromString(this) }.getOrNull()

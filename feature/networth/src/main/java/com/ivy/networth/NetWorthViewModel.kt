@@ -46,6 +46,24 @@ class NetWorthViewModel @Inject constructor(
         private set
     fun finishGuide() { prefs.putBoolean("net_worth_guide_seen_v1", true); guideSeen = true }
     private var loadingJob: Job? = null
+    private var viewInitialized = false
+    // Retained through rotation, deliberately absent from saved state and financial backups.
+    internal var pendingExport by mutableStateOf<WealthCsvExport?>(null)
+    fun saveView(): List<String>? = com.ivy.design.system.ProcessDraftState.encode(mapOf(
+        "date" to date.toString(), "currency" to currency, "months" to months.toString()))
+    fun restoreView(payload: List<String>?) {
+        if (viewInitialized || workspace != null || loading) return
+        viewInitialized = true
+        val fields = com.ivy.design.system.ProcessDraftState.decode(payload) ?: return
+        runCatching {
+            val day = LocalDate.parse(requireNotNull(fields["date"]))
+            val range = requireNotNull(fields["months"]).toInt()
+            val code = fields["currency"]
+            require(day <= LocalDate.now() && range in listOf(0, 3, 6, 12, 24))
+            require(code == null || code.matches(Regex("[A-Z0-9]{2,12}")))
+            date = day; months = range; currency = code
+        }
+    }
     fun load() {
         guideSeen = prefs.getBoolean("net_worth_guide_seen_v1", false)
         loadingJob?.cancel()
@@ -132,8 +150,16 @@ class NetWorthViewModel @Inject constructor(
         try { reader.captureWalletRates(); load() }
         catch (_: Exception) { error = "Could not read the existing wallet exchange rates." }
     }
-    fun csv(history: Boolean): String {
-        val w = workspace ?: return ""
+    internal suspend fun prepareExport(history: Boolean): WealthCsvExport {
+        val source = requireNotNull(workspace)
+        check(!loading && source.current.asOf == date)
+        // Freeze reporting identity and data together, before handing control to Android.
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            WealthCsvExport.create(source.current.asOf, history, csv(history, source))
+        }
+    }
+    fun csv(history: Boolean, snapshot: WealthWorkspace? = workspace): String {
+        val w = snapshot ?: return ""
         fun quote(value: String) = "\"" + value.replace("\"", "\"\"") + "\""
         val rows = if (history) listOf(listOf("Date", "Item ID", "Name", "Native currency", "Value", "Quantity", "Unit price", "Unit", "Contribution", "Withdrawal", "Recorded at", "Corrects valuation")) + w.data.valuations.sortedBy { it.effectiveDate }.map { value ->
             val item = w.data.items.first { it.id == value.itemId }

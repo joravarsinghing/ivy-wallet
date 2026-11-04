@@ -33,18 +33,20 @@ internal fun GoalsModalHost(modal: GoalsModal?, state: GoalScreenState, onDismis
                             onCreated: (Goal) -> Unit, onUpdated: (Goal) -> Unit,
                             onReserve: (Goal) -> Unit, onEdit: (Goal) -> Unit) {
     if (modal == null) return
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    val close = { if (!state.saving) onDismiss() }
+    Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false,
+        dismissOnBackPress = !state.saving, dismissOnClickOutside = !state.saving)) {
         when (modal) {
-            GoalsModal.Add -> GoalEditorContent(state.baseCurrency, state.asOfDate, onClose = onDismiss,
+            GoalsModal.Add -> GoalEditorContent(state.baseCurrency, state.asOfDate, onClose = close,
                 saving = state.saving || state.loading, saveError = state.error, onSave = onCreated)
-            is GoalsModal.Edit -> GoalEditorContent(state.baseCurrency, state.asOfDate, modal.goal, onDismiss,
+            is GoalsModal.Edit -> GoalEditorContent(state.baseCurrency, state.asOfDate, modal.goal, close,
                 state.saving || state.loading, state.error, onUpdated)
-            is GoalsModal.Detail -> GoalDetailContent(modal.goal, state.accounts, state.asOfDate, onDismiss,
+            is GoalsModal.Detail -> GoalDetailContent(modal.goal, state.accounts, state.asOfDate, close,
                 { onReserve(modal.goal) }, { onEdit(modal.goal) })
             is GoalsModal.Reserve -> ReserveMoneyContent(modal.goal, state.accounts,
                 state.goals.filter { it.id != modal.goal.id }.flatMap { it.allocations }.groupBy { it.accountId }
                     .mapValues { (_, allocations) -> allocations.sumOf { it.amount.toBigDecimal() }.toDouble() },
-                onClose = onDismiss, saving = state.saving || state.loading, saveError = state.error,
+                onClose = close, saving = state.saving || state.loading, saveError = state.error,
                 onSave = { onUpdated(modal.goal.copy(allocations = it)) })
         }
     }
@@ -52,6 +54,8 @@ internal fun GoalsModalHost(modal: GoalsModal?, state: GoalScreenState, onDismis
 
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
+// Retain the established positional editor adapter; fields and callbacks remain compatible.
+@Suppress("ComposeParameterOrder")
 internal fun GoalEditorContent(currency: String, today: LocalDate, existing: Goal? = null,
                                onClose: () -> Unit, saving: Boolean = false, saveError: String? = null,
                                onSave: (Goal) -> Unit) {
@@ -86,7 +90,7 @@ internal fun GoalEditorContent(currency: String, today: LocalDate, existing: Goa
                 Text(if (saving) "Saving…" else if (existing == null) "Create goal" else "Save changes")
             }
         }
-    }) {
+    }, closeEnabled = !saving) {
         OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth().focusRequester(nameFocus), label = { Text("Goal name") },
             placeholder = { Text("For example, a new laptop") }, singleLine = true, shape = JvyShapes.Control,
             isError = attempted && name.isBlank())
@@ -123,13 +127,13 @@ internal fun GoalDetailContent(goal: Goal, accounts: List<GoalAccount>, asOfDate
         }
     }) {
         Text(goal.type.label, style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("${money(guidance.reservedAmount.toDouble(), goal.currency)} reserved", style = JvyTypography.Amount)
-        Text("${money(guidance.remainingAmount.toDouble(), goal.currency)} remaining of ${money(goal.targetAmount, goal.currency)}",
+        Text(financialText("${money(guidance.reservedAmount.toDouble(), goal.currency)} reserved"), style = JvyTypography.Amount)
+        Text(financialText("${money(guidance.remainingAmount.toDouble(), goal.currency)} remaining of ${money(goal.targetAmount, goal.currency)}"),
             style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant)
         ProgressTrack(goal.progress, MaterialTheme.colorScheme.primary)
         if (goal.reservationsNeedReview(accounts)) Text(reservationReviewMessage,
             style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(guidance.displayLabel(goal.currency), style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.primary)
+        Text(financialText(guidance.displayLabel(goal.currency)), style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.primary)
         goal.displayDeadline(LocalConfiguration.current.locales[0] ?: Locale.getDefault())
             ?.let { Text("Deadline: $it", style = JvyTypography.Supporting) }
         Text("Reserved from", style = MaterialTheme.typography.titleMedium)
@@ -139,7 +143,7 @@ internal fun GoalDetailContent(goal: Goal, accounts: List<GoalAccount>, asOfDate
             val account = accounts.firstOrNull { it.id == allocation.accountId }
             Column {
                 Text(account?.name ?: "Unknown account", style = MaterialTheme.typography.titleSmall)
-                Text(money(allocation.amount, account?.currency ?: goal.currency), style = JvyTypography.AmountSmall)
+                Text(financialText(money(allocation.amount, account?.currency ?: goal.currency)), style = JvyTypography.AmountSmall)
             }
         }
     }
@@ -183,7 +187,7 @@ internal fun ReserveMoneyContent(goal: Goal, accounts: List<GoalAccount>, otherR
                 }
             }, Modifier.fillMaxWidth(), enabled = editable.isNotEmpty() && !saving) { Text(if (saving) "Saving…" else "Save reservations") }
         }
-    }) {
+    }, closeEnabled = !saving) {
         Text("Money stays in its account, but is excluded from Safe to Spend while reserved.",
             style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (editable.isEmpty()) Text("Add an account in ${goal.currency} in Accounts before reserving money.", style = JvyTypography.Supporting)

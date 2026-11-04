@@ -53,7 +53,7 @@ import java.math.BigDecimal
 import java.util.UUID
 
 @Composable
-fun BoxWithConstraintsScope.AccountsTab() {
+fun BoxWithConstraintsScope.AccountsTab(modifier: Modifier = Modifier) {
     val vm: AccountsViewModel = screenScopedViewModel()
     val state = vm.uiState()
     val nav = navigation()
@@ -62,20 +62,22 @@ fun BoxWithConstraintsScope.AccountsTab() {
         initialFirstVisibleItemIndex = context.accountsListState?.firstVisibleItemIndex ?: 0,
         initialFirstVisibleItemScrollOffset = context.accountsListState?.firstVisibleItemScrollOffset ?: 0)
     AccountsContent(state, vm::onEvent, { id -> nav.navigateTo(TransactionsScreen(accountId = id, categoryId = null)) }, scroll,
-        modifier = Modifier.horizontalSwipeListener(sensitivity = 200, state = rememberSwipeListenerState(),
+        modifier = modifier.horizontalSwipeListener(sensitivity = 200, state = rememberSwipeListenerState(),
             onSwipeLeft = { context.selectMainTab(MainTab.HOME) }, onSwipeRight = { context.selectMainTab(MainTab.HOME) }))
 }
 
 /** Account management only. Wealth calculations belong to the Net worth feature. */
 @Composable
 @androidx.annotation.VisibleForTesting(otherwise = androidx.annotation.VisibleForTesting.PRIVATE)
+// Keep the positional account-content adapter stable while callers migrate.
+@Suppress("ComposeParameterOrder")
 fun BoxWithConstraintsScope.AccountsContent(
     state: AccountsState, onEvent: (AccountsEvent) -> Unit = {}, openAccount: (UUID) -> Unit = {},
     scroll: LazyListState = rememberLazyListState(), modifier: Modifier = Modifier,
 ) {
     val largeText = LocalDensity.current.fontScale > 1.3f
     val columns = if (maxWidth >= 840.dp && !largeText) 2 else 1
-        LazyColumn(modifier.widthIn(max = 1200.dp).fillMaxSize().align(Alignment.TopCenter).systemBarsPadding(), state = scroll,
+    LazyColumn(modifier.widthIn(max = 1200.dp).fillMaxSize().align(Alignment.TopCenter).systemBarsPadding(), state = scroll,
             contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 24.dp, bottom = if (largeText) 224.dp else 176.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item(key = "heading", contentType = "heading") {
@@ -93,11 +95,11 @@ fun BoxWithConstraintsScope.AccountsContent(
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("Wallet balance", style = MaterialTheme.typography.titleSmall)
-                        Text(accountMoney(state.totalBalanceWithoutExcluded.toBigDecimalOrNull(), state.baseCurrency, state.hideBalances), style = JvyTypography.Amount)
+                        Text(com.ivy.design.system.financialText(accountMoney(state.totalBalanceWithoutExcluded.toBigDecimalOrNull(), state.baseCurrency, state.hideBalances)), style = JvyTypography.Amount)
                         Text("Accounts included in your wallet total. This is not your net worth.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         Text("Including excluded accounts", style = MaterialTheme.typography.labelLarge)
-                        Text(accountMoney(state.totalBalanceWithExcluded.toBigDecimalOrNull(), state.baseCurrency, state.hideBalances), style = JvyTypography.AmountSmall)
+                        Text(com.ivy.design.system.financialText(accountMoney(state.totalBalanceWithExcluded.toBigDecimalOrNull(), state.baseCurrency, state.hideBalances)), style = JvyTypography.AmountSmall)
                     }
                 }
             }
@@ -148,9 +150,9 @@ internal fun AccountCardContent(data: AccountData, baseCurrency: String, compact
                 Icon(Icons.AutoMirrored.Outlined.ArrowForward, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(accountMoney(BigDecimal.valueOf(data.balance), currency, hidden), style = JvyTypography.Amount)
+                Text(com.ivy.design.system.financialText(accountMoney(BigDecimal.valueOf(data.balance), currency, hidden)), style = JvyTypography.Amount)
                 if (currency != baseCurrency && data.balanceBaseCurrency != null) Text(
-                    accountMoney(BigDecimal.valueOf(data.balanceBaseCurrency!!), baseCurrency, hidden), Modifier.testTag("baseCurrencyEquivalent"),
+                    com.ivy.design.system.financialText(accountMoney(BigDecimal.valueOf(data.balanceBaseCurrency!!), baseCurrency, hidden)), Modifier.testTag("baseCurrencyEquivalent"),
                     style = JvyTypography.AmountSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (!compact) {
@@ -176,8 +178,8 @@ private fun AccountMetricPair(left: String, leftAmount: Double, right: String, r
             Text(right, Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(accountMoney(BigDecimal.valueOf(leftAmount), currency, hidden), Modifier.weight(1f), style = JvyTypography.AmountSmall, color = leftColor)
-            Text(accountMoney(BigDecimal.valueOf(rightAmount), currency, hidden), Modifier.weight(1f), style = JvyTypography.AmountSmall, color = rightColor)
+            Text(com.ivy.design.system.financialText(accountMoney(BigDecimal.valueOf(leftAmount), currency, hidden)), Modifier.weight(1f), style = JvyTypography.AmountSmall, color = leftColor)
+            Text(com.ivy.design.system.financialText(accountMoney(BigDecimal.valueOf(rightAmount), currency, hidden)), Modifier.weight(1f), style = JvyTypography.AmountSmall, color = rightColor)
         }
     }
 }
@@ -186,7 +188,7 @@ private fun AccountMetricPair(left: String, leftAmount: Double, right: String, r
 private fun AccountMetric(label: String, amount: Double, currency: String, hidden: Boolean, color: Color) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(accountMoney(BigDecimal.valueOf(amount), currency, hidden), style = JvyTypography.AmountSmall, color = color)
+        Text(com.ivy.design.system.financialText(accountMoney(BigDecimal.valueOf(amount), currency, hidden)), style = JvyTypography.AmountSmall, color = color)
     }
 }
 

@@ -17,8 +17,8 @@ class BudgetCreator @Inject constructor(
         onRefreshUI: suspend (Budget) -> Unit
     ) {
         val name = data.name
-        if (name.isBlank()) return
-        if (data.amount <= 0) return
+        require(name.isNotBlank()) { "Enter a budget name." }
+        require(data.amount.isFinite() && data.amount > 0) { "Enter a positive budget amount." }
 
         try {
             val newBudget = ioThread {
@@ -37,7 +37,7 @@ class BudgetCreator @Inject constructor(
 
             onRefreshUI(newBudget)
         } catch (e: Exception) {
-            e.printStackTrace()
+            throw e
         }
     }
 
@@ -45,8 +45,8 @@ class BudgetCreator @Inject constructor(
         updatedBudget: Budget,
         onRefreshUI: suspend (Budget) -> Unit
     ) {
-        if (updatedBudget.name.isBlank()) return
-        if (updatedBudget.amount <= 0.0) return
+        require(updatedBudget.name.isNotBlank()) { "Enter a budget name." }
+        require(updatedBudget.amount.isFinite() && updatedBudget.amount > 0.0) { "Enter a positive budget amount." }
 
         try {
             ioThread {
@@ -59,7 +59,7 @@ class BudgetCreator @Inject constructor(
 
             onRefreshUI(updatedBudget)
         } catch (e: Exception) {
-            e.printStackTrace()
+            throw e
         }
     }
 
@@ -74,7 +74,7 @@ class BudgetCreator @Inject constructor(
 
             onRefreshUI()
         } catch (e: Exception) {
-            e.printStackTrace()
+            throw e
         }
     }
 }

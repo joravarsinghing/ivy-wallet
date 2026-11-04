@@ -9,31 +9,41 @@ import com.ivy.data.model.primitive.AssetCode
 import com.ivy.data.model.primitive.ColorInt
 import com.ivy.data.model.primitive.IconAsset
 import com.ivy.data.model.primitive.NotBlankTrimmedString
-import com.ivy.data.repository.AccountRepository
+import com.ivy.data.repository.AccountWriteRepository
+import com.ivy.data.repository.AccountWriteConflict
+import com.ivy.data.repository.accountOpeningTransactionId
+import com.ivy.base.threading.DispatchersProvider
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withContext
 import com.ivy.data.repository.CurrencyRepository
 import com.ivy.legacy.utils.ioThread
 import com.ivy.wallet.domain.deprecated.logic.WalletAccountLogic
 import com.ivy.wallet.domain.deprecated.logic.model.CreateAccountData
 import com.ivy.wallet.domain.pure.util.nextOrderNum
-import java.util.UUID
 import javax.inject.Inject
 import com.ivy.legacy.datamodel.Account as LegacyAccount
 
 class AccountCreator @Inject constructor(
     private val accountLogic: WalletAccountLogic,
     private val accountDao: AccountDao,
-    private val accountRepository: AccountRepository,
+    private val accountWriter: AccountWriteRepository,
     private val currencyRepository: CurrencyRepository,
+    private val dispatchers: DispatchersProvider,
 ) {
+
+    suspend fun createAccount(data: CreateAccountData, onRefreshUI: suspend () -> Unit) =
+        createAccount(data, { it.getOrThrow() }, onRefreshUI)
 
     suspend fun createAccount(
         data: CreateAccountData,
+        onResult: (Result<Unit>) -> Unit,
         onRefreshUI: suspend () -> Unit
-    ) {
+    ) = acknowledge(onResult, onRefreshUI) {
+        require(data.balance.isFinite()) { "Account balance must be finite." }
         ioThread {
             val account = either {
                 Account(
-                    id = AccountId(value = UUID.randomUUID()),
+                    id = AccountId(value = data.id),
                     name = NotBlankTrimmedString.from(data.name).bind(),
                     asset = AssetCode.from(data.currency).bind(),
                     color = ColorInt(data.color.toArgb()),
@@ -41,8 +51,7 @@ class AccountCreator @Inject constructor(
                     includeInBalance = data.includeBalance,
                     orderNum = accountDao.findMaxOrderNum().nextOrderNum(),
                 )
-            }.getOrNull() ?: return@ioThread
-            accountRepository.save(account)
+            }.getOrNull() ?: throw IllegalArgumentException("Invalid account details.")
 
             val legacyAccount = LegacyAccount(
                 name = data.name,
@@ -50,40 +59,62 @@ class AccountCreator @Inject constructor(
                 color = data.color.toArgb(),
                 icon = data.icon,
                 includeInBalance = data.includeBalance,
-                orderNum = accountDao.findMaxOrderNum().nextOrderNum(),
+                orderNum = account.orderNum,
                 isSynced = false,
                 id = account.id.value
             )
-            accountLogic.adjustBalance(
-                account = legacyAccount,
-                actualBalance = 0.0,
-                newBalance = data.balance
-            )
+            accountWriter.create(account, data.balance) {
+                accountLogic.initializeBalance(
+                    account = legacyAccount,
+                    newBalance = data.balance,
+                    transactionId = accountOpeningTransactionId(account.id.value)
+                )
+            }
         }
 
-        onRefreshUI()
     }
+
+    suspend fun editAccount(legacyAccount: LegacyAccount, newBalance: Double, onRefreshUI: suspend () -> Unit) =
+        editAccount(legacyAccount, newBalance, { it.getOrThrow() }, onRefreshUI)
 
     suspend fun editAccount(
         legacyAccount: LegacyAccount,
         newBalance: Double,
+        onResult: (Result<Unit>) -> Unit,
         onRefreshUI: suspend () -> Unit
-    ) {
+    ) = acknowledge(onResult, onRefreshUI) {
+        require(newBalance.isFinite()) { "Account balance must be finite." }
         val updatedLegacyAccount = legacyAccount.copy(
             isSynced = false
         )
         ioThread {
             val account = legacyAccount.toDomainAccount(currencyRepository).getOrNull()
-                ?: return@ioThread
-            accountRepository.save(account)
-
-            accountLogic.adjustBalance(
-                account = updatedLegacyAccount,
-                actualBalance = accountLogic.calculateAccountBalance(updatedLegacyAccount),
-                newBalance = newBalance
-            )
+                ?: throw IllegalArgumentException("Invalid account details.")
+            accountWriter.edit(account) {
+                accountLogic.adjustBalance(
+                    account = updatedLegacyAccount,
+                    actualBalance = accountLogic.calculateAccountBalance(updatedLegacyAccount),
+                    newBalance = newBalance
+                )
+            }
         }
 
-        onRefreshUI()
+    }
+
+    private suspend fun acknowledge(onResult: (Result<Unit>) -> Unit, refresh: suspend () -> Unit,
+        write: suspend () -> Unit) {
+        try { write() } catch (cancelled: CancellationException) { throw cancelled }
+        catch (failure: Exception) {
+            if (failure is AccountWriteConflict) refreshSafely(refresh)
+            withContext(dispatchers.main) { onResult(Result.failure(failure)) }
+            return
+        }
+        refreshSafely(refresh)
+        withContext(dispatchers.main) { onResult(Result.success(Unit)) }
+    }
+
+    private suspend fun refreshSafely(refresh: suspend () -> Unit) {
+        try { refresh() } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { /* A committed write is not undone by a failed refresh. */ }
     }
 }

@@ -9,6 +9,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -25,7 +28,6 @@ import com.ivy.legacy.utils.selectEndTextFieldValue
 import com.ivy.wallet.ui.theme.components.IvyNameTextField
 import com.ivy.wallet.ui.theme.modal.IvyModal
 import com.ivy.wallet.ui.theme.modal.ModalAdd
-import com.ivy.wallet.ui.theme.modal.ModalTitle
 import com.ivy.wallet.ui.theme.modal.edit.AmountModal
 import java.util.UUID
 
@@ -36,37 +38,38 @@ fun BoxWithConstraintsScope.AddRateModal(
     dismiss: () -> Unit,
     onAdd: (RatesEvent.AddRate) -> Unit,
 ) {
-    var toCurrency by remember { mutableStateOf(selectEndTextFieldValue("")) }
+    if (!visible) return
+    var toCurrency by rememberSaveable(baseCurrency, stateSaver = TextFieldValue.Saver) { mutableStateOf(selectEndTextFieldValue("")) }
     var amountModalVisible by remember { mutableStateOf(false) }
-    var rate by remember { mutableStateOf<Double?>(null) }
+    var rate by rememberSaveable(baseCurrency) { mutableStateOf<Double?>(null) }
+    val submission = remember { com.ivy.design.system.EditorSubmission() }
+    val valid = validManualRate(baseCurrency, toCurrency.text, rate)
 
     IvyModal(
         id = null,
         visible = visible,
+        title = "Add rate",
         dismiss = dismiss,
+        dismissEnabled = !submission.saving,
+        hasUnsavedChanges = toCurrency.text.isNotBlank() || rate != null,
         PrimaryAction = {
-            ModalAdd {
+            ModalAdd(enabled = valid && !submission.saving) {
                 val to = toCurrency
                 val finalRate = rate
-                onAdd(
+                submission.submit({ complete -> onAdd(
                     RatesEvent.AddRate(
                         RateUi(
                             from = baseCurrency,
-                            to = to.text,
-                            rate = finalRate ?: 0.0,
-                        )
+                            to = to.text.trim().uppercase(java.util.Locale.ROOT),
+                            rate = checkNotNull(finalRate),
+                        ), onResult = complete
                     )
-                )
-                dismiss()
+                ) }, onSuccess = dismiss)
             }
         }
     ) {
-        SpacerVer(height = 16.dp)
-        ModalTitle(text = "Add rate")
-        SpacerVer(height = 24.dp)
-
         IvyNameTextField(
-            modifier = Modifier.padding(horizontal = 32.dp),
+            modifier = Modifier.padding(horizontal = 24.dp),
             underlineModifier = Modifier.padding(horizontal = 24.dp),
             value = toCurrency,
             hint = "Currency"
@@ -75,6 +78,10 @@ fun BoxWithConstraintsScope.AddRateModal(
         }
 
         SpacerVer(height = 12.dp)
+        if (!valid && (toCurrency.text.isNotBlank() || rate != null)) Text(
+            androidx.compose.ui.res.stringResource(com.ivy.ui.R.string.jvy_rate_validation),
+            Modifier.padding(horizontal = 24.dp), color = MaterialTheme.colorScheme.error)
+        submission.error?.let { Text(it, Modifier.padding(horizontal = 24.dp), color = MaterialTheme.colorScheme.error) }
         Text(
             modifier = Modifier
                 .fillMaxWidth()
@@ -88,7 +95,6 @@ fun BoxWithConstraintsScope.AddRateModal(
                 textAlign = TextAlign.Center,
             )
         )
-        SpacerVer(height = 24.dp)
     }
 
     AmountModal(
@@ -103,6 +109,10 @@ fun BoxWithConstraintsScope.AddRateModal(
         }
     )
 }
+
+internal fun validManualRate(base: String, target: String, rate: Double?): Boolean =
+    com.ivy.data.model.primitive.AssetCode.from(target.trim().uppercase(java.util.Locale.ROOT)).isRight() &&
+        !base.equals(target.trim(), ignoreCase = true) && rate != null && rate.isFinite() && rate > 0.0
 
 @Preview
 @Composable

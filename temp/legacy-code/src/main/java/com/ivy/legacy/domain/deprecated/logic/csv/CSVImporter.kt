@@ -17,6 +17,7 @@ import com.ivy.data.model.primitive.ColorInt
 import com.ivy.data.model.primitive.IconAsset
 import com.ivy.data.model.primitive.NotBlankTrimmedString
 import com.ivy.data.repository.AccountRepository
+import com.ivy.data.repository.AtomicWriteRepository
 import com.ivy.data.repository.CategoryRepository
 import com.ivy.data.repository.CurrencyRepository
 import com.ivy.data.repository.TransactionRepository
@@ -26,8 +27,6 @@ import com.ivy.design.l0_system.Green
 import com.ivy.design.l0_system.IvyDark
 import com.ivy.legacy.datamodel.temp.toLegacyDomain
 import com.ivy.legacy.datamodel.toEntity
-import com.ivy.legacy.utils.convertLocalToUTC
-import com.ivy.legacy.utils.timeNowUTC
 import com.ivy.legacy.utils.toLowerCaseLocal
 import com.ivy.wallet.domain.data.IvyCurrency
 import com.ivy.wallet.domain.deprecated.logic.csv.model.RowMapping
@@ -36,11 +35,7 @@ import com.opencsv.CSVReaderBuilder
 import com.opencsv.validators.LineValidator
 import com.opencsv.validators.RowValidator
 import kotlinx.collections.immutable.persistentListOf
-import timber.log.Timber
 import java.io.StringReader
-import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 import java.util.UUID
 import javax.inject.Inject
 import kotlin.math.absoluteValue
@@ -56,6 +51,7 @@ class CSVImporter @Inject constructor(
     private val accountRepository: AccountRepository,
     private val currencyRepository: CurrencyRepository,
     private val timeConverter: TimeConverter,
+    private val atomicWrite: AtomicWriteRepository,
 ) {
 
     lateinit var accounts: List<LegacyAccount>
@@ -91,8 +87,15 @@ class CSVImporter @Inject constructor(
             })
             .build()
 
-        val rows = csvReader.readAll()
-            .map { it.toList() }
+        val rows = csvReader.use { it.readAll().map { row -> row.toList() } }
+        return atomicWrite.run { importRows(rows, rowMapping, onProgress) }
+    }
+
+    private suspend fun importRows(
+        rows: List<List<String>>,
+        rowMapping: RowMapping,
+        onProgress: suspend (Double) -> Unit,
+    ): ImportResult {
         val rowsCount = rows.size
 
         newCategoryColorIndex = 0
@@ -109,36 +112,41 @@ class CSVImporter @Inject constructor(
             .map { it.importFingerprint() }
             .toMutableSet()
 
-        val failedRows = persistentListOf<CSVRow>()
+        val failedRows = persistentListOf<CSVRow>().builder()
+        val sourceRows = mutableMapOf<UUID, CSVRow>()
+        val signedAmounts = mutableMapOf<UUID, Double>()
 
         // Some importers require postprocessing transactions
         // Example: Financisto separates in and out transfers
-        val joinResult = rowMapping.joinTransactions(
-            rows.mapIndexedNotNull { index, row ->
-                val progressPercent = if (rowsCount > 0) {
-                    index / rowsCount.toDouble()
-                } else {
-                    0.0
-                }
-                onProgress(progressPercent / 2)
-
-                val transaction = mapToTransaction(
-                    baseCurrency = baseCurrency,
-                    row = row,
-                    rowMapping = rowMapping
-                )
-
-                if (transaction == null) {
-                    failedRows.add(
-                        CSVRow(
-                            index = index + 2, // + 1 because we skip Header and +1 because they don't start from zero
-                            content = row
-                        )
-                    )
-                }
-                transaction
+        val mappedTransactions = rows.mapIndexedNotNull { index, row ->
+            val progressPercent = if (rowsCount > 0) {
+                index / rowsCount.toDouble()
+            } else {
+                0.0
             }
-        )
+            onProgress(progressPercent / 2)
+
+            val mapped = mapToTransaction(
+                baseCurrency = baseCurrency,
+                row = row,
+                rowMapping = rowMapping
+            )
+
+            val transaction = mapped?.first
+            if (transaction == null) {
+                failedRows.add(
+                    CSVRow(
+                        index = index + 2, // Header is line 1; source lines are one-based.
+                        content = row
+                    )
+                )
+            } else {
+                sourceRows[transaction.id] = CSVRow(index + 2, row)
+                signedAmounts[transaction.id] = mapped.second
+            }
+            transaction
+        }
+        val joinResult = rowMapping.joinTransactions(mappedTransactions, signedAmounts)
 
         val transactions = joinResult.transactions
 
@@ -159,7 +167,10 @@ class CSVImporter @Inject constructor(
                     entity.toDomain().getOrNull()?.let {
                         transactionRepository.save(it)
                         importedCount++
-                    } ?: importedFingerprints.remove(entity.importFingerprint())
+                    } ?: run {
+                        importedFingerprints.remove(entity.importFingerprint())
+                        sourceRows[transaction.id]?.let(failedRows::add)
+                    }
                 }
             }
         }
@@ -169,7 +180,7 @@ class CSVImporter @Inject constructor(
             transactionsImported = importedCount,
             accountsImported = accounts.size - initialAccountsCount,
             categoriesImported = categories.size - initialCategoriesCount,
-            failedRows = failedRows,
+            failedRows = failedRows.build(),
             duplicatesSkipped = duplicatesSkipped
         )
     }
@@ -178,29 +189,16 @@ class CSVImporter @Inject constructor(
         baseCurrency: String,
         row: List<String>,
         rowMapping: RowMapping
-    ): Transaction? {
+    ): Pair<Transaction, Double>? {
         val type = mapType(
             row = row,
             rowMapping = rowMapping
         ) ?: return null
 
-        val toAccount = if (type == TransactionType.TRANSFER) {
-            mapAccount(
-                baseCurrency = baseCurrency,
-                accountNameString = row.extract(rowMapping.toAccount),
-                currencyRawString = row.extract(rowMapping.toAccountCurrency),
-                color = row.extract(rowMapping.toAccountColor)?.toIntOrNull(),
-                icon = row.extract(rowMapping.toAccountIcon),
-                orderNum = row.extract(rowMapping.toAccountOrderNum)?.toDoubleOrNull()
-            )
-        } else {
-            null
-        }
-
         val csvAmount = if (type != TransactionType.TRANSFER) {
-            mapAmount(row.extract(rowMapping.amount))
+            parseImportedCsvAmount(row.extract(rowMapping.amount))
         } else {
-            mapAmount(row.extract(rowMapping.transferAmount))
+            parseImportedCsvAmount(row.extract(rowMapping.transferAmount))
         } ?: return null
         val amount = csvAmount.absoluteValue
 
@@ -210,33 +208,68 @@ class CSVImporter @Inject constructor(
         }
 
         val toAmount = if (type == TransactionType.TRANSFER) {
-            mapAmount(row.extract(rowMapping.toAmount))
+            parseImportedCsvAmount(row.extract(rowMapping.toAmount))
         } else {
             null
         }
 
-        val dateTime = mapDate(
-            rowMapping = rowMapping,
-            dateString = if (rowMapping.timeOnly != null) {
-                // date and time are separated in csv, join them with space
-                row.extract(rowMapping.date) + " " + row.extract(rowMapping.timeOnly)
-            } else {
-                row.extract(rowMapping.date)
-            }
-        )
-        val dueDate = mapDate(
-            rowMapping = rowMapping,
-            dateString = row.extract(rowMapping.dueDate)
-        )
+        if (type == TransactionType.TRANSFER &&
+            !row.extract(rowMapping.toAmount).isNullOrBlank() &&
+            (toAmount == null || toAmount <= 0)) return null
+
+        val sourceName = row.extract(rowMapping.account)?.trim()?.takeIf(String::isNotEmpty)
+            ?: return null
+        val destinationName = if (type == TransactionType.TRANSFER && rowMapping.toAccount != null) {
+            row.extract(rowMapping.toAccount)?.trim()?.takeIf(String::isNotEmpty)
+                ?: return null
+        } else null
+        if (destinationName != null) {
+            if (sourceName.equals(destinationName, ignoreCase = true)) return null
+        }
+        val sourceCurrency = resolveImportedCsvCurrency(sourceName,
+            row.extract(rowMapping.accountCurrency), baseCurrency, accounts) ?: return null
+        val destinationCurrency = if (destinationName != null) {
+            resolveImportedCsvCurrency(destinationName, row.extract(rowMapping.toAccountCurrency),
+                baseCurrency, accounts) ?: return null
+        } else null
+        if (destinationCurrency != null && sourceCurrency != destinationCurrency && toAmount == null) return null
+
+        val dateString = if (rowMapping.timeOnly != null) {
+            // Date and time are separated in CSV; join only supplied values.
+            listOfNotNull(row.extract(rowMapping.date), row.extract(rowMapping.timeOnly))
+                .filter(String::isNotBlank).joinToString(" ")
+        } else {
+            row.extract(rowMapping.date)
+        }
+        val dueDateString = row.extract(rowMapping.dueDate)
+        val dateTime = parseImportedCsvTimestamp(rowMapping, dateString, timeConverter)
+        val dueDate = parseImportedCsvTimestamp(rowMapping, dueDateString, timeConverter)
+        // A bad nonempty field is not an absent field: do not silently turn a
+        // completed record into a planned one, or discard an invalid due date.
+        if ((!dateString.isNullOrBlank() && dateTime == null) ||
+            (!dueDateString.isNullOrBlank() && dueDate == null)) return null
         if (dateTime == null && dueDate == null) {
             // Cannot save transactions without any date
             return null
         }
 
+        val toAccount = if (type == TransactionType.TRANSFER) {
+            mapAccount(
+                baseCurrency = baseCurrency,
+                accountNameString = destinationName,
+                currencyRawString = destinationCurrency,
+                color = row.extract(rowMapping.toAccountColor)?.toIntOrNull(),
+                icon = row.extract(rowMapping.toAccountIcon),
+                orderNum = row.extract(rowMapping.toAccountOrderNum)?.toDoubleOrNull()
+            )
+        } else {
+            null
+        }
+
         val account = mapAccount(
             baseCurrency = baseCurrency,
-            accountNameString = row.extract(rowMapping.account),
-            currencyRawString = row.extract(rowMapping.accountCurrency),
+            accountNameString = sourceName,
+            currencyRawString = sourceCurrency,
             color = row.extract(rowMapping.accountColor)?.toIntOrNull(),
             icon = row.extract(rowMapping.accountIcon),
             orderNum = row.extract(rowMapping.accountOrderNum)?.toDoubleOrNull()
@@ -260,15 +293,15 @@ class CSVImporter @Inject constructor(
                 accountId = account.id,
                 toAccountId = toAccount?.id,
                 toAmount = toAmount?.toBigDecimal() ?: amount.toBigDecimal(),
-                dateTime = with(timeConverter) { dateTime?.toUTC() },
-                dueDate = with(timeConverter) { dueDate?.toUTC() },
+                dateTime = dateTime,
+                dueDate = dueDate,
                 categoryId = category?.id?.value,
                 title = title,
                 description = description
             ),
             category,
             csvAmount
-        )
+        ) to csvAmount
     }
 
     private fun mapType(
@@ -297,155 +330,6 @@ class CSVImporter @Inject constructor(
         }
     }
 
-    private fun mapAmount(amount: String?): Double? {
-        if (amount == null || amount.isBlank()) return null
-
-        return amount
-            .replace(",", "")
-            .toDoubleOrNull()
-    }
-
-    private fun mapDate(
-        rowMapping: RowMapping,
-        dateString: String?
-    ): LocalDateTime? {
-        if (dateString == null || dateString.isBlank()) return null
-
-        if (rowMapping.dateOnlyFormat != null) {
-            try {
-                return dateString.parseDateOnly(rowMapping.dateOnlyFormat)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-
-        if (rowMapping.dateTimeFormat != null) {
-            try {
-                return dateString.parseDateTime(rowMapping.dateTimeFormat)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-
-        val supportedPatterns = listOf(
-            "dd/MM/yyyy HH:mm",
-            "dd/MM/yyyy HH:mm:ss",
-            "yyyy-MM-dd HH:mm:ss",
-            "yyyy-dd-MM HH:mm:ss",
-            "yyyy/MM/dd HH:mm:ss",
-            "MM/dd/yyyy HH:mm:ss",
-            "dd/MM/yyyy h:mm a",
-
-            // Fortune City Date variations with 24-h
-            "d/M/yyyy HH:mm",
-            "d/MM/yyyy HH:mm",
-            "dd/M/yyyy HH:mm",
-            "dd/MM/yyyy HH:mm",
-            "M/d/yyyy HH:mm",
-            "M/dd/yyyy HH:mm",
-            "MM/d/yyyy HH:mm",
-            "MM/dd/yyyy HH:mm",
-
-            // Fortune City Date variations with 12-h (am/pm)
-            "d/M/yyyy h:mm a",
-            "d/MM/yyyy h:mm a",
-            "dd/M/yyyy h:mm a",
-            "dd/MM/yyyy h:mm a",
-            "M/d/yyyy h:mm a",
-            "M/dd/yyyy h:mm a",
-            "MM/d/yyyy h:mm a",
-            "MM/dd/yyyy h:mm a",
-
-            // Fortune City Date with "-" variations with 24-h
-            "d-M-yyyy HH:mm",
-            "d-MM-yyyy HH:mm",
-            "dd-M-yyyy HH:mm",
-            "dd-MM-yyyy HH:mm",
-            "M-d-yyyy HH:mm",
-            "M-dd-yyyy HH:mm",
-            "MM-d-yyyy HH:mm",
-            "MM-dd-yyyy HH:mm",
-
-            // Fortune City Date with "-" variations with 12-h (am/pm)
-            "d-M-yyyy h:mm a",
-            "d-MM-yyyy h:mm a",
-            "dd-M-yyyy h:mm a",
-            "dd-MM-yyyy h:mm a",
-            "M-d-yyyy h:mm a",
-            "M-dd-yyyy h:mm a",
-            "MM-d-yyyy h:mm a",
-            "MM-dd-yyyy h:mm a",
-
-            // More Fortune City Date formats
-            "dd-MM-yy H:mm",
-            "dd-MM-yy HH:mm",
-            "MM-dd-yy H:mm",
-            "MM-dd-yy HH:mm",
-        )
-
-        for (pattern in supportedPatterns) {
-            try {
-                return dateString.parseDateTime(dateTimeFormat = pattern)
-            } catch (e: Exception) {
-            }
-        }
-
-        val supportedDateOnlyPatterns = listOf(
-            "MM/dd/yyyy",
-            "yyyy-MM-dd",
-            "yyyy/MM/dd",
-            "dd/MM/yyyy"
-        )
-
-        for (pattern in supportedDateOnlyPatterns) {
-            try {
-                return dateString.parseDateOnly(dateFormat = pattern)
-            } catch (e: Exception) {
-            }
-        }
-
-        val isoFormats = listOf(
-            DateTimeFormatter.ISO_DATE_TIME,
-            DateTimeFormatter.ISO_INSTANT,
-            DateTimeFormatter.ISO_LOCAL_DATE_TIME,
-            DateTimeFormatter.ISO_OFFSET_DATE_TIME,
-            DateTimeFormatter.ISO_ZONED_DATE_TIME,
-            DateTimeFormatter.RFC_1123_DATE_TIME
-        )
-
-        for (format in isoFormats) {
-            try {
-                val parsedDate = LocalDateTime.parse(dateString, format)
-                if (parsedDate != null) {
-                    return parsedDate
-                }
-            } catch (e: Exception) {
-            }
-        }
-
-        Timber.e("Import: Cannot parse $dateString")
-        // As a fallback set all transactions 1 year before now
-        return timeNowUTC()
-            .minusYears(1)
-    }
-
-    private fun String.parseDateOnly(
-        dateFormat: String
-    ): LocalDateTime {
-        return LocalDate.parse(
-            this,
-            DateTimeFormatter.ofPattern(dateFormat)
-        ).atTime(12, 0).convertLocalToUTC()
-    }
-
-    private fun String.parseDateTime(
-        dateTimeFormat: String
-    ): LocalDateTime {
-        return LocalDateTime.parse(
-            this,
-            DateTimeFormatter.ofPattern(dateTimeFormat)
-        ).convertLocalToUTC()
-    }
 
     @Suppress("ReturnCount")
     private suspend fun mapAccount(

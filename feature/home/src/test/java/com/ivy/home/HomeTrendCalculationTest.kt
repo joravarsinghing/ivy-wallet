@@ -189,6 +189,45 @@ class HomeTrendCalculationTest {
         assertTrue(isSingleHomeTrendPeriod(result))
     }
 
+    @Test fun `November thirty day window keeps October transactions when November has none`() {
+        val result = buildHomeTrendPoints(listOf(explicitDay("October entry", "2026-10-27", expenses = "42")),
+            HomeTrendRange.THIRTY_DAYS, anchorDate = LocalDate.parse("2026-11-03"))
+        assertEquals(30, result.size)
+        assertEquals(LocalDate.parse("2026-10-05"), result.first().periodIdentity.startDate)
+        assertEquals(LocalDate.parse("2026-11-03"), result.last().periodIdentity.startDate)
+        assertEquals(BigDecimal("42"), result.sumOf { it.expenses })
+        assertTrue(result.takeLast(3).all { it.isObserved && it.income == BigDecimal.ZERO && it.expenses == BigDecimal.ZERO })
+    }
+
+    @Test fun `quiet window retains exact carried balance after activity before the window`() {
+        val end = LocalDate.parse("2026-11-03")
+        val points = (29 downTo 0).map { offset ->
+            explicitDay("quiet", end.minusDays(offset.toLong()).toString(), balance = "12844.20").copy(isObserved = false)
+        }
+        val result = buildHomeTrendPoints(points, HomeTrendRange.THIRTY_DAYS, end, LocalDate.parse("2026-09-01"))
+        assertFalse(isHomeTrendNoHistory(result))
+        assertTrue(result.all { it.isObserved && it.balance == BigDecimal("12844.20") })
+        assertTrue(result.all { it.income == BigDecimal.ZERO && it.expenses == BigDecimal.ZERO })
+    }
+
+    @Test fun `zero balance after real history is observed but a wallet without history stays unknown`() {
+        val quiet = listOf(explicitDay("quiet", "2026-11-03").copy(isObserved = false))
+        val known = buildHomeTrendPoints(quiet, HomeTrendRange.SEVEN_DAYS,
+            LocalDate.parse("2026-11-03"), LocalDate.parse("2026-10-01"))
+        val unknown = buildHomeTrendPoints(quiet, HomeTrendRange.SEVEN_DAYS, LocalDate.parse("2026-11-03"))
+        assertTrue(known.all { it.isObserved })
+        assertTrue(isHomeTrendNoHistory(unknown))
+    }
+
+    @Test fun `monthly coverage starts in the first recorded month not the following month`() {
+        val points = listOf(explicitMonth("October", "2026-10", "0").copy(isObserved = false),
+            explicitMonth("November", "2026-11", "0").copy(isObserved = false))
+        val result = buildHomeTrendPoints(points, HomeTrendRange.THREE_MONTHS,
+            LocalDate.parse("2026-11-03"), LocalDate.parse("2026-10-25"))
+        assertFalse(result.first().isObserved)
+        assertTrue(result.drop(1).all { it.isObserved })
+    }
+
     private fun point(
         periodLabel: String,
         income: String,

@@ -20,4 +20,6 @@ data class BudgetScreenState(
     val reorderModalVisible: Boolean,
     val budgetModalData: BudgetModalData?,
     val insight: BudgetInsight = BudgetInsight(),
+    val saving: Boolean = false,
+    val saveError: String? = null,
 )

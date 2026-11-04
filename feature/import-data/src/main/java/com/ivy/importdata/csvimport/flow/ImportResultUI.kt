@@ -2,6 +2,10 @@ package com.ivy.importdata.csvimport.flow
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -48,15 +52,12 @@ fun ImportResultUI(
         modifier = Modifier
             .fillMaxSize()
             .systemBarsPadding()
+            .verticalScroll(rememberScrollState())
     ) {
         Spacer(Modifier.height(16.dp))
 
         val nav = navigation()
-        BackButton(
-            modifier = Modifier.padding(start = 20.dp)
-        ) {
-            nav.onBackPressed()
-        }
+        com.ivy.design.system.JvyScreenHeader(stringResource(R.string.import_csv_file), { nav.onBackPressed() })
 
         Spacer(Modifier.height(24.dp))
 
@@ -109,7 +110,19 @@ fun ImportResultUI(
             )
         }
 
-        // TODO: Implement "See failed imports"
+        if (result.failedRows.isNotEmpty()) {
+            var expanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+            com.ivy.design.system.JvyTextButton({ expanded = !expanded }, Modifier.padding(horizontal = 24.dp)) {
+                Text(if (expanded) "Hide failed rows" else "Review ${result.failedRows.size} failed rows")
+            }
+            if (expanded) result.failedRows.take(100).forEach { row ->
+                Text(failedImportRowText(row, com.ivy.design.system.LocalFinancialVisibility.current),
+                    Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+                    style = com.ivy.design.system.JvyTypography.Supporting)
+            }
+            if (expanded && result.failedRows.size > 100) Text("Showing the first 100 failed rows. Check the original file for the remaining rows.",
+                Modifier.padding(horizontal = 24.dp))
+        }
 
         if (!isManualCsvImport) {
             Spacer(modifier = Modifier.height(16.dp))

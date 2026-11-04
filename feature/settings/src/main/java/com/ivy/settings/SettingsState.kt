@@ -13,5 +13,6 @@ data class SettingsState(
     val treatTransfersAsIncomeExpense: Boolean,
     val startDateOfMonth: String,
     val progressState: Boolean,
-    val languageOptionVisible: Boolean
+    val languageOptionVisible: Boolean,
+    val currencyError: String? = null,
 )

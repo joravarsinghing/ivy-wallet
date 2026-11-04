@@ -3,11 +3,21 @@ package com.ivy.design.system
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
 import org.junit.Assert.*
 import org.junit.Test
 import kotlin.math.pow
 
 class JvyDesignTest {
+    @Test fun `spacing has one gutter and a bounded four-eight dp rhythm`() {
+        assertEquals(24.dp, JvySpacing.PageGutter)
+        assertEquals(8.dp, JvySpacing.Related)
+        assertEquals(16.dp, JvySpacing.Group)
+        assertEquals(24.dp, JvySpacing.Section)
+        assertEquals(16.dp, JvySpacing.ModalMargin)
+        assertEquals(12.dp, JvySpacing.ActionInset)
+        assertEquals(48.dp, JvySpacing.TouchTarget)
+    }
     @Test fun `chart motion has a finite context-specific duration`() {
         assertEquals(360, JvyMotion.ChartUpdateMillis)
         assertTrue(JvyMotion.FeedbackMillis < JvyMotion.ChartUpdateMillis)

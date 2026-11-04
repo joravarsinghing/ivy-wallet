@@ -1,6 +1,8 @@
 package com.ivy.balance
 
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -75,8 +77,10 @@ private fun BoxWithConstraintsScope.UI(
             .fillMaxSize()
             .statusBarsPadding()
             .navigationBarsPadding()
+            .verticalScroll(rememberScrollState())
     ) {
-        Spacer(Modifier.height(20.dp))
+        val nav = navigation()
+        com.ivy.design.system.JvyScreenHeader(stringResource(R.string.current_balance), { nav.back() })
 
         PeriodSelector(
             period = state.period,
@@ -112,11 +116,6 @@ private fun BoxWithConstraintsScope.UI(
             balanceAfterPlannedPayments = state.balanceAfterPlannedPayments
         )
 
-        Spacer(Modifier.weight(1f))
-
-        CloseButton()
-
-        Spacer(Modifier.height(48.dp))
     }
 
     ChoosePeriodModal(
@@ -196,7 +195,7 @@ private fun ColumnScope.BalanceAfterPlannedPayments(
             Spacer(Modifier.height(4.dp))
 
             Text(
-                text = "${currentBalance.format(2)} $currency",
+                text = com.ivy.design.system.financialText("${currentBalance.format(2)} $currency"),
                 style = UI.typo.nC.style(
                     color = UI.colors.pureInverse,
                     fontWeight = FontWeight.Normal
@@ -207,7 +206,7 @@ private fun ColumnScope.BalanceAfterPlannedPayments(
 
             val plusSign = if (plannedPaymentsAmount >= 0) "+" else ""
             Text(
-                text = "${plusSign}${plannedPaymentsAmount.format(2)} $currency",
+                text = com.ivy.design.system.financialText("${plusSign}${plannedPaymentsAmount.format(2)} $currency"),
                 style = UI.typo.nC.style(
                     color = UI.colors.pureInverse,
                     fontWeight = FontWeight.ExtraBold
@@ -216,25 +215,6 @@ private fun ColumnScope.BalanceAfterPlannedPayments(
         }
 
         Spacer(Modifier.width(32.dp))
-    }
-}
-
-@Composable
-private fun ColumnScope.CloseButton() {
-    val nav = navigation()
-    IvyCircleButton(
-        modifier = Modifier
-            .align(Alignment.CenterHorizontally)
-            .size(FAB_BUTTON_SIZE)
-            .rotate(45f)
-            .zIndex(200f),
-        backgroundPadding = 8.dp,
-        icon = R.drawable.ic_add,
-        backgroundGradient = Gradient.solid(Gray),
-        hasShadow = false,
-        tint = White
-    ) {
-        nav.back()
     }
 }
 

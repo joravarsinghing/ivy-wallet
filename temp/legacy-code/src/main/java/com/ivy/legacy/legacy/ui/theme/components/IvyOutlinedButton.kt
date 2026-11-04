@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
@@ -44,15 +46,17 @@ fun IvyOutlinedButton(
     onClick: () -> Unit,
 ) {
     val pure = UI.colors.pure
-    val rFull = UI.shapes.rFull
+    val rFull = com.ivy.design.system.JvyShapes.Control
     Row(
         modifier = modifier
-            .clip(UI.shapes.rFull)
+            .clip(com.ivy.design.system.JvyShapes.Control)
+            .heightIn(min = 48.dp)
             .clickable(
+                role = Role.Button,
                 onClick = onClick,
             )
             .defaultMinSize(minWidth, minHeight)
-            .border(2.dp, borderColor, UI.shapes.rFull)
+            .border(2.dp, borderColor, com.ivy.design.system.JvyShapes.Control)
             .thenIf(solidBackground) {
                 background(pure, rFull)
             },
@@ -72,7 +76,7 @@ fun IvyOutlinedButton(
         }
 
         Text(
-            modifier = Modifier.padding(vertical = padding, horizontal = 4.dp),
+            modifier = Modifier.weight(1f, fill = false).padding(vertical = padding, horizontal = 4.dp),
             text = text,
             style = UI.typo.b2.style(
                 fontWeight = FontWeight.Bold,
@@ -97,15 +101,17 @@ fun IvyOutlinedButtonFillMaxWidth(
     onClick: () -> Unit,
 ) {
     val pure = UI.colors.pure
-    val rFull = UI.shapes.rFull
+    val rFull = com.ivy.design.system.JvyShapes.Control
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(UI.shapes.rFull)
+            .clip(com.ivy.design.system.JvyShapes.Control)
+            .heightIn(min = 48.dp)
             .clickable(
+                role = Role.Button,
                 onClick = onClick,
             )
-            .border(2.dp, borderColor, UI.shapes.rFull)
+            .border(2.dp, borderColor, com.ivy.design.system.JvyShapes.Control)
             .thenIf(solidBackground) {
                 background(pure, rFull)
             },
@@ -123,7 +129,7 @@ fun IvyOutlinedButtonFillMaxWidth(
         Spacer(Modifier.weight(1f))
 
         Text(
-            modifier = Modifier.padding(vertical = padding),
+            modifier = Modifier.weight(1f, fill = false).padding(vertical = padding),
             text = text,
             style = UI.typo.b2.style(
                 fontWeight = FontWeight.Bold,

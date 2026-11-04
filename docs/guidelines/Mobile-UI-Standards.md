@@ -13,8 +13,19 @@ Read the mandatory [Jvy design language](../design/JVY-DESIGN-LANGUAGE.md) first
 - Keep 8dp for closely related elements, 16dp for neighboring groups, 24dp for major sections, and 32dp only for a deliberate screen-level transition.
 - Do not use arbitrary spacer weights or one-off offsets to repair a row. Use a real grid, a stable gutter, or a scrollable container.
 - Horizontally scrolling chip rows must remain clipped inside the sheet, include equal start/end content padding, and keep the section label aligned with the row.
+- Use `JvySpacing` and the shared title/Close header. Titled legacy modals pass
+  their title to `IvyModal`; don't insert a second title row and a large leading
+  spacer. Search, result rows and footer actions share one 24dp inset; search
+  glyphs have fixed sizes, not width-proportional weights on desktop windows.
+- Form name/icon rows own one 24dp outer inset and a 16dp internal gap. A nested
+  text field must not add the old asymmetric 28/36dp padding. Full-span grid
+  errors inherit the populated grid's gutter rather than adding a second one.
 
 ## Safe areas and bottom sheets
+
+- Full pages have one shared top-start Back target; dialogs/sheets have top-right Close/Cancel. Never use a bottom-left X as page navigation or add a second footer Back beside an existing header.
+- Use `JvySubsectionScaffold` for subsection header/body/footer ownership. Existing specialized editor/statistic headers delegate to `JvyBackButton`; standalone Scaffold top bars use `JvyTopAppBar`. Preserve callbacks and navigation history.
+- Legacy `IvyModal` keeps Close outside its scrolling body and task actions in its footer. Root navigation, welcome/unlock and non-interruptible import states remain deliberate semantic exceptions, not competing page layouts.
 
 - Respect status-bar, navigation-bar, gesture, and keyboard insets.
 - Keep bottom-sheet actions clear of the gesture area and avoid placing critical content at the sheet edge.
@@ -73,6 +84,8 @@ Read the mandatory [Jvy design language](../design/JVY-DESIGN-LANGUAGE.md) first
 
 ## Home density and activity
 
+- The selected chart range controls the plot, spending breakdown and recent activity together. Show the same explicit date-window caption on all three. The top-bar period supplies the historical endpoint; it must not silently clip a rolling range to that month. Publish these results together after the latest-request check. On a currency change, clear old currency-dependent results together before relabeling.
+- The spending chart drill-down must retain those exact dates, including after process restoration. Do not serialize a potentially unbounded list of transactions to represent a date range. Upcoming payment actions are a separate panel, not past activity; rolling history filters must not hide Pay/Get/Skip controls. View all remains the explicit all-history escape.
 - Prefer one neutral activity surface with compact rows over one large card per transaction. Home rows show category color/icon, title, account, and grouped amount; descriptions and tags stay on the edit screen.
 - Recent-activity category glyphs use the same `findContrastTextColor(categoryBackground)` policy as All Transactions, including fallback icons and uncategorized rows. Never tint them with the page/theme foreground: a bright category background needs a dark glyph even in dark/AMOLED mode. Keep row labels styled for their own neutral card background, not the category circle.
 - Bound Home activity to seven recent records, retain date headings, ellipsize long titles/account names, and keep the final row above the bottom navigation inset.
@@ -87,6 +100,7 @@ Read the mandatory [Jvy design language](../design/JVY-DESIGN-LANGUAGE.md) first
 - Keep primary amounts prominent but avoid display-sized numbers for every row. Use tabular/grouped money formatting and right-align comparable numeric values.
 - Accounts should show balance, reserved, and available money in a compact hierarchy; the Accounts tab remains authoritative and Home should not duplicate account cards.
 - Goals should lead with progress, remaining amount, deadline guidance, and account allocations without oversized hero panels. Use a smaller summary surface and denser goal rows.
+- Planned Payments places its title/Back before forecasts. Empty state uses the shared planning empty-state pattern and one Add action; do not lead with a redundant zero forecast. Populated forecasts retain their calculations, currency context and readable stacked metrics at narrow/large-text sizes.
 - Goals creation/editing uses the shared bounded `JvyFormDialogFrame`, wrapping type chips, a real optional calendar deadline and the wallet currency. Keep Close and submit outside the scrollable body. Allow correcting a goal without deleting its reservations. Retain drafts and show save errors rather than optimistically closing before storage succeeds.
 - Theme defaults must work in production's no-Surface host. Provide semantic foregrounds at `IvyMaterial3Theme` and shared heading boundaries; do not mask missing defaults with preview-only surfaces. Check light, dark and AMOLED headings, empty states, cards and fields.
 - Date fields must select actual calendar dates, preserve the chosen day across time zones and storage reload, and never silently clear malformed nonempty input. Date display is localized; persisted contracts are unchanged.
@@ -94,6 +108,11 @@ Read the mandatory [Jvy design language](../design/JVY-DESIGN-LANGUAGE.md) first
 - Date-only values stay `LocalDate`; transaction timestamps enter via the facade's `Instant` adapter. Respect inclusive minimum/maximum dates. Closing a chooser must never modify a date or time, and a stale chooser must not complete or cancel a newer request.
 - Reject invalid or oversized reservations with a useful error instead of silently reducing amounts. Do not infer currency conversion: new reservations use matching-currency accounts and preserve existing unsupported allocations with a warning.
 - Full transaction history may be denser than Home activity, but it must retain comfortable touch targets, compact date grouping, and enough bottom inset for navigation controls.
+- Transfer headers bound both account labels. Stack them on narrow/large-text
+  windows and use balanced columns at wider widths; never squeeze the receiving
+  account into an unweighted remainder or stretch a shared capsule vertically.
+  Preserve each stored identifier colour with a readable foreground. Receiving
+  equivalents follow hidden-balance policy and retain significant crypto digits.
 - Redesigns must not change navigation destinations, ledger calculations, import behavior, backup format, hidden-balance rules, or goal reservation semantics.
 - For each redesigned screen, verify empty, loading, error, long-name, large-number, hidden-balance, and bottom-navigation states before release.
 
@@ -105,6 +124,15 @@ Read the mandatory [Jvy design language](../design/JVY-DESIGN-LANGUAGE.md) first
 - Apply in-progress filter-sheet state consistently across every control. Amounts, keywords, tags, period, accounts, and categories must read from the draft filter until Apply is pressed.
 - A valid filter with no matching transactions must still render the report shell with zero totals and an explicit no-results explanation. Never make the screen appear unchanged or blank.
 - The current month/period is the default time range; the period picker remains available for historical month and custom-range analysis.
+- Restored/saved reports resolve selection IDs against live records. A missing or
+  malformed explicit selection must trigger review, not be dropped and normalized
+  to “all.” An intentionally empty selection still means all. A null saved period
+  means default; an explicitly present empty range means all-time.
+- Save query primitives and draft identity, never result/account object graphs.
+  Clear and a temporarily invalid amount range are genuine editable draft states;
+  preserve them across recreation without applying them. Explain invalid bounds
+  beside the amount controls and disable Apply until corrected. Returning from
+  editing refreshes the applied query without resetting the draft.
 
 ## Trend metric semantics
 

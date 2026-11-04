@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -15,6 +16,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -57,10 +59,20 @@ import java.time.LocalDateTime
 @Composable
 fun BoxWithConstraintsScope.EditPlannedScreen(screen: EditPlannedScreen) {
     val viewModel: EditPlannedViewModel = screenScopedViewModel()
+    val restoration = com.ivy.design.system.rememberProcessRestoration("planned-draft", viewModel::saveDraft)
     val uiState = viewModel.uiState()
+    val modalsResolved = com.ivy.legacy.ui.rememberEditorModalRestoration(viewModel.editorModals, viewModel.ready, uiState.currency,
+        uiState.accounts, uiState.categories)
     LaunchedEffect(Unit) {
-        viewModel.start(screen)
+        viewModel.start(screen, restoration.payload)
     }
+
+    if (!viewModel.ready || !modalsResolved) {
+        com.ivy.design.system.JvyEditorLoading(stringResource(R.string.planned_payments_inline), viewModel.loadError,
+            viewModel::closeScreen, { viewModel.start(screen, restoration.payload) })
+        return
+    }
+    androidx.compose.runtime.SideEffect { restoration.consumed = true }
 
     UI(
         screen = screen,
@@ -76,12 +88,12 @@ fun BoxWithConstraintsScope.EditPlannedScreen(screen: EditPlannedScreen) {
 @Suppress("LongMethod")
 @ExperimentalFoundationApi
 @Composable
-private fun BoxWithConstraintsScope.UI(
+internal fun BoxWithConstraintsScope.UI(
     screen: EditPlannedScreen,
     state: EditPlannedScreenState,
     onEvent: (EditPlannedScreenEvent) -> Unit,
 ) {
-    var titleTextFieldValue by remember(state.initialTitle) {
+    var titleTextFieldValue by rememberSaveable(screen.plannedPaymentRuleId, state.initialTitle, stateSaver = TextFieldValue.Saver) {
         mutableStateOf(
             TextFieldValue(
                 state.initialTitle.orEmpty()
@@ -90,17 +102,10 @@ private fun BoxWithConstraintsScope.UI(
     }
     val titleFocus = FocusRequester()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .verticalScroll(rememberScrollState())
-    ) {
-        Spacer(Modifier.height(16.dp))
-
+    val editorHeader: @Composable () -> Unit = {
         Toolbar(
             type = state.transactionType,
+            enabled = !state.saving,
             initialTransactionId = screen.plannedPaymentRuleId,
             onDeleteTrnModal = {
                 onEvent(EditPlannedScreenEvent.OnDeleteTransactionModalVisible(true))
@@ -111,9 +116,8 @@ private fun BoxWithConstraintsScope.UI(
             showDuplicateButton = false,
             onDuplicate = {}
         )
-
-        Spacer(Modifier.height(32.dp))
-
+    }
+    val editorContent: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit = {
         Title(
             type = state.transactionType,
             titleFocus = titleFocus,
@@ -191,11 +195,12 @@ private fun BoxWithConstraintsScope.UI(
             onAddDescription = { onEvent(EditPlannedScreenEvent.OnDescriptionModalVisible(true)) },
             onEditDescription = { onEvent(EditPlannedScreenEvent.OnDescriptionModalVisible(true)) }
         )
-
-        Spacer(Modifier.height(600.dp)) // scroll hack
     }
 
+    var initialFlowStarted by rememberSaveable(screen.plannedPaymentRuleId) { mutableStateOf(false) }
     onScreenStart {
+        if (!initialFlowStarted) {
+        initialFlowStarted = true
         if (screen.plannedPaymentRuleId == null) {
             // Create mode
             if (screen.mandatoryFilled()) {
@@ -215,9 +220,13 @@ private fun BoxWithConstraintsScope.UI(
                 onEvent(EditPlannedScreenEvent.OnTransactionTypeModalVisible(true))
             }
         }
+        }
     }
 
     EditBottomSheet(
+        Header = editorHeader,
+        FormContent = editorContent,
+        saveError = state.saveError,
         initialTransactionId = screen.plannedPaymentRuleId,
         type = state.transactionType,
         accounts = state.accounts,
@@ -227,10 +236,9 @@ private fun BoxWithConstraintsScope.UI(
         currency = state.currency,
 
         ActionButton = {
-            ModalSet(
-                modifier = Modifier.testTag("editPlannedScreen_set")
-            ) {
-                onEvent(EditPlannedScreenEvent.OnSave())
+            com.ivy.design.system.JvyButton({ onEvent(EditPlannedScreenEvent.OnSave()) },
+                Modifier.fillMaxWidth().testTag("editPlannedScreen_set"), enabled = !state.saving) {
+                androidx.compose.material3.Text(stringResource(if (screen.plannedPaymentRuleId == null) R.string.add_payment else R.string.save))
             }
         },
 
@@ -316,21 +324,21 @@ private fun BoxWithConstraintsScope.UI(
 
     CategoryModal(
         modal = state.categoryModalData,
-        onCreateCategory = { onEvent(EditPlannedScreenEvent.OnCreateCategory(it)) },
-        onEditCategory = {
-            onEvent(EditPlannedScreenEvent.OnEditCategory(it))
+        onCreateCategory = { data, complete -> onEvent(EditPlannedScreenEvent.OnCreateCategory(data, complete)) },
+        onEditCategory = { category, complete ->
+            onEvent(EditPlannedScreenEvent.OnEditCategory(category, complete))
         },
         dismiss = {
-            onEvent(EditPlannedScreenEvent.OnCategoryModalDataChanged(null))
+            onEvent(EditPlannedScreenEvent.OnCategoryModalDataChanged(null, expectedId = state.categoryModalData?.id))
         }
     )
 
     AccountModal(
         modal = state.accountModalData,
-        onCreateAccount = { onEvent(EditPlannedScreenEvent.OnCreateAccount(it)) },
-        onEditAccount = { _, _ -> },
+        onCreateAccount = { data, complete -> onEvent(EditPlannedScreenEvent.OnCreateAccount(data, complete)) },
+        onEditAccount = { _, _, complete -> complete(Result.failure(IllegalStateException("Editing is unavailable in this create-only context."))) },
         dismiss = {
-            onEvent(EditPlannedScreenEvent.OnAccountModalDataChanged(null))
+            onEvent(EditPlannedScreenEvent.OnAccountModalDataChanged(null, expectedId = state.accountModalData?.id))
         }
     )
 

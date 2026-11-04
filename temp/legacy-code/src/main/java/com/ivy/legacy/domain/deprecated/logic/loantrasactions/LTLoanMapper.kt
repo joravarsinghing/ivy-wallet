@@ -18,7 +18,8 @@ import java.util.UUID
 import javax.inject.Inject
 
 class LTLoanMapper @Inject constructor(
-    private val ltCore: LoanTransactionsCore
+    private val ltCore: LoanTransactionsCore,
+    private val timeConverter: com.ivy.base.time.TimeConverter,
 ) {
 
     suspend fun createAssociatedLoanTransaction(data: CreateLoanData, loanId: UUID) {
@@ -30,6 +31,7 @@ class LTLoanMapper @Inject constructor(
                 loanType = data.type,
                 selectedAccountId = data.account?.id,
                 title = data.name,
+                time = with(timeConverter) { data.dateTime.toUTC() },
                 isLoanRecord = false,
                 loanRecordType = LoanRecordType.DECREASE
             )
@@ -39,9 +41,14 @@ class LTLoanMapper @Inject constructor(
     suspend fun editAssociatedLoanTransaction(
         loan: Loan,
         createLoanTransaction: Boolean = false,
-        transaction: Transaction?
+        @Suppress("UNUSED_PARAMETER") transaction: Transaction?
     ) {
         computationThread {
+            // The caller's UI snapshot may predate a linked entry added by another editor.
+            val current = ltCore.fetchLoanTransaction(loan.id)
+            val original = ltCore.fetchLoan(loan.id)
+            val time = if (current != null && original?.dateTime == loan.dateTime) current.dateTime
+                else loan.dateTime?.let { with(timeConverter) { it.toUTC() } } ?: current?.dateTime
             ltCore.updateAssociatedTransaction(
                 createTransaction = createLoanTransaction,
                 loanId = loan.id,
@@ -50,8 +57,8 @@ class LTLoanMapper @Inject constructor(
                 selectedAccountId = loan.accountId,
                 title = loan.name,
                 isLoanRecord = false,
-                transaction = transaction,
-                time = transaction?.dateTime,
+                transaction = current,
+                time = time,
                 loanRecordType = LoanRecordType.DECREASE
             )
         }

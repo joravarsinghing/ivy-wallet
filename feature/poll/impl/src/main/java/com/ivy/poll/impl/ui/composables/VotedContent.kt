@@ -21,7 +21,6 @@ import com.ivy.design.system.colors.IvyColors
 
 @Composable
 fun VotedContent(
-  onBackClick: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   Column(
@@ -42,11 +41,5 @@ fun VotedContent(
       text = "Thanks for voting!",
       style = MaterialTheme.typography.headlineSmall,
     )
-    Spacer(Modifier.height(48.dp))
-    Button(
-      onClick = onBackClick,
-    ) {
-      Text("Go back")
-    }
   }
 }

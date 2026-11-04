@@ -1,24 +1,17 @@
 package com.ivy.legacy.utils
 
-import com.google.firebase.crashlytics.FirebaseCrashlytics
-
+/** Compatibility shims only. No diagnostics SDK, network or potentially private logs. */
+@Suppress("UNUSED_PARAMETER")
 fun sendToCrashlytics(
     msg: String
-) {
-    DeveloperException(msg).sendToCrashlytics(msg)
-}
+) = Unit
 
+@Suppress("UNUSED_PARAMETER")
 fun Exception.sendToCrashlytics(
     clarification: String? = null
-) {
-    clarification?.let {
-        logToCrashlytics("Log: $it")
-    }
-    FirebaseCrashlytics.getInstance().recordException(this)
-}
+) = Unit
 
-fun logToCrashlytics(msg: String) {
-    FirebaseCrashlytics.getInstance().log(msg)
-}
+@Suppress("UNUSED_PARAMETER")
+fun logToCrashlytics(msg: String) = Unit
 
 class DeveloperException(msg: String) : Exception(msg)

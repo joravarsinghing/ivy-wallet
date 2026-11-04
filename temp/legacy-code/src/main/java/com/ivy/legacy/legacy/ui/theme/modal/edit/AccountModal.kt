@@ -1,56 +1,57 @@
 package com.ivy.wallet.ui.theme.modal.edit
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.BoxWithConstraintsScope
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.ivy.design.l0_system.UI
-import com.ivy.design.l0_system.style
+import com.ivy.data.repository.AccountWriteConflict
+import com.ivy.design.system.EditorSubmission
+import com.ivy.design.system.JvyButton
+import com.ivy.design.system.JvyOutlinedButton
+import com.ivy.design.system.JvyTypography
 import com.ivy.domain.legacy.ui.IvyColorPicker
 import com.ivy.legacy.IvyWalletPreview
 import com.ivy.legacy.datamodel.Account
-import com.ivy.legacy.utils.isNotNullOrBlank
-import com.ivy.legacy.utils.onScreenStart
 import com.ivy.legacy.utils.selectEndTextFieldValue
-import com.ivy.legacy.utils.toLowerCaseLocal
-import com.ivy.legacy.utils.toUpperCaseLocal
 import com.ivy.ui.R
 import com.ivy.wallet.domain.data.IvyCurrency
 import com.ivy.wallet.domain.deprecated.logic.model.CreateAccountData
-import com.ivy.wallet.ui.theme.Gray
 import com.ivy.wallet.ui.theme.Ivy
 import com.ivy.wallet.ui.theme.components.IvyCheckboxWithText
-import com.ivy.wallet.ui.theme.modal.ChooseIconModal
-import com.ivy.wallet.ui.theme.modal.CurrencyModal
-import com.ivy.wallet.ui.theme.modal.IvyModal
-import com.ivy.wallet.ui.theme.modal.ModalAddSave
-import com.ivy.wallet.ui.theme.modal.ModalAmountSection
-import com.ivy.wallet.ui.theme.modal.ModalTitle
+import com.ivy.wallet.ui.theme.modal.*
 import java.util.UUID
 
-@Deprecated("Old design system. Use `:ivy-design` and Material3")
+fun accountSaveErrorMessage(failure: Throwable): String = when (failure) {
+    is AccountWriteConflict.AlreadySaved -> "This account was already saved. Close this form and review it in Accounts before making changes."
+    is AccountWriteConflict.MissingAccount -> "This account no longer exists. Close this form and choose another account."
+    else -> "Could not save. Your changes are still here. Try again."
+}
+
+fun accountEditorSubmission() = EditorSubmission(terminalFailure = { it is AccountWriteConflict },
+    failureMessage = ::accountSaveErrorMessage)
+
+fun accountSuggestionErrorMessage(failure: Throwable): String = when (failure) {
+    is AccountWriteConflict.AlreadySaved -> "This account was already added. Review it below before making changes."
+    is AccountWriteConflict.MissingAccount -> "That account was removed. Review your accounts before adding it again."
+    else -> accountSaveErrorMessage(failure)
+}
+
+@Deprecated("Old design system. Use :ivy-design and Material3")
 data class AccountModalData(
     val account: Account?,
     val baseCurrency: String,
@@ -58,298 +59,131 @@ data class AccountModalData(
     val adjustBalanceMode: Boolean = false,
     val forceNonZeroBalance: Boolean = false,
     val autoFocusKeyboard: Boolean = true,
-    val id: UUID = UUID.randomUUID()
+    val id: UUID = UUID.randomUUID(),
+    internal val submission: EditorSubmission = accountEditorSubmission(),
 )
 
-@Deprecated("Old design system. Use `:ivy-design` and Material3")
+@Deprecated("Old design system. Use :ivy-design and Material3")
 @Composable
 fun BoxWithConstraintsScope.AccountModal(
     modal: AccountModalData?,
-    onCreateAccount: (CreateAccountData) -> Unit,
-    onEditAccount: (Account, balance: Double) -> Unit,
+    onCreateAccount: (CreateAccountData, (Result<Unit>) -> Unit) -> Unit,
+    onEditAccount: (Account, Double, (Result<Unit>) -> Unit) -> Unit,
     dismiss: () -> Unit,
+    submission: EditorSubmission = modal?.submission ?: remember { accountEditorSubmission() },
 ) {
     val account = modal?.account
-    var nameTextFieldValue by remember(modal) {
-        mutableStateOf(selectEndTextFieldValue(account?.name))
+    val key = modal?.id?.toString()
+    val latestId by rememberUpdatedState(modal?.id)
+    var name by rememberSaveable(key, stateSaver = TextFieldValue.Saver) { mutableStateOf(selectEndTextFieldValue(account?.name)) }
+    var color by rememberSaveable(key, stateSaver = Saver<Color, Int>(save = { it.toArgb() }, restore = { Color(it) })) {
+        mutableStateOf(account?.color?.let(::Color) ?: Ivy)
     }
-    var color by remember(modal) {
-        mutableStateOf(account?.color?.let { Color(it) } ?: Ivy)
+    var amount by rememberSaveable(key) { mutableStateOf(modal?.balance ?: 0.0) }
+    var currency by rememberSaveable(key) { mutableStateOf(account?.currency ?: modal?.baseCurrency.orEmpty()) }
+    var icon by rememberSaveable(key) { mutableStateOf(account?.icon) }
+    var include by rememberSaveable(key) { mutableStateOf(account?.includeInBalance ?: true) }
+    val terminalConflict = submission.requiresReview
+    var amountVisible by rememberSaveable(key) { mutableStateOf(false) }
+    var currencyVisible by rememberSaveable(key) { mutableStateOf(false) }
+    var iconVisible by rememberSaveable(key) { mutableStateOf(false) }
+    var adjustPickerOpened by rememberSaveable(key) { mutableStateOf(false) }
+    fun editableNow() = !submission.saving && !submission.requiresReview
+    val editable = editableNow()
+    fun valid(target: Double) = name.text.isNotBlank() && currency.isNotBlank() && target.isFinite() &&
+        (modal?.forceNonZeroBalance != true || target > 0)
+    fun submit(target: Double) {
+        if (!editableNow() || !valid(target)) return
+        val session = modal?.id ?: return
+        if (latestId != session) return
+        submission.submit({ complete ->
+            val acknowledged: (Result<Unit>) -> Unit = { result ->
+                complete(result)
+            }
+            if (account == null) {
+                onCreateAccount(CreateAccountData(name.text.trim(), currency, color, icon, target, include, session), acknowledged)
+            } else {
+                onEditAccount(account.copy(name = name.text.trim(), currency = currency, color = color.toArgb(),
+                    icon = icon, includeInBalance = include), target, acknowledged)
+            }
+        }, onSuccess = { if (latestId == session) dismiss() })
     }
-    var amount by remember(modal) {
-        mutableStateOf(modal?.balance ?: 0.0)
+    LaunchedEffect(modal?.id) {
+        if (modal?.adjustBalanceMode == true && !adjustPickerOpened && editableNow()) {
+            adjustPickerOpened = true
+            amountVisible = true
+        }
     }
-    var currencyCode by remember(modal) {
-        mutableStateOf(account?.currency ?: modal?.baseCurrency ?: "")
-    }
-    var icon by remember(modal) {
-        mutableStateOf(account?.icon)
-    }
-    var includeInBalance by remember(modal) {
-        mutableStateOf(account?.includeInBalance ?: true)
-    }
-
-    var amountModalVisible by remember { mutableStateOf(false) }
-    var currencyModalVisible by remember { mutableStateOf(false) }
-    var chooseIconModalVisible by remember(modal) {
-        mutableStateOf(false)
-    }
-
-    val forceNonZeroBalance = modal?.forceNonZeroBalance ?: false
-
     IvyModal(
-        id = modal?.id,
-        visible = modal != null,
-        dismiss = dismiss,
-        shiftIfKeyboardShown = false,
+        id = modal?.id, visible = modal != null,
+        title = stringResource(if (account == null) R.string.new_account else R.string.edit_account),
+        hasUnsavedChanges = !terminalConflict && (name.text != account?.name.orEmpty() || amount != (modal?.balance ?: 0.0) ||
+            currency != (account?.currency ?: modal?.baseCurrency.orEmpty()) || color.toArgb() != (account?.color ?: Ivy.toArgb()) ||
+            icon != account?.icon || include != (account?.includeInBalance ?: true)),
+        dismiss = dismiss, dismissEnabled = !submission.saving, shiftIfKeyboardShown = false,
         PrimaryAction = {
-            ModalAddSave(
-                item = modal?.account,
-                enabled = nameTextFieldValue.text.isNotNullOrBlank() && (!forceNonZeroBalance || amount > 0)
-            ) {
-                save(
-                    account = account,
-                    nameTextFieldValue = nameTextFieldValue,
-                    currency = currencyCode,
-                    color = color,
-                    icon = icon,
-                    amount = amount,
-                    includeInBalance = includeInBalance,
-
-                    onCreateAccount = onCreateAccount,
-                    onEditAccount = onEditAccount,
-                    dismiss = dismiss
-                )
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
+                if (submission.saving) {
+                    LinearProgressIndicator(Modifier.fillMaxWidth())
+                    Text(stringResource(R.string.jvy_saving), Modifier.fillMaxWidth().padding(vertical = 8.dp), style = JvyTypography.Supporting)
+                }
+                submission.error?.let {
+                    Text(it, Modifier.fillMaxWidth().padding(vertical = 8.dp).semantics { liveRegion = LiveRegionMode.Polite },
+                        color = MaterialTheme.colorScheme.error, style = JvyTypography.Supporting)
+                }
+                if (terminalConflict) JvyButton(dismiss) { Text(stringResource(R.string.done)) }
+                else ModalAddSave(item = account, enabled = editable && valid(amount)) { submit(amount) }
             }
         }
     ) {
-        onScreenStart {
-            if (modal?.adjustBalanceMode == true) {
-                amountModalVisible = true
-            }
-        }
-
-        Spacer(Modifier.height(32.dp))
-
-        ModalTitle(
-            text = if (modal?.account != null) {
-                stringResource(
-                    R.string.edit_account
-                )
-            } else {
-                stringResource(R.string.new_account)
-            },
-        )
-
-        Spacer(Modifier.height(24.dp))
-
-        IconNameRow(
-            hint = stringResource(R.string.account_name),
-            defaultIcon = R.drawable.ic_custom_account_m,
-            color = color,
-            icon = icon,
-
-            autoFocusKeyboard = modal?.autoFocusKeyboard ?: true,
-
-            nameTextFieldValue = nameTextFieldValue,
-            setNameTextFieldValue = { nameTextFieldValue = it },
-            showChooseIconModal = {
-                chooseIconModalVisible = true
-            }
-        )
-
-        Spacer(Modifier.height(24.dp))
-
-        IvyColorPicker(
-            selectedColor = color,
-            onColorSelected = { color = it }
-        )
-
-        Spacer(modifier = Modifier.height(40.dp))
-
+        IconNameRow(hint = stringResource(R.string.account_name), defaultIcon = R.drawable.ic_custom_account_m,
+            color = color, icon = icon, autoFocusKeyboard = modal?.autoFocusKeyboard ?: true,
+            nameTextFieldValue = name, setNameTextFieldValue = { if (editableNow()) name = it },
+            showChooseIconModal = { if (editableNow()) iconVisible = true }, enabled = editable)
+        Spacer(Modifier.height(16.dp))
+        IvyColorPicker(selectedColor = color, enabled = editable, onColorSelected = { if (editableNow()) color = it })
+        Spacer(Modifier.height(16.dp))
         ModalAmountSection(
+            label = stringResource(R.string.enter_account_balance).uppercase(), currency = currency, amount = amount,
+            amountPaddingTop = 16.dp, amountPaddingBottom = 16.dp, enabled = editable,
             Header = {
                 Spacer(Modifier.height(16.dp))
-
-                AccountCurrency(
-                    currencyCode = currencyCode
-                ) {
-                    currencyModalVisible = true
+                JvyOutlinedButton({ currencyVisible = true }, Modifier.fillMaxWidth().padding(horizontal = 24.dp)
+                    .testTag("account_modal_currency"), enabled = editable) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(currency.uppercase(), style = JvyTypography.AmountSmall)
+                        IvyCurrency.fromCode(currency)?.name?.takeIf(String::isNotEmpty)?.let {
+                            Text(it, style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                IvyCheckboxWithText(
-                    modifier = Modifier
-                        .padding(start = 16.dp)
-                        .align(Alignment.Start),
-                    text = stringResource(R.string.include_account),
-                    checked = includeInBalance
-                ) {
-                    includeInBalance = it
-                }
-            },
-            label = stringResource(R.string.enter_account_balance).uppercase(),
-            currency = currencyCode,
-            amount = amount,
-            amountPaddingTop = 40.dp,
-            amountPaddingBottom = 40.dp,
-        ) {
-            amountModalVisible = true
-        }
-    }
-
-    val amountModalId = remember(modal, amount) {
-        UUID.randomUUID()
-    }
-    AmountModal(
-        id = amountModalId,
-        visible = amountModalVisible,
-        currency = currencyCode,
-        initialAmount = amount,
-        showPlusMinus = true,
-        dismiss = { amountModalVisible = false }
-    ) { newAmount ->
-        amount = newAmount
-
-        if (modal?.adjustBalanceMode == true) {
-            save(
-                account = account,
-                nameTextFieldValue = nameTextFieldValue,
-                currency = currencyCode,
-                color = color,
-                icon = icon,
-                amount = newAmount,
-                includeInBalance = includeInBalance,
-
-                onCreateAccount = onCreateAccount,
-                onEditAccount = onEditAccount,
-                dismiss = dismiss
-            )
-        }
-    }
-
-    val context = LocalContext.current
-    CurrencyModal(
-        title = stringResource(R.string.choose_currency),
-        initialCurrency = IvyCurrency.fromCode(currencyCode),
-        visible = currencyModalVisible,
-        dismiss = { currencyModalVisible = false }
-    ) {
-        currencyCode = it
-
-//        if (IvyCurrency.fromCode(it)?.isCrypto == true) {
-//            if (getCustomIconId(context = context, iconName = it, size = "m") != null) {
-//                icon = it
-//            }
-//        }
-    }
-
-    ChooseIconModal(
-        visible = chooseIconModalVisible,
-        initialIcon = icon ?: "account",
-        color = color,
-        dismiss = { chooseIconModalVisible = false }
-    ) {
-        icon = it
-    }
-}
-
-private fun save(
-    account: Account?,
-    nameTextFieldValue: TextFieldValue,
-    currency: String,
-    color: Color,
-    icon: String?,
-    amount: Double,
-    includeInBalance: Boolean,
-
-    onCreateAccount: (CreateAccountData) -> Unit,
-    onEditAccount: (Account, balance: Double) -> Unit,
-    dismiss: () -> Unit
-) {
-    if (account != null) {
-        onEditAccount(
-            account.copy(
-                name = nameTextFieldValue.text.trim(),
-                currency = currency,
-                includeInBalance = includeInBalance,
-                icon = icon,
-                color = color.toArgb()
-            ),
-            amount
-        )
-    } else {
-        onCreateAccount(
-            CreateAccountData(
-                name = nameTextFieldValue.text.trim(),
-                currency = currency,
-                color = color,
-                icon = icon,
-                balance = amount,
-                includeBalance = includeInBalance
-            )
-        )
-    }
-
-    dismiss()
-}
-
-@Composable
-private fun AccountCurrency(
-    currencyCode: String,
-
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .padding(horizontal = 16.dp)
-            .background(UI.colors.medium, UI.shapes.r4)
-            .clip(UI.shapes.r4)
-            .clickable {
-                onClick()
+                Spacer(Modifier.height(16.dp))
+                IvyCheckboxWithText(text = stringResource(R.string.include_account), checked = include,
+                    modifier = Modifier.padding(start = 16.dp).align(Alignment.Start), enabled = editable) { if (editableNow()) include = it }
             }
-            .padding(vertical = 24.dp)
-            .testTag("account_modal_currency"),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Spacer(Modifier.width(32.dp))
-
-        Text(
-            text = currencyCode.toUpperCaseLocal(),
-            style = UI.typo.b1.style(
-                fontWeight = FontWeight.ExtraBold
-            )
-        )
-
-        Spacer(Modifier.weight(1f))
-
-        val currencyName = IvyCurrency.fromCode(currencyCode)?.name ?: ""
-        Text(
-            text = "-$currencyName".toLowerCaseLocal(),
-            style = UI.typo.b2.style(
-                fontWeight = FontWeight.SemiBold,
-                color = Gray
-            )
-        )
-
-        Spacer(Modifier.width(24.dp))
+        ) { if (editableNow()) amountVisible = true }
+        if (modal?.forceNonZeroBalance == true) {
+            Text("This account needs a balance greater than zero.", Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
+    val amountId = rememberSaveable(key) { UUID.randomUUID().toString() }
+    AmountModal(id = UUID.fromString(amountId), visible = amountVisible, currency = currency, initialAmount = amount,
+        showPlusMinus = true, dismiss = { amountVisible = false }) {
+        amountVisible = false
+        if (editableNow()) {
+            amount = it
+            if (modal?.adjustBalanceMode == true) submit(it)
+        }
+    }
+    CurrencyModal(title = stringResource(R.string.choose_currency), initialCurrency = IvyCurrency.fromCode(currency),
+        visible = currencyVisible, dismiss = { currencyVisible = false }) { if (editableNow()) currency = it }
+    ChooseIconModal(visible = iconVisible, initialIcon = icon ?: "account", color = color,
+        dismiss = { iconVisible = false }) { if (editableNow()) icon = it }
 }
 
-@Preview
-@Composable
-private fun Preview() {
+@Preview @Composable private fun Preview() {
     IvyWalletPreview {
-        AccountModal(
-            modal = AccountModalData(
-                account = null,
-                baseCurrency = "BGN",
-                balance = 0.0
-            ),
-            onCreateAccount = { },
-            onEditAccount = { _, _ -> }
-        ) {
-        }
+        AccountModal(AccountModalData(null, "BGN", 0.0), { _, _ -> }, { _, _, _ -> }, {})
     }
 }

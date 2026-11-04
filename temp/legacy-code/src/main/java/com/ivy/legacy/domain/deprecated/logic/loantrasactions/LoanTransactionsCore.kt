@@ -168,9 +168,8 @@ class LoanTransactionsCore @Inject constructor(
         transaction: Transaction? = null,
         loanRecordType: LoanRecordType
     ) {
-        if (selectedAccountId == null) {
-            return
-        }
+        require(selectedAccountId != null) { "A linked transaction requires an account." }
+        require(amount.isFinite() && amount > 0) { "A positive finite amount is required." }
 
         val transType = if (isLoanRecord && loanRecordType != LoanRecordType.INCREASE) {
             if (loanType == LoanType.BORROW) TransactionType.EXPENSE else TransactionType.INCOME
@@ -200,9 +199,8 @@ class LoanTransactionsCore @Inject constructor(
             )
 
         ioThread {
-            modifiedTransaction.toDomain(transactionMapper)?.let {
-                transactionRepo.save(it)
-            }
+            val mapped = checkNotNull(modifiedTransaction.toDomain(transactionMapper)) { "Could not map the linked transaction." }
+            transactionRepo.save(mapped)
         }
     }
 
@@ -298,7 +296,8 @@ class LoanTransactionsCore @Inject constructor(
                     oldLonRecordConvertedAmount
                 }
             }
-            newConverted
+            com.ivy.wallet.domain.deprecated.logic.loantrasactions.validatedLoanConversion(
+                newLoanRecordCurrency, loanCurrency, newLoanRecordAmount, newConverted)
         }
     }
 
@@ -332,6 +331,10 @@ class LoanTransactionsCore @Inject constructor(
 
     suspend fun fetchLoan(loanId: UUID) = ioThread {
         loanDao.findById(loanId)
+    }
+
+    suspend fun fetchLoanTransaction(loanId: UUID): Transaction? = ioThread {
+        transactionDao.findLoanTransaction(loanId)?.toLegacyDomain()
     }
 
     suspend fun fetchLoanRecordTransaction(loanRecordId: UUID?): Transaction? {

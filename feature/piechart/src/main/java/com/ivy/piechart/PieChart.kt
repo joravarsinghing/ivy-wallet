@@ -61,6 +61,10 @@ fun PieChart(
     modifier: Modifier = Modifier,
     onCategoryClick: (Category?) -> Unit = {}
 ) {
+    if (com.ivy.design.system.LocalFinancialVisibility.current.hidden) {
+        androidx.compose.material3.Text(com.ivy.design.system.FinancialVisibility.REDACTED)
+        return
+    }
     Box(
         modifier = modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center

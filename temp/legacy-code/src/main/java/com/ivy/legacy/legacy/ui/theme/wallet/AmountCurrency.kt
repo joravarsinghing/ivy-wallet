@@ -31,7 +31,7 @@ fun AmountCurrencyB2Row(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = amount.format(currency),
+            text = com.ivy.design.system.financialText(amount.format(currency)),
             style = UI.typo.nB2.style(
                 fontWeight = amountFontWeight,
                 color = textColor
@@ -85,7 +85,7 @@ fun AmountCurrencyB1(
     val text = if (shortAmount) shortenAmount(amount) else amount.format(currency)
     Text(
         modifier = Modifier.testTag("amount_currency_b1"),
-        text = text,
+        text = com.ivy.design.system.financialText(text),
         style = UI.typo.nB1.style(
             fontWeight = amountFontWeight,
             color = textColor
@@ -113,7 +113,7 @@ fun AmountCurrencyH1(
     @SuppressLint("ComposeContentEmitterReturningValues") textColor: Color = UI.colors.pureInverse
 ) {
     Text(
-        text = amount.format(currency),
+        text = com.ivy.design.system.financialText(amount.format(currency)),
         style = UI.typo.nH1.style(
             fontWeight = FontWeight.Bold,
             color = textColor
@@ -140,7 +140,7 @@ fun AmountCurrencyH2Row(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = amount.format(currency),
+            text = com.ivy.design.system.financialText(amount.format(currency)),
             style = UI.typo.nH2.style(
                 fontWeight = FontWeight.Bold,
                 color = textColor
@@ -170,7 +170,7 @@ fun AmountCurrencyCaption(
     textColor: Color = UI.colors.pureInverse
 ) {
     Text(
-        text = amount.format(currency),
+        text = com.ivy.design.system.financialText(amount.format(currency)),
         style = UI.typo.nC.style(
             fontWeight = amountFontWeight,
             color = textColor

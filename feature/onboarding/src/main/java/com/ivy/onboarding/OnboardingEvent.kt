@@ -14,12 +14,14 @@ sealed interface OnboardingEvent {
     data class ImportFinished(val success: Boolean) : OnboardingEvent
     data object StartFresh : OnboardingEvent
     data class SetBaseCurrency(val baseCurrency: IvyCurrency) : OnboardingEvent
-    data class EditAccount(val account: Account, val newBalance: Double) : OnboardingEvent
-    data class CreateAccount(val data: CreateAccountData) : OnboardingEvent
+    data class EditAccount(val account: Account, val newBalance: Double, val onResult: (Result<Unit>) -> Unit) : OnboardingEvent
+    data class CreateAccount(val data: CreateAccountData, val onResult: (Result<Unit>) -> Unit) : OnboardingEvent
+    data class CreateAccountSuggestion(val data: CreateAccountData, val onResult: (Result<Unit>) -> Unit) : OnboardingEvent
+    data class CreateCategorySuggestion(val data: CreateCategoryData, val onResult: (Result<Unit>) -> Unit) : OnboardingEvent
     data object OnAddAccountsDone : OnboardingEvent
     data object OnAddAccountsSkip : OnboardingEvent
-    data class EditCategory(val updatedCategory: Category) : OnboardingEvent
-    data class CreateCategory(val data: CreateCategoryData) : OnboardingEvent
+    data class EditCategory(val updatedCategory: Category, val onResult: (Result<Unit>) -> Unit = {}) : OnboardingEvent
+    data class CreateCategory(val data: CreateCategoryData, val onResult: (Result<Unit>) -> Unit = {}) : OnboardingEvent
     data object OnAddCategoriesDone : OnboardingEvent
     data object OnAddCategoriesSkip : OnboardingEvent
 }

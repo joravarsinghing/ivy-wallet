@@ -2,14 +2,17 @@ package com.ivy.legacy.ui.component.transaction
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -38,60 +41,48 @@ fun HistoryDateDivider(
 ) {
     Spacer(Modifier.height(spacerTop))
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Spacer(Modifier.width(24.dp))
-
-        val today = dateNowLocal()
-
-        Column {
-            Text(
-                text = date.formatLocal(
-                    if (today.year == date.year) "MMMM dd." else "MMM dd. yyy"
-                ),
-                style = UI.typo.b1.style(
-                    fontWeight = FontWeight.ExtraBold
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+        val stacked = maxWidth < 300.dp || LocalDensity.current.fontScale > 1.3f
+        val dateLabel: @Composable () -> Unit = {
+            val today = dateNowLocal()
+            Column {
+                Text(
+                    text = date.formatLocal(
+                        if (today.year == date.year) "MMMM dd." else "MMM dd. yyy"
+                    ),
+                    style = UI.typo.b1.style(fontWeight = FontWeight.ExtraBold)
                 )
-            )
-
-            Spacer(Modifier.height(4.dp))
-
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = when (date) {
+                        today -> stringResource(R.string.today)
+                        today.minusDays(1) -> stringResource(R.string.yesterday)
+                        today.plusDays(1) -> stringResource(R.string.tomorrow)
+                        else -> date.formatLocal("EEEE")
+                    },
+                    style = UI.typo.c.style(fontWeight = FontWeight.Bold)
+                )
+            }
+        }
+        val cashflow = income - expenses
+        val amountLabel: @Composable () -> Unit = {
             Text(
-                text = when (date) {
-                    today -> {
-                        stringResource(R.string.today)
-                    }
-                    today.minusDays(1) -> {
-                        stringResource(R.string.yesterday)
-                    }
-                    today.plusDays(1) -> {
-                        stringResource(R.string.tomorrow)
-                    }
-                    else -> {
-                        date.formatLocal("EEEE")
-                    }
-                },
-                style = UI.typo.c.style(
-                    fontWeight = FontWeight.Bold
+                text = com.ivy.design.system.financialText("${cashflow.format(baseCurrency)} $baseCurrency"),
+                style = UI.typo.nB2.style(
+                    fontWeight = FontWeight.Bold,
+                    color = if (!com.ivy.design.system.LocalFinancialVisibility.current.hidden && cashflow > 0) Green else Gray
                 )
             )
         }
-
-        Spacer(Modifier.weight(1f))
-
-        val cashflow = income - expenses
-        Text(
-            text = "${cashflow.format(baseCurrency)} $baseCurrency",
-            style = UI.typo.nB2.style(
-                fontWeight = FontWeight.Bold,
-                color = if (cashflow > 0) Green else Gray
-            )
-        )
-
-        Spacer(Modifier.width(32.dp))
+        if (stacked) {
+            Column { dateLabel(); Spacer(Modifier.height(8.dp)); amountLabel() }
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) { dateLabel() }
+                Spacer(Modifier.width(16.dp))
+                amountLabel()
+            }
+        }
     }
 
     Spacer(Modifier.height(4.dp))

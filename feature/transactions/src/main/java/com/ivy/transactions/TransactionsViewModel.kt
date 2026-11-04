@@ -1,5 +1,8 @@
 package com.ivy.transactions
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableDoubleStateOf
@@ -102,8 +105,11 @@ class TransactionsViewModel @Inject constructor(
     private val tagRepository: TagRepository,
     private val timeProvider: TimeProvider,
     private val timeConverter: TimeConverter,
-    private val features: Features
+    private val features: Features,
+    private val restoredTransactionDao: com.ivy.data.db.dao.read.TransactionDao,
 ) : ComposeViewModel<TransactionsState, TransactionsEvent>() {
+
+    val editorModals = com.ivy.legacy.ui.EditorModalHost()
 
     private val period = mutableStateOf(ivyContext.selectedPeriod)
     private val categories = mutableStateOf<ImmutableList<Category>>(persistentListOf())
@@ -315,10 +321,11 @@ class TransactionsViewModel @Inject constructor(
             is TransactionsEvent.EditAccount -> editAccount(
                 event.screen,
                 event.account,
-                event.newBalance
+                event.newBalance,
+                event.onResult
             )
 
-            is TransactionsEvent.EditCategory -> editCategory(event.updatedCategory)
+            is TransactionsEvent.EditCategory -> editCategory(event.updatedCategory, event.onResult)
             is TransactionsEvent.NextMonth -> nextMonth(event.screen)
             is TransactionsEvent.PayOrGet -> payOrGet(event.screen, event.transaction)
             is TransactionsEvent.PreviousMonth -> previousMonth(event.screen)
@@ -806,10 +813,11 @@ class TransactionsViewModel @Inject constructor(
         choosePeriodModal.value = data
     }
 
-    private fun editCategory(updatedCategory: Category) {
+    private fun editCategory(updatedCategory: Category, onResult: (Result<Unit>) -> Unit) {
+        val entry = nav.currentEntryId
         viewModelScope.launch {
-            categoryCreator.editCategory(updatedCategory) {
-                category.value = it
+            categoryCreator.editCategory(updatedCategory, onResult) {
+                if (nav.currentEntryId == entry) category.value = it
             }
         }
     }
@@ -818,9 +826,12 @@ class TransactionsViewModel @Inject constructor(
         screen: TransactionsScreen,
         account: LegacyAccount,
         newBalance: Double,
+        onResult: (Result<Unit>) -> Unit,
     ) {
+        val entry = nav.currentEntryId
         viewModelScope.launch {
-            accountCreator.editAccount(account, newBalance) {
+            accountCreator.editAccount(account, newBalance, onResult) {
+                if (nav.currentEntryId != entry) return@editAccount
                 start(
                     screen = screen,
                     timePeriod = period.value,
@@ -885,6 +896,12 @@ class TransactionsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            modalRestorationReady = false
+            val screen = screen.restoredTransactionIds?.let { ids ->
+                screen.copy(transactions = ioThread {
+                    restoredTransactionDao.findByIds(ids).filterNot { it.isDeleted }.map { it.toLegacyDomain() }
+                })
+            } ?: screen
             period.value = timePeriod ?: ivyContext.selectedPeriod
 
             val baseCurrencyValue = baseCurrencyAct(Unit)
@@ -906,12 +923,12 @@ class TransactionsViewModel @Inject constructor(
                     initForAccount(screen.accountId!!)
                 }
 
-                screen.categoryId != null && screen.transactions.isEmpty() -> {
+                screen.categoryId != null && screen.transactions.isEmpty() && screen.restoredTransactionIds == null -> {
                     initForCategory(screen.categoryId!!, screen.accountIdFilterList)
                 }
                 // unspecifiedCategory==false is explicitly checked to accommodate for a temp
                 // AccountTransfers Category during Reports Screen
-                screen.categoryId != null && screen.transactions.isNotEmpty() &&
+                screen.categoryId != null && (screen.transactions.isNotEmpty() || screen.restoredTransactionIds != null) &&
                         screen.unspecifiedCategory == false -> {
                     initForCategoryWithTransactions(
                         screen.categoryId!!,
@@ -920,7 +937,7 @@ class TransactionsViewModel @Inject constructor(
                     )
                 }
 
-                screen.unspecifiedCategory == true && screen.transactions.isNotEmpty() -> {
+                screen.unspecifiedCategory == true && (screen.transactions.isNotEmpty() || screen.restoredTransactionIds != null) -> {
                     initForAccountTransfersCategory(
                         screen.accountIdFilterList,
                         screen.transactions
@@ -933,6 +950,10 @@ class TransactionsViewModel @Inject constructor(
 
                 else -> error("no id provided")
             }
+            modalRestorationReady = true
         }
     }
+
+    var modalRestorationReady by androidx.compose.runtime.mutableStateOf(false)
+        private set
 }

@@ -1,6 +1,8 @@
 package com.ivy.budgets
 
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -14,6 +16,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,19 +76,21 @@ fun BoxWithConstraintsScope.BudgetModal(
     onCreate: (CreateBudgetData) -> Unit,
     onEdit: (Budget) -> Unit,
     onDelete: (Budget) -> Unit,
+    saving: Boolean = false,
+    saveError: String? = null,
     dismiss: () -> Unit
 ) {
     val initialBudget = modal?.budget
-    var nameTextFieldValue by remember(modal) {
+    var nameTextFieldValue by rememberSaveable(modal?.id?.toString(), stateSaver = androidx.compose.ui.text.input.TextFieldValue.Saver) {
         mutableStateOf(selectEndTextFieldValue(initialBudget?.name))
     }
-    var amount by remember(modal) {
+    var amount by rememberSaveable(modal?.id?.toString()) {
         mutableDoubleStateOf(initialBudget?.amount ?: 0.0)
     }
-    var categoryIds by remember(modal) {
+    var categoryIds by rememberSaveable(modal?.id?.toString(), stateSaver = Saver<List<UUID>, ArrayList<String>>(save = { ArrayList(it.map(UUID::toString)) }, restore = { it.map(UUID::fromString) })) {
         mutableStateOf(modal?.budget?.parseCategoryIds() ?: emptyList())
     }
-    var accountIds by remember(modal) {
+    var accountIds by rememberSaveable(modal?.id?.toString(), stateSaver = Saver<List<UUID>, ArrayList<String>>(save = { ArrayList(it.map(UUID::toString)) }, restore = { it.map(UUID::fromString) })) {
         mutableStateOf(modal?.budget?.parseAccountIds() ?: emptyList())
     }
 
@@ -94,11 +100,15 @@ fun BoxWithConstraintsScope.BudgetModal(
     IvyModal(
         id = modal?.id,
         visible = modal != null,
+        title = stringResource(if (initialBudget != null) R.string.edit_budget else R.string.create_budget),
+        hasUnsavedChanges = nameTextFieldValue.text != initialBudget?.name.orEmpty() ||
+            amount != (initialBudget?.amount ?: 0.0) || categoryIds != initialBudget?.parseCategoryIds().orEmpty(),
         dismiss = dismiss,
+        dismissEnabled = !saving,
         PrimaryAction = {
             ModalAddSave(
                 item = modal?.budget,
-                enabled = nameTextFieldValue.text.isNotNullOrBlank() && amount > 0.0
+                enabled = !saving && nameTextFieldValue.text.isNotNullOrBlank() && amount.isFinite() && amount > 0.0
             ) {
                 if (initialBudget != null) {
                     onEdit(
@@ -120,37 +130,18 @@ fun BoxWithConstraintsScope.BudgetModal(
                     )
                 }
 
-                dismiss()
             }
         }
     ) {
-        Spacer(Modifier.height(32.dp))
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            ModalTitle(
-                text = if (modal?.budget != null) {
-                    stringResource(
-                        R.string.edit_budget
-                    )
-                } else {
-                    stringResource(R.string.create_budget)
-                }
-            )
-
-            if (initialBudget != null) {
-                Spacer(Modifier.weight(1f))
-
-                ModalDelete {
-                    deleteModalVisible = true
-                }
-
-                Spacer(Modifier.width(24.dp))
+        saveError?.let { androidx.compose.material3.Text(it,
+            Modifier.padding(horizontal = 24.dp), color = androidx.compose.material3.MaterialTheme.colorScheme.error) }
+        if (saving) androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (initialBudget != null) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.End) {
+                ModalDelete { deleteModalVisible = true }
             }
+            Spacer(Modifier.height(8.dp))
         }
-
-        Spacer(Modifier.height(24.dp))
 
         ModalNameInput(
             hint = stringResource(R.string.budget_name),
@@ -222,7 +213,7 @@ private fun CategoriesRow(
     onSetBudgetCategoryIds: (List<UUID>) -> Unit,
 ) {
     Text(
-        modifier = Modifier.padding(start = 32.dp),
+        modifier = Modifier.padding(start = 24.dp),
         text = determineBudgetType(budgetCategoryIds.size),
         style = UI.typo.b1.style(
             fontWeight = FontWeight.Medium,

@@ -15,6 +15,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.ivy.ui.R
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -69,11 +71,15 @@ private fun BoxWithConstraintsScope.UI(
         amountModalVisible = true
     }
 
-    ColumnRoot {
+    var addRateModalVisible by remember { mutableStateOf(false) }
+    com.ivy.design.system.JvySubsectionScaffold(stringResource(R.string.exchange_rates), { nav.back() }, footer = {
+        com.ivy.design.system.JvyPrimaryAction(stringResource(R.string.add_manual_exchange_rate), { addRateModalVisible = true })
+    }) {
+      ColumnRoot(statusBarPadding = false, navigationBarsPadding = false) {
         SpacerVer(height = 16.dp)
         SearchField(onSearch = { onEvent(RatesEvent.Search(it)) })
         SpacerVer(height = 4.dp)
-        LazyColumn {
+        LazyColumn(Modifier.weight(1f)) {
             ratesSection(text = "Manual")
             items(items = state.manual) { rate ->
                 SpacerVer(height = 4.dp)
@@ -93,19 +99,12 @@ private fun BoxWithConstraintsScope.UI(
                 )
             }
             item(key = "last_item_spacer") {
-                SpacerVer(height = 480.dp)
+                SpacerVer(height = 16.dp)
             }
         }
     }
 
-    var addRateModalVisible by remember {
-        mutableStateOf(false)
     }
-
-    ExchangeRatesBottomBar(
-        onClose = { nav.back() },
-        onAddRate = { addRateModalVisible = true }
-    )
 
     AddRateModal(
         visible = addRateModalVisible,

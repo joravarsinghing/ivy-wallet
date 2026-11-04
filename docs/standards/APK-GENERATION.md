@@ -53,7 +53,7 @@ pwsh -NoProfile -File ./scripts/build-jvy-apk.ps1 -Variant release -Bump minor
 
 The script selects `gradlew.bat` on Windows and `gradlew` elsewhere. It locks version allocation, refuses artifact collisions, and only persists the new baseline after a nonempty APK and checksum manifest exist. `scripts/test-build-jvy-apk.ps1` exercises these contracts with an isolated fake Gradle launcher (no installable APKs).
 
-Numbered APK builds skip Crashlytics mapping uploads for both supported variants. Building an APK does not authorize publishing to Firebase, an app store or a release service.
+The app no longer includes Firebase diagnostics or mapping-upload tasks. Building an APK does not authorize publishing to an app store or a release service.
 
 The script:
 

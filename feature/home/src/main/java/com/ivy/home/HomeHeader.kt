@@ -309,7 +309,7 @@ private fun IncomeExpenses(
             percentVisible = percentExpanded,
             icon = R.drawable.ic_income,
             backgroundGradient = GradientGreen,
-            textColor = White,
+            textColor = com.ivy.wallet.ui.theme.Black,
             label = stringResource(R.string.income),
             currency = currency,
             amount = monthlyIncome,

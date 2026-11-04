@@ -86,9 +86,32 @@ class LoanDetailsViewModel @Inject constructor(
     private val loanModalData = mutableStateOf<LoanModalData?>(null)
     private val loanRecordModalData = mutableStateOf<LoanRecordModalData?>(null)
     private val waitModalVisible = mutableStateOf(false)
+    private val operationError = mutableStateOf<String?>(null)
+    private var deleting = false
     private val isDeleteModalVisible = mutableStateOf(false)
     private var dateTime = mutableStateOf<Instant>(timeProvider.utcNow())
     lateinit var screen: LoanDetailsScreen
+    private var startedEntry: UUID? = null
+    private var startedLoan: UUID? = null
+    private var loadGeneration = 0L
+    private var loadJob: kotlinx.coroutines.Job? = null
+    private val loading = mutableStateOf(false)
+    val modalRestorationReady get() = loan.value != null && !loading.value && startedEntry == nav.currentEntryId && startedLoan == screen.loanId
+    fun saveModal(): List<String>? = loan.value?.let { current ->
+        com.ivy.loans.LoanEditorRestoration.save(loanModalData.value, current, loanRecordModalData.value,
+            displayLoanRecords.value.firstOrNull { it.loanRecord.id == loanRecordModalData.value?.loanRecord?.id }?.loanRecord,
+            dateTime.value)
+    }
+    fun restoreModal(payload: List<String>): Boolean {
+        if (loanModalData.value != null || loanRecordModalData.value != null) return true
+        val current = loan.value ?: return false
+        val recovered = com.ivy.loans.LoanEditorRestoration.restore(payload, baseCurrency.value, listOf(current),
+            displayLoanRecords.value.map { it.loanRecord }, accounts.value) ?: return false
+        loanModalData.value = recovered.loan
+        loanRecordModalData.value = recovered.record
+        dateTime.value = recovered.date
+        return true
+    }
 
     @Composable
     override fun uiState(): LoanDetailsScreenState {
@@ -109,6 +132,8 @@ class LoanDetailsViewModel @Inject constructor(
             loanModalData = loanModalData.value,
             loanRecordModalData = loanRecordModalData.value,
             waitModalVisible = waitModalVisible.value,
+            operationError = operationError.value,
+            loading = loading.value,
             isDeleteModalVisible = isDeleteModalVisible.value,
             dateTime = dateTime.value
         )
@@ -137,11 +162,11 @@ class LoanDetailsViewModel @Inject constructor(
             }
 
             is LoanRecordModalEvent.OnCreateLoanRecord -> {
-                createLoanRecord(event.loanRecordData)
+                createLoanRecord(event.loanRecordData, event.onResult)
             }
 
             is LoanRecordModalEvent.OnDeleteLoanRecord -> {
-                deleteLoanRecord(event.loanRecord)
+                deleteLoanRecord(event.loanRecord, event.onResult)
             }
 
             LoanRecordModalEvent.OnDismissLoanRecord -> {
@@ -150,7 +175,7 @@ class LoanDetailsViewModel @Inject constructor(
             }
 
             is LoanRecordModalEvent.OnEditLoanRecord -> {
-                editLoanRecord(event.loanRecordData)
+                editLoanRecord(event.loanRecordData, event.onResult)
             }
 
             is LoanRecordModalEvent.OnChangeDate -> {
@@ -171,7 +196,7 @@ class LoanDetailsViewModel @Inject constructor(
             }
 
             is LoanModalEvent.OnEditLoanModal -> {
-                editLoan(event.loan, event.createLoanTransaction)
+                editLoan(event.loan, event.createLoanTransaction, event.onResult)
             }
 
             LoanModalEvent.PerformCalculation -> {
@@ -207,6 +232,7 @@ class LoanDetailsViewModel @Inject constructor(
 
     private fun handleLoanDetailsScreenEvents(event: LoanDetailsScreenEvent) {
         when (event) {
+            LoanDetailsScreenEvent.Retry -> load(screen.loanId)
             LoanDetailsScreenEvent.OnAmountClick -> {
                 loanModalData.value = LoanModalData(
                     loan = loan.value,
@@ -237,7 +263,7 @@ class LoanDetailsViewModel @Inject constructor(
             }
 
             is LoanDetailsScreenEvent.OnCreateAccount -> {
-                createAccount(event.data)
+                createAccount(event.data, event.onResult)
             }
 
             else -> {}
@@ -245,262 +271,184 @@ class LoanDetailsViewModel @Inject constructor(
     }
 
     private fun start() {
-        load(loanId = screen.loanId)
+        val entry = nav.currentEntryId
+        if (startedEntry == entry && startedLoan == screen.loanId && loadJob?.isActive == true) return
+        if (startedEntry != entry || startedLoan != screen.loanId) {
+            loanModalData.value = null
+            loanRecordModalData.value = null
+            loan.value = null
+            dateTime.value = timeProvider.utcNow()
+        }
+        startedEntry = entry
+        startedLoan = screen.loanId
+        load(screen.loanId)
     }
 
     private fun load(loanId: UUID) {
-        viewModelScope.launch {
+        val generation = ++loadGeneration
+        val entry = nav.currentEntryId
+        loadJob?.cancel()
+        loading.value = true
+        operationError.value = null
+        loadJob = viewModelScope.launch {
             TestIdlingResource.increment()
-
-            dateTime.value = timeProvider.utcNow()
-
-            defaultCurrencyCode = ioThread {
-                settingsDao.findFirst().currency
-            }.also {
-                baseCurrency.value = it
-            }
-
-            accounts.value = accountsAct(Unit)
-
-            loan.value = loanByIdAct(loanId)
-
-            loan.value?.let { loan ->
-                selectedLoanAccount.value = accounts.value.find {
-                    loan.accountId == it.id
-                }
-
-                selectedLoanAccount.value?.let { acc ->
-                    baseCurrency.value = acc.currency ?: defaultCurrencyCode
-                }
-            }
-
-            computationThread {
-                displayLoanRecords.value =
-                    ioThread { loanRecordDao.findAllByLoanId(loanId = loanId) }.map {
-                        val trans = ioThread {
-                            transactionRepository.findLoanRecordTransaction(
-                                it.id
-                            )
-                        }
-
-                        val account = findAccount(
-                            accounts = accounts.value,
-                            accountId = it.accountId,
-                        )
-
-                        DisplayLoanRecord(
-                            it.toLegacyDomain(),
-                            account = account,
-                            loanRecordTransaction = trans != null,
-                            loanRecordCurrencyCode = account?.currency ?: defaultCurrencyCode,
-                            loanCurrencyCode = selectedLoanAccount.value?.currency
-                                ?: defaultCurrencyCode
-                        )
+            try {
+                val (refreshed, linked) = computationThread {
+                    val walletCurrency = ioThread { settingsDao.findFirst().currency }
+                    val refreshedAccounts = accountsAct(Unit)
+                    val current = loanByIdAct(loanId) ?: throw com.ivy.wallet.domain.deprecated.logic.LoanWriteConflict()
+                    val selected = refreshedAccounts.find { it.id == current.accountId }
+                    val currency = selected?.currency ?: walletCurrency
+                    val records = ioThread { loanRecordDao.findAllByLoanId(loanId) }.map { record ->
+                        val account = refreshedAccounts.find { it.id == record.accountId }
+                        val transaction = ioThread { transactionRepository.findLoanRecordTransaction(record.id) }
+                        DisplayLoanRecord(loanRecord = record.toLegacyDomain(), account = account,
+                            loanRecordTransaction = transaction != null,
+                            loanRecordCurrencyCode = account?.currency ?: walletCurrency, loanCurrencyCode = currency)
                     }.toImmutableList()
-            }
-
-            computationThread {
-                // Using a local variable to calculate the amount and then reassigning to
-                // the State variable to reduce the amount of compose re-draws
-                var amtPaid = 0.0
-                var loanInterestAmtPaid = 0.0
-                displayLoanRecords.value.forEach {
-                    // We do not want to calculate records that increase loan.
-                    if (it.loanRecord.loanRecordType == LoanRecordType.INCREASE) {
-                        return@forEach
+                    var paid = 0.0
+                    var interest = 0.0
+                    var total = current.amount
+                    records.forEach {
+                        val amount = it.loanRecord.convertedAmount ?: it.loanRecord.amount
+                        if (it.loanRecord.loanRecordType == LoanRecordType.INCREASE) total += amount
+                        else if (it.loanRecord.interest) interest += amount else paid += amount
                     }
-                    val convertedAmount = it.loanRecord.convertedAmount ?: it.loanRecord.amount
-                    if (!it.loanRecord.interest) {
-                        amtPaid += convertedAmount
-                    } else {
-                        loanInterestAmtPaid += convertedAmount
-                    }
+                    val transaction = ioThread { transactionRepository.findLoanTransaction(current.id)?.toLegacy(transactionMapper) }
+                    LoanDetailsScreenState(currency, current, records, total, paid, interest, refreshedAccounts,
+                        selected, transaction != null, null, null, false, false, dateTime.value) to transaction
                 }
-
-                amountPaid.doubleValue = amtPaid
-                loanInterestAmountPaid.doubleValue = loanInterestAmtPaid
+                if (generation != loadGeneration || nav.currentEntryId != entry) return@launch
+                baseCurrency.value = refreshed.baseCurrency
+                loan.value = refreshed.loan
+                displayLoanRecords.value = refreshed.displayLoanRecords
+                loanTotalAmount.doubleValue = refreshed.loanTotalAmount
+                amountPaid.doubleValue = refreshed.amountPaid
+                loanInterestAmountPaid.doubleValue = refreshed.loanAmountPaid
+                accounts.value = refreshed.accounts
+                selectedLoanAccount.value = refreshed.selectedLoanAccount
+                associatedTransaction = linked
+                createLoanTransaction.value = linked != null
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
+            } catch (failure: Exception) {
+                if (generation == loadGeneration && nav.currentEntryId == entry) operationError.value =
+                    if (failure is com.ivy.wallet.domain.deprecated.logic.LoanWriteConflict)
+                        "This loan is no longer available. Go back to Loans to review your list."
+                    else "Could not refresh loan details. Your saved data is unchanged. Try again."
+            } finally {
+                if (generation == loadGeneration) { loading.value = false; waitModalVisible.value = false }
+                TestIdlingResource.decrement()
             }
-
-            computationThread {
-                // Calculate total amount of loan borrowed or lent.
-                // That is initial amount + each record that increased the loan.
-                val totalAmount =
-                    displayLoanRecords.value.fold(loan.value?.amount ?: 0.0) { value, record ->
-                        if (record.loanRecord.loanRecordType == LoanRecordType.INCREASE) {
-                            val convertedAmount =
-                                record.loanRecord.convertedAmount ?: record.loanRecord.amount
-                            value + convertedAmount
-                        } else {
-                            value
-                        }
-                    }
-                loanTotalAmount.doubleValue = totalAmount
-            }
-
-            associatedTransaction = ioThread {
-                transactionRepository.findLoanTransaction(loanId = loan.value!!.id).let {
-                    it?.toLegacy(transactionMapper)
-                }
-            }
-
-            associatedTransaction?.let {
-                createLoanTransaction.value = true
-            } ?: run {
-                createLoanTransaction.value = false
-            }
-
-            TestIdlingResource.decrement()
         }
     }
 
-    fun editLoan(loan: Loan, createLoanTransaction: Boolean = false) {
+    fun editLoan(loan: Loan, createLoanTransaction: Boolean = false, onResult: (Result<Unit>) -> Unit) {
+        val entry = nav.currentEntryId
         viewModelScope.launch {
             TestIdlingResource.increment()
-
-            this@LoanDetailsViewModel.loan.value?.let {
-                loanTransactionsLogic.Loan.recalculateLoanRecords(
-                    oldLoanAccountId = it.accountId,
-                    newLoanAccountId = loan.accountId,
-                    loanId = loan.id
-                )
-            }
-
-            loanTransactionsLogic.Loan.editAssociatedLoanTransaction(
-                loan = loan,
-                createLoanTransaction = createLoanTransaction,
-                transaction = associatedTransaction
-            )
-
-            loanCreator.edit(loan) {
-                load(loanId = it.id)
-            }
-
-            TestIdlingResource.decrement()
+            try {
+                loanCreator.edit(loan, onResult, relatedWrite = { existing ->
+                    loanTransactionsLogic.Loan.recalculateLoanRecords(existing.accountId, loan.accountId, loan.id)
+                    loanTransactionsLogic.Loan.editAssociatedLoanTransaction(loan, createLoanTransaction, associatedTransaction)
+                }) { if (nav.currentEntryId == entry) load(it.id) }
+            } finally { TestIdlingResource.decrement() }
         }
     }
 
     private fun deleteLoan() {
-        val loan = loan.value ?: return
-
+        if (deleting) return
+        val current = loan.value ?: return
+        val entry = nav.currentEntryId
+        deleting = true
+        operationError.value = null
         viewModelScope.launch {
             TestIdlingResource.increment()
-
-            loanTransactionsLogic.Loan.deleteAssociatedLoanTransactions(loan.id)
-
-            loanCreator.delete(loan) {
-                // close screen
-                nav.back()
-            }
-
-            TestIdlingResource.decrement()
+            try {
+                loanCreator.delete(current, onResult = { result ->
+                    if (result.isFailure && nav.currentEntryId == entry) operationError.value = "Could not delete. Your loan is still here. Try again."
+                }, relatedWrite = { loanTransactionsLogic.Loan.deleteAssociatedLoanTransactions(current.id) }) {
+                    if (nav.currentEntryId == entry) nav.back()
+                }
+            } finally { deleting = false; TestIdlingResource.decrement() }
         }
     }
 
-    private fun createLoanRecord(data: CreateLoanRecordData) {
-        if (loan.value == null) return
-        val loanId = loan.value?.id ?: return
-        val localLoan = loan.value!!
-
+    private fun createLoanRecord(data: CreateLoanRecordData, onResult: (Result<Unit>) -> Unit) {
+        val current = loan.value
+        if (current == null) { onResult(Result.failure(com.ivy.wallet.domain.deprecated.logic.LoanWriteConflict())); return }
+        val entry = nav.currentEntryId
         viewModelScope.launch {
             TestIdlingResource.increment()
-
-            val modifiedData = data.copy(
-                convertedAmount = loanTransactionsLogic.LoanRecord.calculateConvertedAmount(
-                    data = data,
-                    loanAccountId = localLoan.accountId
-                )
-            )
-
-            val loanRecordUUID = loanRecordCreator.create(
-                loanId = loanId,
-                data = modifiedData
-            ) {
-                load(loanId = loanId)
-            }
-
-            loanRecordUUID?.let {
-                loanTransactionsLogic.LoanRecord.createAssociatedLoanRecordTransaction(
-                    data = modifiedData,
-                    loan = localLoan,
-                    loanRecordId = it
-                )
-            }
-
-            TestIdlingResource.decrement()
+            try {
+                loanRecordCreator.create(current.id, data, onResult, prepare = {
+                    it.copy(convertedAmount = loanTransactionsLogic.LoanRecord.calculateConvertedAmount(it, current.accountId))
+                }, relatedWrite = {
+                    loanTransactionsLogic.LoanRecord.createAssociatedLoanRecordTransaction(current, it.id, data)
+                }) { if (nav.currentEntryId == entry) load(current.id) }
+            } finally { TestIdlingResource.decrement() }
         }
     }
 
-    private fun editLoanRecord(editLoanRecordData: EditLoanRecordData) {
+    private fun editLoanRecord(data: EditLoanRecordData, onResult: (Result<Unit>) -> Unit) {
+        val current = loan.value
+        if (current == null) { onResult(Result.failure(com.ivy.wallet.domain.deprecated.logic.LoanWriteConflict())); return }
+        val entry = nav.currentEntryId
         viewModelScope.launch {
-            val loanRecord = editLoanRecordData.newLoanRecord
             TestIdlingResource.increment()
-
-            val localLoan: Loan = loan.value ?: return@launch
-
-            val convertedAmount = loanTransactionsLogic.LoanRecord.calculateConvertedAmount(
-                loanAccountId = localLoan.accountId,
-                newLoanRecord = editLoanRecordData.newLoanRecord,
-                oldLoanRecord = editLoanRecordData.originalLoanRecord,
-                reCalculateLoanAmount = editLoanRecordData.reCalculateLoanAmount
-            )
-
-            val modifiedLoanRecord =
-                editLoanRecordData.newLoanRecord.copy(convertedAmount = convertedAmount)
-
-            loanTransactionsLogic.LoanRecord.editAssociatedLoanRecordTransaction(
-                loan = localLoan,
-                createLoanRecordTransaction = editLoanRecordData.createLoanRecordTransaction,
-                loanRecord = loanRecord,
-            )
-
-            loanRecordCreator.edit(modifiedLoanRecord) {
-                load(loanId = it.loanId)
-            }
-
-            TestIdlingResource.decrement()
+            try {
+                val converted = try {
+                    loanTransactionsLogic.LoanRecord.calculateConvertedAmount(current.accountId, data.newLoanRecord,
+                        data.originalLoanRecord, data.reCalculateLoanAmount)
+                } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
+                } catch (failure: Exception) { onResult(Result.failure(failure)); return@launch }
+                val modified = data.newLoanRecord.copy(convertedAmount = converted)
+                loanRecordCreator.edit(modified, onResult, relatedWrite = {
+                    loanTransactionsLogic.LoanRecord.editAssociatedLoanRecordTransaction(current, modified, data.createLoanRecordTransaction)
+                }) { if (nav.currentEntryId == entry) load(current.id) }
+            } finally { TestIdlingResource.decrement() }
         }
     }
 
-    private fun deleteLoanRecord(loanRecord: LoanRecord) {
-        val loanId = loan.value?.id ?: return
-
+    private fun deleteLoanRecord(record: LoanRecord, onResult: (Result<Unit>) -> Unit) {
+        val entry = nav.currentEntryId
         viewModelScope.launch {
             TestIdlingResource.increment()
-
-            loanRecordCreator.delete(loanRecord) {
-                load(loanId = loanId)
-            }
-
-            loanTransactionsLogic.LoanRecord.deleteAssociatedLoanRecordTransaction(loanRecordId = loanRecord.id)
-
-            TestIdlingResource.decrement()
+            try {
+                loanRecordCreator.delete(record, onResult, relatedWrite = {
+                    loanTransactionsLogic.LoanRecord.deleteAssociatedLoanRecordTransaction(record.id)
+                }) { if (nav.currentEntryId == entry) load(record.loanId) }
+            } finally { TestIdlingResource.decrement() }
         }
     }
 
     private fun handleChangeDate() {
+        val id = loanRecordModalData.value?.id ?: return
         dateTimePicker.pickDate(
             initialDate = loanRecordModalData.value?.loanRecord?.dateTime?.let {
                 with(timeConverter) { it.toLocalDateTime().toUTC() }
-            } ?: timeProvider.utcNow()
+            } ?: dateTime.value
         ) { localDate ->
+            if (loanRecordModalData.value?.id != id) return@pickDate
 
             val localTime = loanRecordModalData.value?.loanRecord?.dateTime?.let {
                 with(timeConverter) { it.toLocalTime() }
-            } ?: timeProvider.localTimeNow()
+            } ?: with(timeConverter) { dateTime.value.toLocalTime() }
 
             updateDateTime(localDate.atTime(localTime))
         }
     }
 
     private fun handleChangeTime() {
+        val id = loanRecordModalData.value?.id ?: return
         dateTimePicker.pickTime(
             initialTime = loanRecordModalData.value?.loanRecord?.dateTime?.let {
                 with(timeConverter) { it.toLocalTime() }
-            } ?: timeProvider.localTimeNow()
+            } ?: with(timeConverter) { dateTime.value.toLocalTime() }
         ) { localTime ->
+            if (loanRecordModalData.value?.id != id) return@pickTime
             val localDate = loanRecordModalData.value?.loanRecord?.dateTime?.let {
                 with(timeConverter) { it.toLocalDate() }
-            } ?: timeProvider.localDateNow()
+            } ?: with(timeConverter) { dateTime.value.toLocalDate() }
 
             updateDateTime(localDate.atTime(localTime))
         }
@@ -519,29 +467,33 @@ class LoanDetailsViewModel @Inject constructor(
     }
 
     private fun handleLoanChangeDate() {
+        val id = loanModalData.value?.id ?: return
         dateTimePicker.pickDate(
             initialDate = loanModalData.value?.loan?.dateTime?.let {
                 with(timeConverter) { it.toUTC() }
-            } ?: timeProvider.utcNow()
+            } ?: dateTime.value
         ) { localDate ->
+            if (loanModalData.value?.id != id) return@pickDate
 
             val localTime = loanModalData.value?.loan?.dateTime?.let {
                 with(timeConverter) { it.toLocalTime() }
-            } ?: timeProvider.localTimeNow()
+            } ?: with(timeConverter) { dateTime.value.toLocalTime() }
 
             updateLoanDateTime(localDate.atTime(localTime))
         }
     }
 
     private fun handleLoanChangeTime() {
+        val id = loanModalData.value?.id ?: return
         dateTimePicker.pickTime(
             initialTime = loanModalData.value?.loan?.dateTime?.let {
                 with(timeConverter) { it.toLocalTime() }
-            } ?: timeProvider.localTimeNow()
+            } ?: with(timeConverter) { dateTime.value.toLocalTime() }
         ) { localTime ->
+            if (loanModalData.value?.id != id) return@pickTime
             val localDate = loanModalData.value?.loan?.dateTime?.let {
                 with(timeConverter) { it.toLocalDate() }
-            } ?: timeProvider.localDateNow()
+            } ?: with(timeConverter) { dateTime.value.toLocalDate() }
 
             updateLoanDateTime(localDate.atTime(localTime))
         }
@@ -563,15 +515,16 @@ class LoanDetailsViewModel @Inject constructor(
         createLoanTransaction.value = boolean
     }
 
-    private fun createAccount(data: CreateAccountData) {
+    private fun createAccount(data: CreateAccountData, onResult: (Result<Unit>) -> Unit) {
+        val entry = nav.currentEntryId
         viewModelScope.launch {
             TestIdlingResource.increment()
-
-            accountCreator.createAccount(data) {
-                accounts.value = accountsAct(Unit)
-            }
-
-            TestIdlingResource.decrement()
+            try {
+                accountCreator.createAccount(data, onResult) {
+                    val refreshed = accountsAct(Unit)
+                    if (nav.currentEntryId == entry) accounts.value = refreshed
+                }
+            } finally { TestIdlingResource.decrement() }
         }
     }
 

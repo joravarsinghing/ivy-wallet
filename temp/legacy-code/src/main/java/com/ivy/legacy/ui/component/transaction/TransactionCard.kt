@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,10 +27,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -56,6 +60,8 @@ import com.ivy.legacy.datamodel.Account
 import com.ivy.legacy.utils.capitalizeLocal
 import com.ivy.legacy.utils.dateNowUTC
 import com.ivy.legacy.utils.format
+import com.ivy.legacy.utils.formatCrypto
+import com.ivy.legacy.utils.localDecimalSeparator
 import com.ivy.legacy.utils.isNotNullOrBlank
 import com.ivy.legacy.utils.timeNowUTC
 import com.ivy.navigation.Navigation
@@ -209,12 +215,17 @@ fun TransactionCard(
         )
 
         if (transaction.type == TransactionType.TRANSFER && toAccountCurrency != transactionCurrency) {
+            val precision = IvyCurrency.getDecimalPlaces(toAccountCurrency)
+            // Preserve the established crypto precision; shared fiat formatting
+            // supplies grouping without rounding tiny receiving amounts to zero.
+            val receivingAmount = if (precision > 2) {
+                transaction.toAmount.toDouble().formatCrypto(precision).removeSuffix(localDecimalSeparator())
+            } else {
+                transaction.toAmount.toDouble().format(toAccountCurrency)
+            }
             Text(
                 modifier = Modifier.padding(start = 68.dp),
-                text = "${
-                    transaction.toAmount.toDouble()
-                        .format(IvyCurrency.getDecimalPlaces(toAccountCurrency))
-                } $toAccountCurrency",
+                text = com.ivy.design.system.financialText("$receivingAmount $toAccountCurrency"),
                 style = UI.typo.nB2.style(
                     color = Gray,
                     fontWeight = FontWeight.Normal
@@ -457,8 +468,6 @@ private fun TransactionBadge(
     }
 }
 
-private const val TransferHeaderGradientThreshold = 0.35f
-
 @Composable
 private fun TransferHeader(
     accounts: List<Account>,
@@ -472,87 +481,36 @@ private fun TransferHeader(
         accounts.find { transaction.toAccountId == it.id }
     }
 
-    Row(
-        modifier = Modifier
-            .then(
-                if (shouldShowAccountSpecificColorInTransactions && account != null && toAccount != null) {
-                    Modifier
-                        .background(
-                            brush = Brush.horizontalGradient(
-                                0f to account.color.toComposeColor(),
-                                (TransferHeaderGradientThreshold) to account.color.toComposeColor(),
-                                (1f - TransferHeaderGradientThreshold) to toAccount.color.toComposeColor(),
-                                1f to toAccount.color.toComposeColor()
-                            ),
-                            shape = UI.shapes.rFull
-                        )
-                } else {
-                    Modifier.background(UI.colors.pure, UI.shapes.rFull)
-                }
-            ),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val stacked = maxWidth < 480.dp || LocalDensity.current.fontScale > 1.3f
+        if (stacked) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                TransferAccountLabel(account, shouldShowAccountSpecificColorInTransactions)
+                IvyIcon(icon = R.drawable.ic_arrow_right, modifier = Modifier
+                    .align(Alignment.CenterHorizontally).rotate(90f).clearAndSetSemantics {})
+                TransferAccountLabel(toAccount, shouldShowAccountSpecificColorInTransactions)
+            }
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) { TransferAccountLabel(account, shouldShowAccountSpecificColorInTransactions) }
+                IvyIcon(icon = R.drawable.ic_arrow_right, modifier = Modifier.clearAndSetSemantics {})
+                Box(Modifier.weight(1f)) { TransferAccountLabel(toAccount, shouldShowAccountSpecificColorInTransactions) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TransferAccountLabel(account: Account?, showAccountColor: Boolean) {
+    val background = if (showAccountColor && account != null) account.color.toComposeColor() else UI.colors.pure
+    val foreground = findContrastTextColor(background)
+    Row(Modifier.fillMaxWidth().clip(com.ivy.design.system.JvyShapes.Control)
+        .background(background).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        ItemIconSDefaultIcon(iconName = account?.icon, defaultIcon = R.drawable.ic_custom_account_s,
+            tint = foreground, modifier = Modifier.clearAndSetSemantics {})
         Spacer(Modifier.width(8.dp))
-
-        val accountContrastColor =
-            if (shouldShowAccountSpecificColorInTransactions && account != null) {
-                findContrastTextColor(account.color.toComposeColor())
-            } else {
-                UI.colors.pureInverse
-            }
-
-        ItemIconSDefaultIcon(
-            iconName = account?.icon,
-            defaultIcon = R.drawable.ic_custom_account_s,
-            tint = accountContrastColor
-        )
-
-        Spacer(Modifier.width(4.dp))
-
-        Text(
-            modifier = Modifier
-                .padding(vertical = 8.dp),
-            // used toString() in case of null
-            text = account?.name.toString(),
-            style = UI.typo.c.style(
-                fontWeight = FontWeight.ExtraBold,
-                color = accountContrastColor
-            )
-        )
-
-        Spacer(Modifier.width(12.dp))
-
-        IvyIcon(icon = R.drawable.ic_arrow_right, tint = accountContrastColor)
-
-        Spacer(Modifier.width(12.dp))
-
-        val toAccountContrastColor =
-            if (shouldShowAccountSpecificColorInTransactions && toAccount != null) {
-                findContrastTextColor(toAccount.color.toComposeColor())
-            } else {
-                UI.colors.pureInverse
-            }
-
-        ItemIconSDefaultIcon(
-            iconName = toAccount?.icon,
-            defaultIcon = R.drawable.ic_custom_account_s,
-            tint = toAccountContrastColor
-        )
-
-        Spacer(Modifier.width(4.dp))
-
-        Text(
-            modifier = Modifier
-                .padding(vertical = 8.dp),
-            // used toString() in case of null
-            text = toAccount?.name.toString(),
-            style = UI.typo.c.style(
-                fontWeight = FontWeight.ExtraBold,
-                color = toAccountContrastColor
-            )
-        )
-
-        Spacer(Modifier.width(20.dp))
+        Text(account?.name ?: stringResource(R.string.deleted), modifier = Modifier.weight(1f),
+            style = com.ivy.design.system.JvyTypography.Supporting.copy(color = foreground, fontWeight = FontWeight.SemiBold))
     }
 }
 

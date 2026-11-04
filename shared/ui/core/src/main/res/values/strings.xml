@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="jvy_export_failed">Export did not finish. Do not use the incomplete file; try exporting again.</string>
+    <string name="jvy_export_private_title">Export private financial data?</string>
+    <string name="jvy_export_private_message">Exports contain real amounts even when balances are hidden. Backup and CSV files are not automatically encrypted. Choose private storage and share only with people you trust.</string>
+    <string name="jvy_export_continue">Choose where to save</string>
+    <string name="jvy_file_request_expired">This file request expired after the app restarted. Unlock Jvy and choose the file or export again.</string>
+    <string name="jvy_discard_title">Discard changes?</string>
+    <string name="jvy_discard_message">Your changes have not been saved.</string>
+    <string name="jvy_discard">Discard</string>
+    <string name="jvy_keep_editing">Keep editing</string>
+    <string name="jvy_feedback_support">Feedback and support</string>
+    <string name="jvy_move_up">Move up</string>
+    <string name="jvy_move_down">Move down</string>
+    <string name="jvy_rate_validation">Choose a different currency and a rate greater than zero.</string>
+    <string name="jvy_interval_count_error">Enter a whole number greater than zero.</string>
     <string name="jvy_decimal_input_error">Use %1$s for decimals, with up to %2$d decimal places. Check any thousands separators.</string>
     <string name="accounts">Accounts</string>
     <string name="total">Total: %1$s %2$s</string>
@@ -520,4 +534,24 @@
     <string name="jvy_picker_use_clock">Use clock</string>
     <string name="jvy_picker_previous_month">@string/m3c_date_picker_switch_to_previous_month</string>
     <string name="jvy_picker_next_month">@string/m3c_date_picker_switch_to_next_month</string>
+    <string name="jvy_navigation_back">Back</string>
+    <string name="jvy_planned_empty_description">Plan a bill or regular payment, then see how it affects your balance.</string>
+    <string name="jvy_navigation_actions">Actions</string>
+    <string name="jvy_currency_no_results">No matching currencies. Try a currency code or name.</string>
+    <string name="jvy_change_transaction_type">Change transaction type</string>
+    <string name="jvy_duplicate_transaction">Duplicate transaction</string>
+    <string name="jvy_saving">Saving…</string>
+    <string name="jvy_startup_failed_title">Could not open your wallet</string>
+    <string name="jvy_startup_retry">Try again</string>
+    <string name="jvy_editor_open_failed">Could not open this entry. It may have changed or been removed. Try again, or go back to review your wallet. No changes have been saved.</string>
+    <string name="jvy_draft_currency_review">This account’s currency changed. Choose an account and review the amount before saving.</string>
+    <string name="jvy_startup_failed_message">Your saved data has not been changed. Try again, or close Jvy and reopen it.</string>
+    <string name="jvy_restore_review_title">Review where you left off</string>
+    <string name="jvy_restore_review_message">A previous page could not be reopened because its saved context or record is no longer available. No save was repeated. Check your history before adding the same entry again.</string>
+    <string name="jvy_section_expanded">Expanded</string>
+    <string name="jvy_section_collapsed">Collapsed</string>
+    <string name="home_activity_period_empty">No activity in this chart range. Change the range or view all transactions to explore your history.</string>
+    <string name="home_chart_range_caption">Chart range · %1$s</string>
+    <string name="home_chart_range_loading">Loading chart range…</string>
+    <string name="home_spending_range_empty">No spending in this chart range.</string>
 </resources>

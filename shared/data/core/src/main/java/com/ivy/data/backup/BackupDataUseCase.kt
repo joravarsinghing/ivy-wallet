@@ -192,7 +192,7 @@ class BackupDataUseCase @Inject constructor(
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
-            Timber.e(e, "Import error")
+            Timber.e("Backup import failed; details are available in the in-app result.")
             ImportResult(
                 rowsFound = 0,
                 transactionsImported = 0,
@@ -284,6 +284,12 @@ class BackupDataUseCase @Inject constructor(
         backupTransactionRunner.run {
             validatePlanningData(ivyWalletCompleteData)
             if (aiProfile) rejectAiConflicts(ivyWalletCompleteData)
+            // Check before inserting rows or deleting old settings. Failure rolls back
+            // the complete merge, including imports with archived implicit-unit records.
+            require(ivyWalletCompleteData.settings.map { it.currency.uppercase(java.util.Locale.ROOT) }.distinct().size <= 1) {
+                "The backup has conflicting wallet currencies. Nothing was imported."
+            }
+            ivyWalletCompleteData.settings.firstOrNull()?.let { settingsWriter.validateCurrencyChange(it.currency) }
             // An imported base currency must not reinterpret old implicit-currency accounts.
             val implicitAccounts = accountDao.findAll().filter { it.currency.isNullOrBlank() && !it.isDeleted }
             accountRepository.saveMany(with(accountMapper) {

@@ -3,7 +3,10 @@ package com.ivy.loans.loandetails
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,6 +15,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -27,6 +32,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Color.Companion.Red
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -95,18 +102,39 @@ fun BoxWithConstraintsScope.LoanDetailsScreen(screen: LoanDetailsScreen) {
     val viewModel: LoanDetailsViewModel = viewModel()
     viewModel.screen = screen
     val state = viewModel.uiState()
+    val resolved = com.ivy.legacy.ui.restoreEditorDescriptor("loan-detail-editor", viewModel.modalRestorationReady, viewModel::saveModal, viewModel::restoreModal)
+    if (!resolved) {
+        val nav = navigation()
+        com.ivy.design.system.JvyEditorLoading(stringResource(R.string.loans), state.operationError != null,
+            { nav.back() }, { viewModel.onEvent(LoanDetailsScreenEvent.Retry) })
+        return
+    }
 
-    UI(
+    LoanDetailsScreenContent(
         state = state,
         onEventHandler = viewModel::onEvent
     )
 }
 
 @Composable
-private fun BoxWithConstraintsScope.UI(
+internal fun BoxWithConstraintsScope.LoanDetailsScreenContent(
     state: LoanDetailsScreenState,
+    modifier: Modifier = Modifier,
     onEventHandler: (LoanDetailsScreenEvent) -> Unit = {}
 ) {
+  BoxWithConstraints(modifier.fillMaxSize()) {
+    if (state.loan == null) {
+        val nav = navigation()
+        com.ivy.design.system.JvySubsectionScaffold(title = "Loan details", onBack = { nav.back() }) {
+            Column(Modifier.padding(24.dp)) {
+                if (state.loading) androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth())
+                Text(state.operationError ?: "Loading loan details…", Modifier.semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite },
+                    style = com.ivy.design.system.JvyTypography.Body)
+                if (!state.loading) com.ivy.design.system.JvyButton({ onEventHandler(LoanDetailsScreenEvent.Retry) }) { Text("Try again") }
+            }
+        }
+        return@BoxWithConstraints
+    }
     val itemColor = state.loan?.color?.toComposeColor() ?: Gray
 
     Column(
@@ -120,11 +148,21 @@ private fun BoxWithConstraintsScope.UI(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
+                .navigationBarsPadding()
                 .padding(top = 16.dp)
                 .clip(UI.shapes.r1Top)
                 .background(UI.colors.pure),
             state = listState,
+            contentPadding = PaddingValues(bottom = com.ivy.design.system.JvySpacing.Section),
         ) {
+            state.operationError?.let { error ->
+                item {
+                    androidx.compose.material3.Text(error, Modifier.padding(24.dp).semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite },
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                        style = com.ivy.design.system.JvyTypography.Supporting)
+                    com.ivy.design.system.JvyTextButton({ onEventHandler(LoanDetailsScreenEvent.Retry) }) { Text("Refresh") }
+                }
+            }
             item {
                 if (state.loan != null) {
                     Header(
@@ -190,26 +228,21 @@ private fun BoxWithConstraintsScope.UI(
             if (state.displayLoanRecords.isEmpty()) {
                 item {
                     NoLoanRecordsEmptyState()
-                    Spacer(Modifier.height(96.dp))
                 }
             }
 
-            item {
-                // scroll hack
-                Spacer(Modifier.height(96.dp))
-            }
         }
     }
 
     LoanModal(
-        modal = state.loanModalData, onCreateLoan = {
-        // do nothing
-    }, onEditLoan = { loan, createLoanTransaction ->
-        onEventHandler.invoke(LoanModalEvent.OnEditLoanModal(loan, createLoanTransaction))
+        modal = state.loanModalData, onCreateLoan = { _, complete ->
+        complete(Result.failure(IllegalStateException()))
+    }, onEditLoan = { loan, createLoanTransaction, complete ->
+        onEventHandler.invoke(LoanModalEvent.OnEditLoanModal(loan, createLoanTransaction, complete))
     }, dismiss = {
         onEventHandler.invoke(LoanModalEvent.OnDismissLoanModal)
-    }, onCreateAccount = { createAccountData ->
-        onEventHandler.invoke(LoanDetailsScreenEvent.OnCreateAccount(createAccountData))
+    }, onCreateAccount = { createAccountData, complete ->
+        onEventHandler.invoke(LoanDetailsScreenEvent.OnCreateAccount(createAccountData, complete))
     }, accounts = state.accounts, onPerformCalculations = {
         onEventHandler.invoke(LoanModalEvent.PerformCalculation)
     }, dateTime = state.dateTime,
@@ -222,16 +255,16 @@ private fun BoxWithConstraintsScope.UI(
     )
 
     LoanRecordModal(
-        modal = state.loanRecordModalData, onCreate = {
-        onEventHandler.invoke(LoanRecordModalEvent.OnCreateLoanRecord(it))
-    }, onEdit = {
-        onEventHandler.invoke(LoanRecordModalEvent.OnEditLoanRecord(it))
-    }, onDelete = { loanRecord ->
-        onEventHandler.invoke(LoanRecordModalEvent.OnDeleteLoanRecord(loanRecord))
+        modal = state.loanRecordModalData, onCreate = { data, complete ->
+        onEventHandler.invoke(LoanRecordModalEvent.OnCreateLoanRecord(data, complete))
+    }, onEdit = { data, complete ->
+        onEventHandler.invoke(LoanRecordModalEvent.OnEditLoanRecord(data, complete))
+    }, onDelete = { loanRecord, complete ->
+        onEventHandler.invoke(LoanRecordModalEvent.OnDeleteLoanRecord(loanRecord, complete))
     }, accounts = state.accounts, dismiss = {
         onEventHandler.invoke(LoanRecordModalEvent.OnDismissLoanRecord)
-    }, onCreateAccount = { createAccountData ->
-        onEventHandler.invoke(LoanDetailsScreenEvent.OnCreateAccount(createAccountData))
+    }, onCreateAccount = { createAccountData, complete ->
+        onEventHandler.invoke(LoanDetailsScreenEvent.OnCreateAccount(createAccountData, complete))
     },
         dateTime = state.dateTime,
         onSetDate = {
@@ -258,6 +291,7 @@ private fun BoxWithConstraintsScope.UI(
         description = stringResource(R.string.confirm_account_loan_change),
         visible = state.waitModalVisible
     )
+  }
 }
 
 @Composable
@@ -301,7 +335,7 @@ private fun Header(
 
         BalanceRow(
             modifier = Modifier
-                .padding(start = 32.dp)
+                .padding(horizontal = com.ivy.design.system.JvySpacing.PageGutter)
                 .testTag("loan_amount")
                 .clickableNoIndication(rememberInteractionSource()) {
                     onAmountClick()
@@ -336,7 +370,7 @@ private fun LoanItem(
 ) {
     Row(
         modifier = Modifier
-            .padding(start = 22.dp)
+            .fillMaxWidth().padding(horizontal = com.ivy.design.system.JvySpacing.PageGutter)
             .clickableNoIndication(rememberInteractionSource()) {
                 onClick()
             },
@@ -350,29 +384,21 @@ private fun LoanItem(
 
         Spacer(Modifier.width(8.dp))
 
-        Column {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    modifier = Modifier.testTag("loan_name"),
-                    text = loan.name,
-                    style = UI.typo.b1.style(
-                        color = contrastColor,
-                        fontWeight = FontWeight.ExtraBold
-                    )
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                modifier = Modifier.testTag("loan_name"),
+                text = loan.name,
+                style = UI.typo.b1.style(
+                    color = contrastColor,
+                    fontWeight = FontWeight.ExtraBold
                 )
-
-                Spacer(Modifier.width(8.dp))
-
-                Text(
-                    text = loan.humanReadableType(),
-                    style = UI.typo.c.style(
-                        color = loan.color.toComposeColor().dynamicContrast()
-                    )
+            )
+            Text(
+                text = loan.humanReadableType(),
+                style = UI.typo.c.style(
+                    color = contrastColor
                 )
-            }
-
+            )
             loan.dateTime?.let {
                 Text(
                     text = it.formatNicely(
@@ -389,6 +415,7 @@ private fun LoanItem(
 
 @Suppress("LongMethod")
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun LoanInfoCard(
     loan: Loan,
     baseCurrency: String,
@@ -471,7 +498,7 @@ private fun LoanInfoCard(
             modifier = Modifier
                 .padding(horizontal = 24.dp)
                 .testTag("amount_paid"),
-            text = "${amountPaid.format(baseCurrency)} / ${loanTotalAmount.format(baseCurrency)}",
+            text = com.ivy.design.system.financialText("${amountPaid.format(baseCurrency)} / ${loanTotalAmount.format(baseCurrency)}"),
             style = UI.typo.nB1.style(
                 color = contrastColor,
                 fontWeight = FontWeight.ExtraBold
@@ -488,32 +515,31 @@ private fun LoanInfoCard(
 
         Spacer(Modifier.height(12.dp))
 
-        Row(
+        FlowRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
                 modifier = Modifier.testTag("percent_paid"),
-                text = "${percentPaid.times(100).format(2)}%",
+                text = com.ivy.design.system.financialText("${percentPaid.times(100).format(2)}%"),
                 style = UI.typo.nB1.style(
                     color = contrastColor,
                     fontWeight = FontWeight.ExtraBold
                 )
             )
 
-            Spacer(Modifier.width(8.dp))
-
             Text(
                 modifier = Modifier.testTag("left_to_pay"),
                 text = stringResource(
                     R.string.left_to_pay,
-                    leftToPay.format(baseCurrency),
+                    com.ivy.design.system.financialText(leftToPay.format(baseCurrency)),
                     baseCurrency
                 ),
                 style = UI.typo.nB2.style(
-                    color = Gray,
+                    color = contrastColor,
                     fontWeight = FontWeight.ExtraBold
                 )
             )
@@ -550,32 +576,31 @@ private fun LoanInfoCard(
 
             Spacer(Modifier.height(8.dp))
 
-            Row(
+            FlowRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
                     modifier = Modifier.testTag("loan_interest_percent_paid"),
-                    text = "${loanPercentPaid.times(100).format(2)}%",
+                    text = com.ivy.design.system.financialText("${loanPercentPaid.times(100).format(2)}%"),
                     style = UI.typo.nB1.style(
                         color = contrastColor,
                         fontWeight = FontWeight.ExtraBold
                     )
                 )
 
-                Spacer(Modifier.width(8.dp))
-
                 Text(
                     modifier = Modifier.testTag("interest_paid"),
                     text = stringResource(
                         R.string.interest_paid,
-                        loanAmountPaid.format(baseCurrency),
+                        com.ivy.design.system.financialText(loanAmountPaid.format(baseCurrency)),
                         baseCurrency
                     ),
                     style = UI.typo.nB2.style(
-                        color = Gray,
+                        color = contrastColor,
                         fontWeight = FontWeight.ExtraBold
                     )
                 )
@@ -768,7 +793,7 @@ private fun LoanRecordItem(
         if (loanRecord.convertedAmount != null) {
             Text(
                 modifier = Modifier.padding(start = 68.dp),
-                text = loanRecord.convertedAmount!!.format(baseCurrency) + " $loanBaseCurrency",
+                text = com.ivy.design.system.financialText(loanRecord.convertedAmount!!.format(baseCurrency) + " $loanBaseCurrency"),
                 style = UI.typo.nB2.style(
                     color = Gray,
                     fontWeight = FontWeight.Normal
@@ -893,7 +918,7 @@ private fun NoLoanRecordsEmptyState() {
 @Composable
 private fun Preview_Empty() {
     IvyWalletPreview {
-        UI(
+        LoanDetailsScreenContent(
             LoanDetailsScreenState(
                 baseCurrency = "BGN",
                 loan = Loan(
@@ -927,7 +952,7 @@ private val testDateTime = LocalDateTime.of(2023, 4, 27, 0, 35)
 @Composable
 private fun Preview_Records(theme: Theme = Theme.LIGHT) {
     IvyWalletPreview(theme) {
-        UI(
+        LoanDetailsScreenContent(
             LoanDetailsScreenState(
                 baseCurrency = "BGN",
                 loan = Loan(

@@ -1,6 +1,9 @@
 package com.ivy.reports
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.FilterAlt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
@@ -18,6 +21,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -87,6 +91,22 @@ fun BoxWithConstraintsScope.ReportScreen(
 ) {
     val viewModel: ReportViewModel = viewModel()
     val state = viewModel.uiState()
+    val nav = navigation()
+    val entry = nav.currentEntryId
+    val saved = com.ivy.design.system.rememberProcessRestoration("report-page") {
+        if (viewModel.readyEntry == entry) viewModel.savePage() else null
+    }
+    LaunchedEffect(entry) {
+        val retained = viewModel.readyEntry == entry
+        viewModel.start(entry, if (retained) viewModel.savePage() else saved.payload, refresh = retained)
+    }
+    if (viewModel.restorationNotice) com.ivy.legacy.ui.EditorRestorationNotice(viewModel::acknowledgeRestoration)
+    if (viewModel.readyEntry != entry) {
+        com.ivy.design.system.JvyEditorLoading(stringResource(R.string.reports), viewModel.startupFailed,
+            { nav.back() }, { viewModel.start(entry, saved.payload) })
+        return
+    }
+    androidx.compose.runtime.SideEffect { saved.consumed = true }
 
     UI(
         state = state,
@@ -96,7 +116,7 @@ fun BoxWithConstraintsScope.ReportScreen(
 
 @ExperimentalFoundationApi
 @Composable
-private fun BoxWithConstraintsScope.UI(
+internal fun BoxWithConstraintsScope.UI(
     state: ReportScreenState = ReportScreenState(),
     onEventHandler: (ReportScreenEvent) -> Unit = {}
 ) {
@@ -151,18 +171,6 @@ private fun BoxWithConstraintsScope.UI(
         }
 
         item {
-            Text(
-                modifier = Modifier.padding(
-                    start = 32.dp
-                ),
-                text = stringResource(R.string.reports),
-                style = UI.typo.h2.style(
-                    fontWeight = FontWeight.ExtraBold
-                )
-            )
-
-            Spacer(Modifier.height(8.dp))
-
             SavedAnalyticsPanel(
                 savedAnalytics = state.savedAnalytics,
                 onApply = {
@@ -177,7 +185,7 @@ private fun BoxWithConstraintsScope.UI(
 
             BalanceRow(
                 modifier = Modifier
-                    .padding(start = 32.dp),
+                    .padding(start = 24.dp, end = 24.dp),
                 textColor = UI.colors.pureInverse,
                 currency = state.baseCurrency,
                 balance = state.balance,
@@ -224,8 +232,8 @@ private fun BoxWithConstraintsScope.UI(
 
             if (state.previousIncome != null && state.previousExpenses != null) {
                 Text(
-                    modifier = Modifier.padding(horizontal = 32.dp),
-                    text = "Compared with the previous period: income ${comparisonLabel(state.income, state.previousIncome)} · expenses ${comparisonLabel(state.expenses, state.previousExpenses)}",
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                    text = com.ivy.design.system.financialText("Compared with the previous period: income ${comparisonLabel(state.income, state.previousIncome)} · expenses ${comparisonLabel(state.expenses, state.previousExpenses)}"),
                     style = UI.typo.c.style(color = Gray, fontWeight = FontWeight.Medium),
                 )
             }
@@ -360,50 +368,13 @@ private fun comparisonLabel(current: Double, previous: Double): String {
 private fun NoFilterEmptyState(
     setFilterOverlayVisible: (Boolean) -> Unit
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(Modifier.height(16.dp))
-
-        IvyIcon(
-            icon = R.drawable.ic_filter_l,
-            tint = Gray
-        )
-
-        Spacer(Modifier.height(8.dp))
-
-        Text(
-            text = stringResource(R.string.no_filter),
-            style = UI.typo.b1.style(
-                color = Gray,
-                fontWeight = FontWeight.ExtraBold
-            )
-        )
-
-        Spacer(Modifier.height(8.dp))
-
-        Text(
-            modifier = Modifier.padding(horizontal = 32.dp),
-            text = stringResource(R.string.invalid_filter_warning),
-            style = UI.typo.b2.style(
-                color = Gray,
-                fontWeight = FontWeight.Medium,
-                textAlign = TextAlign.Center
-            )
-        )
-
-        Spacer(Modifier.height(32.dp))
-
-        IvyButton(
-            iconStart = R.drawable.ic_filter_xs,
-            text = stringResource(R.string.set_filter)
-        ) {
-            setFilterOverlayVisible(true)
-        }
-
-        Spacer(Modifier.height(96.dp))
-    }
+    com.ivy.design.system.JvyEmptyState(
+        title = stringResource(R.string.no_filter),
+        description = stringResource(R.string.invalid_filter_warning),
+        icon = Icons.Outlined.FilterAlt,
+        actionLabel = stringResource(R.string.set_filter),
+        onAction = { setFilterOverlayVisible(true) },
+    )
 }
 
 @Composable
@@ -413,49 +384,20 @@ private fun Toolbar(
     onSave: () -> Unit
 ) {
     val nav = navigation()
-    IvyToolbar(
-        backButtonType = BackButtonType.CLOSE,
-        onBack = {
-            nav.back()
+    var actions by rememberSaveable { mutableStateOf(false) }
+    com.ivy.design.system.JvyScreenHeader(stringResource(R.string.reports), { nav.back() }) {
+        androidx.compose.material3.IconButton(onFilter) {
+            androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_filter_xs), stringResource(R.string.filter))
         }
-    ) {
-        Spacer(Modifier.weight(1f))
-
-        // Export CSV
-        IvyOutlinedButton(
-            text = stringResource(R.string.save),
-            iconTint = Green,
-            textColor = Green,
-            solidBackground = true,
-            padding = 8.dp,
-            iconStart = null
-        ) {
-            onSave()
+        Box {
+            androidx.compose.material3.IconButton({ actions = true }) {
+                androidx.compose.material3.Icon(Icons.Outlined.MoreVert, stringResource(R.string.jvy_navigation_actions))
+            }
+            androidx.compose.material3.DropdownMenu(actions, { actions = false }) {
+                androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(R.string.save_report)) }, onClick = { actions = false; onSave() })
+                androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(R.string.export_to_csv)) }, onClick = { actions = false; onExport() })
+            }
         }
-
-        Spacer(Modifier.width(8.dp))
-
-        IvyOutlinedButton(
-            text = stringResource(R.string.export),
-            iconTint = Green,
-            textColor = Green,
-            solidBackground = true,
-            padding = 8.dp,
-            iconStart = R.drawable.ic_export_csv
-        ) {
-            onExport()
-        }
-
-        Spacer(Modifier.width(16.dp))
-
-        // Filter
-        CircleButtonFilled(
-            icon = R.drawable.ic_filter_xs
-        ) {
-            onFilter()
-        }
-
-        Spacer(Modifier.width(24.dp))
     }
 }
 
@@ -509,7 +451,7 @@ private fun SavedAnalyticsPanel(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 32.dp)
+            .padding(horizontal = 24.dp)
     ) {
         Text(
             text = stringResource(R.string.saved_reports),

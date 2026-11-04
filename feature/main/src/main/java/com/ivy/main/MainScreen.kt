@@ -47,12 +47,16 @@ fun BoxWithConstraintsScope.MainScreen(screen: MainScreen) {
     }
 
     val ivyContext = ivyWalletCtx()
+    val modalsResolved = com.ivy.legacy.ui.rememberEditorModalRestoration(viewModel.editorModals, currency.isNotBlank(), currency, emptyList(), emptyList())
+    if (!modalsResolved) return
     UI(
         screen = screen,
         tab = ivyContext.mainTab,
         baseCurrency = currency,
         selectTab = viewModel::selectTab,
-        onCreateAccount = viewModel::createAccount
+        onCreateAccount = viewModel::createAccount,
+        accountModalData = viewModel.accountModalData,
+        onAccountModalChange = viewModel::changeAccountModal
     )
 }
 
@@ -66,7 +70,9 @@ private fun BoxWithConstraintsScope.UI(
     baseCurrency: String,
 
     selectTab: (MainTab) -> Unit,
-    onCreateAccount: (CreateAccountData) -> Unit,
+    onCreateAccount: (CreateAccountData, (Result<Unit>) -> Unit) -> Unit,
+    accountModalData: AccountModalData? = null,
+    onAccountModalChange: (AccountModalData?, java.util.UUID?) -> Unit = { _, _ -> },
 ) {
     val savedTabs = rememberSaveableStateHolder()
     val rail = mainNavigationRailWidth(maxWidth, LocalDensity.current.fontScale)
@@ -84,7 +90,6 @@ private fun BoxWithConstraintsScope.UI(
         }
     }
 
-    var accountModalData: AccountModalData? by remember { mutableStateOf(null) }
 
     val nav = navigation()
     BottomBar(
@@ -125,20 +130,20 @@ private fun BoxWithConstraintsScope.UI(
         },
 
         showAddAccountModal = {
-            accountModalData = AccountModalData(
+            onAccountModalChange(AccountModalData(
                 account = null,
                 balance = 0.0,
                 baseCurrency = baseCurrency
-            )
+            ), null)
         }
     )
 
     AccountModal(
         modal = accountModalData,
         onCreateAccount = onCreateAccount,
-        onEditAccount = { _, _ -> },
+        onEditAccount = { _, _, complete -> complete(Result.failure(IllegalStateException("Editing is unavailable in this create-only context."))) },
         dismiss = {
-            accountModalData = null
+            onAccountModalChange(null, accountModalData?.id)
         }
     )
 }
@@ -160,7 +165,7 @@ private fun PreviewMainScreen() {
             tab = MainTab.HOME,
             baseCurrency = "BGN",
             selectTab = {},
-            onCreateAccount = { }
+            onCreateAccount = { _, _ -> }
         )
     }
 }

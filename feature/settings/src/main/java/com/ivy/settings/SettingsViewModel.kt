@@ -70,6 +70,7 @@ class SettingsViewModel @Inject constructor(
     private val treatTransfersAsIncomeExpense = mutableStateOf(false)
     private val startDateOfMonth = mutableIntStateOf(1)
     private val progressState = mutableStateOf(false)
+    private val currencyError = mutableStateOf<String?>(null)
 
     @Composable
     override fun uiState(): SettingsState {
@@ -88,7 +89,8 @@ class SettingsViewModel @Inject constructor(
             startDateOfMonth = getStartDateOfMonth(),
             progressState = getProgressState(),
             hideIncome = getHideIncome(),
-            languageOptionVisible = isLanguageOptionVisible()
+            languageOptionVisible = isLanguageOptionVisible(),
+            currencyError = currencyError.value,
         )
     }
 
@@ -210,6 +212,7 @@ class SettingsViewModel @Inject constructor(
     override fun onEvent(event: SettingsEvent) {
         when (event) {
             is SettingsEvent.SetCurrency -> setCurrency(event.newCurrency)
+            SettingsEvent.DismissCurrencyError -> currencyError.value = null
             is SettingsEvent.SetName -> setName(event.newName)
             is SettingsEvent.ExportToCsv -> exportToCSV(event.rootScreen)
             is SettingsEvent.BackupData -> exportToZip(event.rootScreen)
@@ -237,19 +240,31 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun setCurrency(newCurrency: String) {
-        currencyCode.value = newCurrency
-
+        currencyError.value = null
         viewModelScope.launch {
-            ioThread {
-                settingsWriter.save(
-                    settingsDao.findFirst().copy(
-                        currency = newCurrency
-                    )
-                )
-                AssetCode.from(newCurrency).onRight {
-                    syncExchangeRatesUseCase.sync(it)
+            try {
+                ioThread {
+                    settingsWriter.save(settingsDao.findFirst().copy(currency = newCurrency))
                 }
+                currencyCode.value = newCurrency
+            } catch (error: com.ivy.data.repository.WalletCurrencyChangeBlocked) {
+                // A persistent, scrollable explanation is readable at large text sizes;
+                // Android's two-line toast cannot explain this safety decision.
+                currencyError.value = error.message
+                return@launch
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                currencyError.value = "Could not change currency. Your existing amounts are unchanged."
+                return@launch
             }
+            // Optional rate fetching must not misreport a completed settings write
+            // as an unchanged currency when the device is offline.
+            try {
+                ioThread { AssetCode.from(newCurrency).onRight { syncExchangeRatesUseCase.sync(it) } }
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (_: Exception) { /* Existing values stay available offline. */ }
         }
     }
 
@@ -268,44 +283,50 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun exportToCSV(rootScreen: RootScreen) {
+        if (progressState.value) return
         ivyContext.createNewFile(
             "JvyWalletExport_${
                 timeNowUTC().getISOFormattedDateTime()
             }.csv"
         ) { fileUri ->
             viewModelScope.launch {
-                exportCsvUseCase.exportToFile(
-                    outputFile = fileUri
-                )
-
-                rootScreen.shareCSVFile(
-                    fileUri = fileUri
-                )
+                progressState.value = true
+                try {
+                    val result = exportCsvUseCase.exportToFile(outputFile = fileUri)
+                    if (result.isRight()) rootScreen.shareCSVFile(fileUri = fileUri)
+                    else notifyExportFailure()
+                } catch (error: kotlinx.coroutines.CancellationException) {
+                    throw error
+                } catch (_: Exception) { notifyExportFailure() }
+                finally { progressState.value = false }
             }
         }
     }
 
     private fun exportToZip(rootScreen: RootScreen) {
+        if (progressState.value) return
         ivyContext.createNewFile(
             "JvyWalletBackup_${
                 timeNowUTC().getISOFormattedDateTime()
             }.zip"
         ) { fileUri ->
-            viewModelScope.launch(Dispatchers.IO) {
+            viewModelScope.launch {
                 progressState.value = true
-                backupDataUseCase.exportToFile(zipFileUri = fileUri)
-                progressState.value = false
-
-                sharedPrefs.putBoolean(SharedPrefs.DATA_BACKUP_COMPLETED, true)
-                ivyContext.dataBackupCompleted = true
-
-                uiThread {
-                    rootScreen.shareZipFile(
-                        fileUri = fileUri
-                    )
-                }
+                try {
+                    ioThread { backupDataUseCase.exportToFile(zipFileUri = fileUri) }
+                    sharedPrefs.putBoolean(SharedPrefs.DATA_BACKUP_COMPLETED, true)
+                    ivyContext.dataBackupCompleted = true
+                    rootScreen.shareZipFile(fileUri = fileUri)
+                } catch (error: kotlinx.coroutines.CancellationException) {
+                    throw error
+                } catch (_: Exception) { notifyExportFailure() }
+                finally { progressState.value = false }
             }
         }
+    }
+
+    private fun notifyExportFailure() {
+        android.widget.Toast.makeText(context, context.getString(com.ivy.ui.R.string.jvy_export_failed), android.widget.Toast.LENGTH_LONG).show()
     }
 
     private fun switchTheme() {
@@ -340,6 +361,7 @@ class SettingsViewModel @Inject constructor(
 
         viewModelScope.launch {
             sharedPrefs.putBoolean(SharedPrefs.HIDE_CURRENT_BALANCE, hideBalance)
+            refreshWidget(WalletBalanceWidgetReceiver::class.java)
         }
     }
 

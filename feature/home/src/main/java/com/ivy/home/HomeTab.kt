@@ -365,6 +365,7 @@ fun HomeLazyColumn(
             Spacer(Modifier.height(16.dp))
             HomeSpendingBreakdownCard(
                 state = spendingBreakdown,
+                dateWindow = trend.window,
                 currency = baseData.baseCurrency,
                 hideBalance = hideBalance,
             )
@@ -392,6 +393,7 @@ fun HomeLazyColumn(
                 upcoming = upcoming,
                 overdue = overdue,
                 history = history,
+                dateWindow = trend.window,
                 hideBalance = hideBalance,
                 onPayOrGet = onPayOrGet,
                 onSkipTransaction = onSkipTransaction,

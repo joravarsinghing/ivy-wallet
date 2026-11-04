@@ -15,7 +15,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'adopt'
-          java-version: '18'
+          java-version: '17'
 
       - name: Gradle cache
         uses: gradle/actions/setup-gradle@v4

@@ -1,5 +1,7 @@
 package com.ivy.attributions
 
+import com.ivy.design.system.JvyTopAppBar
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -53,14 +55,7 @@ private fun AttributionsUI(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    TopAppBarTitle(title = stringResource(R.string.attributions))
-                },
-                navigationIcon = {
-                    BackButton(nav = nav)
-                }
-            )
+            JvyTopAppBar(stringResource(R.string.attributions), { nav.back() })
         },
         content = {
             AttributionsContent(paddingValues = it, attributionItems = uiState.attributionItems)
@@ -75,18 +70,6 @@ private fun TopAppBarTitle(title: String) {
         maxLines = 1,
         overflow = TextOverflow.Ellipsis
     )
-}
-
-@Composable
-private fun BackButton(nav: Navigation) {
-    IconButton(onClick = {
-        nav.back()
-    }) {
-        Icon(
-            imageVector = Icons.Filled.ArrowBack,
-            contentDescription = "Back"
-        )
-    }
 }
 
 @Composable

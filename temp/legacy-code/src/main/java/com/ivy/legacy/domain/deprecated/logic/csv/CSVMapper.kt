@@ -228,7 +228,7 @@ class CSVMapper @Inject constructor() {
             )
         },
 
-        joinTransactions = { transactions ->
+        joinTransactions = { transactions, signedAmounts ->
             var mergedCount = 0
             JoinResult(
                 transactions = buildList {
@@ -237,18 +237,23 @@ class CSVMapper @Inject constructor() {
                         val t = it.next()
                         if (t.type == TransactionType.TRANSFER && it.hasNext()) {
                             val t2 = it.next()
-                            val new = Transaction(
-                                id = t.id,
-                                type = TransactionType.TRANSFER,
-                                amount = t.amount,
-                                accountId = t.accountId,
-                                toAccountId = t2.accountId,
-                                toAmount = t2.amount,
-                                dateTime = t.dateTime,
-                                dueDate = t.dueDate,
-                                categoryId = t.categoryId,
-                                title = t.title,
-                                description = t.description
+                            val signedFirst = signedAmounts[t.id]
+                            val signedSecond = signedAmounts[t2.id]
+                            if (t2.type != TransactionType.TRANSFER ||
+                                t2.accountId == t.accountId || t2.dateTime != t.dateTime ||
+                                t2.dueDate != t.dueDate || signedFirst == null || signedSecond == null ||
+                                (signedFirst < 0) == (signedSecond < 0)) {
+                                // Leave a dangling half for rejection, never consume an
+                                // unrelated income/expense (or another day's transfer).
+                                it.previous()
+                                add(t)
+                                continue
+                            }
+                            val outgoing = if (signedFirst < 0) t else t2
+                            val incoming = if (signedFirst < 0) t2 else t
+                            val new = outgoing.copy(
+                                toAccountId = incoming.accountId,
+                                toAmount = incoming.amount,
                             )
                             mergedCount++
                             add(new)

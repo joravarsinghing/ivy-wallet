@@ -1,6 +1,8 @@
 package com.ivy.wallet.ui.theme.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
@@ -32,42 +34,24 @@ fun IvyCheckbox(
     checked: Boolean,
     onCheckedChange: (checked: Boolean) -> Unit
 ) {
-    Icon(
-        modifier = modifier
-            .size(48.dp)
-            .clip(CircleShape)
-            .clickable(onClick = {
-                onCheckedChange(!checked)
-            })
-            .padding(all = 12.dp),
-
-        painter = painterResource(
-            id = if (checked) R.drawable.ic_checkbox_checked else R.drawable.ic_checkbox_unchecked
-        ),
-        contentDescription = null,
-        tint = if (checked) Color.Unspecified else UI.colors.gray
-    )
+    androidx.compose.material3.Checkbox(checked, onCheckedChange, modifier.size(48.dp))
 }
 
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
 @Composable
 fun IvyCheckboxWithText(
-    modifier: Modifier = Modifier,
     text: String,
     checked: Boolean,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     onCheckedChange: (checked: Boolean) -> Unit
 ) {
     Row(
         modifier = modifier
-            .clickableNoIndication(rememberInteractionSource()) {
-                onCheckedChange(!checked)
-            },
+            .toggleable(checked, enabled = enabled, role = Role.Checkbox, onValueChange = onCheckedChange),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IvyCheckbox(
-            checked = checked,
-            onCheckedChange = onCheckedChange
-        )
+        androidx.compose.material3.Checkbox(checked, onCheckedChange = null, Modifier.size(48.dp), enabled = enabled)
 
         Spacer(modifier = Modifier.width(4.dp))
 

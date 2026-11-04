@@ -19,6 +19,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.ivy.ui.R
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ivy.data.model.wealth.*
@@ -60,23 +62,23 @@ internal fun wealthChipColors() = FilterChipDefaults.filterChipColors(
 )
 
 @Composable
-fun NetWorthScreen() {
+fun NetWorthScreen(modifier: Modifier = Modifier) {
     val vm: NetWorthViewModel = com.ivy.navigation.screenScopedViewModel()
     val nav = navigation()
-    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { NetWorthScreenContent(vm, { nav.back() }) }
+    Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { NetWorthScreenContent(vm, { nav.back() }) }
 }
 
 /** The main-shell tab reuses this feature rather than creating a second calculator. */
 @Composable
-fun NetWorthTab() {
+fun NetWorthTab(modifier: Modifier = Modifier) {
     val vm: NetWorthViewModel = viewModel(key = "main-net-worth")
-    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { NetWorthScreenContent(vm, {}, embedded = true) }
+    Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { NetWorthScreenContent(vm, {}, embedded = true) }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 @androidx.annotation.VisibleForTesting(otherwise = androidx.annotation.VisibleForTesting.PRIVATE)
-fun NetWorthScreenContent(vm: NetWorthViewModel, onBack: () -> Unit, initialTab: Int = 0, embedded: Boolean = false) {
+fun NetWorthScreenContent(vm: NetWorthViewModel, onBack: () -> Unit, modifier: Modifier = Modifier, initialTab: Int = 0, embedded: Boolean = false) {
     var tab by rememberSaveable { mutableIntStateOf(initialTab) }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     var editorId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -92,44 +94,76 @@ fun NetWorthScreenContent(vm: NetWorthViewModel, onBack: () -> Unit, initialTab:
     var tools by remember { mutableStateOf(false) }
     var dateDialog by rememberSaveable { mutableStateOf(false) }
     var dateText by rememberSaveable { mutableStateOf(vm.date.toString()) }
-    var exportHistory by remember { mutableStateOf(false) }
+    var exportConfirmation by remember { mutableStateOf<Boolean?>(null) }
+    var preparingExport by remember { mutableStateOf(false) }
     var exportError by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val largeText = LocalDensity.current.fontScale > 1.3f
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
-        if (uri != null) scope.launch {
-            try { withContext(Dispatchers.IO) { context.contentResolver.openOutputStream(uri)?.bufferedWriter(Charsets.UTF_8)?.use { it.write(vm.csv(exportHistory)) } ?: error("Cannot open file") } }
+        val request = vm.pendingExport
+        vm.pendingExport = null
+        if (uri != null && request == null) exportError = "Export was interrupted. No financial data was written. Choose Export again."
+        else if (uri != null && request != null) scope.launch {
+            try { withContext(Dispatchers.IO) { context.contentResolver.openOutputStream(uri)?.bufferedWriter(Charsets.UTF_8)?.use { it.write(request.content) } ?: error("Cannot open file") } }
             catch (_: Exception) { exportError = "Could not export. Please choose another file location." }
         }
     }
-    LaunchedEffect(Unit) { vm.load() }
+    val headerActions: @Composable RowScope.() -> Unit = {
+        IconButton(onClick = { guide = true }) { Icon(Icons.Outlined.HelpOutline, "Open the net worth guide") }
+        Box {
+            IconButton(onClick = { tools = true }) { Icon(Icons.Outlined.MoreVert, "Net worth tools") }
+            DropdownMenu(expanded = tools, onDismissRequest = { tools = false }) {
+                DropdownMenuItem(text = { Text("How net worth works") }, onClick = { tools = false; guide = true })
+                DropdownMenuItem(text = { Text("View another date") }, onClick = { tools = false; dateDialog = true })
+                DropdownMenuItem(text = { Text("Currency & exchange rates") }, onClick = { tools = false; rates = true })
+                DropdownMenuItem(text = { Text("Export summary") }, enabled = !vm.loading && vm.workspace != null && !preparingExport && vm.pendingExport == null,
+                    onClick = { tools = false; exportConfirmation = false })
+                DropdownMenuItem(text = { Text("Export history") }, enabled = !vm.loading && vm.workspace != null && !preparingExport && vm.pendingExport == null,
+                    onClick = { tools = false; exportConfirmation = true })
+            }
+        }
+    }
+    val restoration = com.ivy.design.system.rememberProcessRestoration("wealth-view", vm::saveView)
+    LaunchedEffect(Unit) { vm.restoreView(restoration.payload); restoration.consumed = true; vm.load() }
     val workspace = vm.workspace
+    exportConfirmation?.let { history ->
+        AlertDialog(onDismissRequest = { exportConfirmation = null },
+            title = { Text(stringResource(R.string.jvy_export_private_title)) },
+            text = { Text(stringResource(R.string.jvy_export_private_message)) },
+            confirmButton = { TextButton(onClick = {
+                exportConfirmation = null
+                preparingExport = true
+                scope.launch {
+                    try {
+                        val request = vm.prepareExport(history)
+                        vm.pendingExport = request
+                        export.launch(request.fileName)
+                    } catch (error: kotlinx.coroutines.CancellationException) { throw error }
+                    catch (_: Exception) { vm.pendingExport = null; exportError = "Could not prepare export. Wait for the current view to load, then try again." }
+                    finally { preparingExport = false }
+                }
+            }) { Text(stringResource(R.string.jvy_export_continue)) } },
+            dismissButton = { TextButton(onClick = { exportConfirmation = null }) { Text(stringResource(R.string.cancel)) } })
+    }
     val editor = workspace?.data?.items?.firstOrNull { it.id == editorId }
     val candidate = workspace?.candidates?.firstOrNull { "${it.source}:${it.id}" == candidateKey }
-    BoxWithConstraints(Modifier.fillMaxSize().systemBarsPadding().imePadding()) {
+    BoxWithConstraints(modifier.fillMaxSize().systemBarsPadding().imePadding()) {
         val expanded = maxWidth >= 840.dp
         val wrapControls = largeText || maxWidth < 360.dp
         Row(Modifier.widthIn(max = 1280.dp).fillMaxSize().align(Alignment.TopCenter)) {
             LazyColumn(Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 24.dp, bottom = if (embedded) 144.dp else 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 item(key = "heading", contentType = "heading") {
-                    if (!embedded) TextButton(onClick = onBack) { Text("Back") }
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    if (!embedded) com.ivy.design.system.JvyScreenHeader("Net worth", onBack,
+                        "Your bigger financial picture", horizontalPadding = 0.dp, actions = headerActions)
+                    if (embedded) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Net worth", style = MaterialTheme.typography.headlineMedium)
-                            Text("Your bigger financial picture", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
-                        }
-                        IconButton(onClick = { guide = true }) { Icon(Icons.Outlined.HelpOutline, "Open the net worth guide") }
-                        Box {
-                            IconButton(onClick = { tools = true }) { Icon(Icons.Outlined.MoreVert, "Net worth tools") }
-                            DropdownMenu(expanded = tools, onDismissRequest = { tools = false }) {
-                                DropdownMenuItem(text = { Text("How net worth works") }, onClick = { tools = false; guide = true })
-                                DropdownMenuItem(text = { Text("View another date") }, onClick = { tools = false; dateDialog = true })
-                                DropdownMenuItem(text = { Text("Currency & exchange rates") }, onClick = { tools = false; rates = true })
-                                DropdownMenuItem(text = { Text("Export summary") }, onClick = { tools = false; exportHistory = false; export.launch("Jvy_wealth_${vm.date}.csv") })
-                                DropdownMenuItem(text = { Text("Export history") }, onClick = { tools = false; exportHistory = true; export.launch("Jvy_wealth_history_${vm.date}.csv") })
+                            if (embedded) {
+                                Text("Net worth", style = MaterialTheme.typography.headlineMedium)
+                                Text("Your bigger financial picture", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
                             }
                         }
+                        headerActions()
                     }
                 }
                 item(key = "tabs", contentType = "tabs") { FlowRow(Modifier.fillMaxWidth(), maxItemsInEachRow = if (wrapControls) 2 else 4, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -347,7 +381,7 @@ private fun WealthChart(history: List<WealthHistoryPoint>, currency: String, hid
     val observed = history.filter { it.result.complete }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Net worth history", style = MaterialTheme.typography.titleMedium)
-        if (hidden) { Text("Values hidden", Modifier.height(180.dp)); return }
+        if (hidden || com.ivy.design.system.LocalFinancialVisibility.current.hidden) { Text("Values hidden", Modifier.height(180.dp)); return }
         if (observed.isEmpty()) { Text("Your progress will appear here after you've added values and checked your account list and currency rates. Missing earlier values stay blank.", Modifier.height(180.dp)); return }
         val min = minOf(BigDecimal.ZERO, observed.minOf { it.result.netWorth })
         val max = maxOf(BigDecimal.ZERO, observed.maxOf { it.result.netWorth })

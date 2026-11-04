@@ -1,5 +1,7 @@
 package com.ivy.releases
 
+import com.ivy.design.system.JvyTopAppBar
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -55,16 +57,10 @@ private fun ReleasesUi(
     onEvent: (ReleasesEvent) -> Unit
 ) {
     val browser = LocalUriHandler.current
+    val nav = navigation()
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    TopAppBarTitle(title = stringResource(R.string.releases))
-                },
-                navigationIcon = {
-                    BackButton()
-                }
-            )
+            JvyTopAppBar(stringResource(R.string.releases), { nav.back() })
         },
         floatingActionButton = {
             GitHubButton {
@@ -92,20 +88,6 @@ private fun TopAppBarTitle(title: String) {
         maxLines = 1,
         overflow = TextOverflow.Ellipsis
     )
-}
-
-@Composable
-private fun BackButton() {
-    val nav = navigation()
-
-    IconButton(onClick = {
-        nav.back()
-    }) {
-        Icon(
-            imageVector = Icons.Filled.ArrowBack,
-            contentDescription = "Back"
-        )
-    }
 }
 
 private fun LazyListScope.content(

@@ -107,11 +107,15 @@ class EditTransactionViewModel @Inject constructor(
     private val transactionMapper: TransactionMapper,
     private val tagRepository: TagRepository,
     private val tagMapper: TagMapper,
+    private val tagCreator: com.ivy.wallet.domain.deprecated.logic.TagCreator,
+    private val atomicWrites: com.ivy.data.repository.AtomicWriteRepository,
     private val features: Features,
     private val timeConverter: TimeConverter,
     private val timeProvider: TimeProvider,
     private val dateTimePicker: DateTimePicker,
 ) : ComposeViewModel<EditTransactionViewState, EditTransactionViewEvent>() {
+
+    val editorModals = com.ivy.legacy.ui.EditorModalHost()
 
     private var transactionType by mutableStateOf(TransactionType.EXPENSE)
     private var initialTitle by mutableStateOf<String?>(null)
@@ -127,6 +131,7 @@ class EditTransactionViewModel @Inject constructor(
     private var account by mutableStateOf<Account?>(null)
     private var toAccount by mutableStateOf<Account?>(null)
     private var category by mutableStateOf<Category?>(null)
+    private var categorySelectionRevision = 0L
     private var suggestedCategory by mutableStateOf<Category?>(null)
     private var showRememberCategoryRule by mutableStateOf(false)
     private var rememberCategoryRule by mutableStateOf(false)
@@ -143,6 +148,11 @@ class EditTransactionViewModel @Inject constructor(
     private var customExchangeRateState by mutableStateOf(CustomExchangeRateState())
 
     private var loadedTransaction: Transaction? = null
+    private var committedTransaction: Transaction? = null
+    var ready by mutableStateOf(false)
+        private set
+    var loadError by mutableStateOf(false)
+        private set
     private var editMode = false
 
     // Used for optimising in updating all loan/loanRecords
@@ -151,10 +161,30 @@ class EditTransactionViewModel @Inject constructor(
     private var title: String? = null
     private lateinit var baseUserCurrency: String
     private var tagSearchJob: Job? = null
+    private var startedScreen: EditTransactionScreen? = null
+    private var startedEntryId: UUID? = null
+    private var unregisterBackGuard: (() -> Unit)? = null
+    private var startupJob: Job? = null
+    private val saveMutex = kotlinx.coroutines.sync.Mutex()
+    private var writeRevision = 0L
+    private var explicitSavePending by mutableStateOf(false)
+    private var saveError by mutableStateOf<String?>(null)
     private val tagSearchDebounceTimeInMills: Long = 500
 
-    fun start(screen: EditTransactionScreen) {
-        viewModelScope.launch {
+    fun start(screen: EditTransactionScreen, restored: List<String>? = null) {
+        unregisterBackGuard?.invoke()
+        unregisterBackGuard = nav.registerScreenBackHandler(screen) { explicitSavePending }
+        val entryId = nav.currentEntryId
+        if (startedScreen == screen && startedEntryId == entryId &&
+            (ready || startupJob?.isActive == true)) return
+        startupJob?.cancel()
+        if (startedEntryId != entryId) { explicitSavePending = false; saveError = null }
+        startedScreen = screen
+        startedEntryId = entryId
+        ready = false
+        loadError = false
+        startupJob = viewModelScope.launch {
+            try {
             editMode = screen.initialTransactionId != null
 
             baseUserCurrency = baseCurrency()
@@ -172,9 +202,13 @@ class EditTransactionViewModel @Inject constructor(
 
             reset()
 
-            loadedTransaction = screen.initialTransactionId?.let {
-                trnByIdAct(it)
-            } ?: Transaction(
+            val existing = screen.initialTransactionId?.let { trnByIdAct(it) }?.takeUnless { it.isDeleted }
+            if (screen.initialTransactionId != null && existing == null) {
+                loadError = true
+                return@launch
+            }
+            committedTransaction = existing
+            loadedTransaction = existing ?: Transaction(
                 accountId = defaultAccountId(
                     screen = screen,
                     accounts = getAccounts
@@ -185,12 +219,56 @@ class EditTransactionViewModel @Inject constructor(
                 toAmount = BigDecimal.ZERO
             )
 
+            if (restored != null && !restoreDraft(screen, restored)) return@launch
+
             tags = tagList.await()
             transactionAssociatedTags =
                 tagRepository.findByAssociatedId(AssociationId(loadedTransaction().id)).map(Tag::id)
                     .toImmutableList()
             display(loadedTransaction!!)
+            ready = true
+            } catch (error: kotlinx.coroutines.CancellationException) { throw error }
+            catch (_: Exception) { loadedTransaction = null; loadError = true }
         }
+    }
+
+    fun saveDraft(): List<String>? = runCatching { loadedTransaction?.takeIf { ready }?.let { value ->
+        val draft = value.copy(type = transactionType, accountId = account?.id ?: value.accountId, toAccountId = toAccount?.id,
+            categoryId = category?.id?.value, amount = amount.toBigDecimal(),
+            toAmount = customExchangeRateState.convertedAmount?.toBigDecimal() ?: amount.toBigDecimal(), title = title,
+            description = description, dateTime = dateTime, dueDate = dueDate, paidFor = paidHistory)
+        com.ivy.design.system.ProcessDraftState.encode(TransactionEditorDraft.fields(draft) + mapOf(
+            "baseline" to committedTransaction?.let(TransactionEditorDraft::fingerprint), "creating" to (!editMode).toString(),
+            "rememberCategory" to rememberCategoryRule.toString(), "changedAccounts" to accountsChanged.toString(),
+            "hasChanges" to hasChanges.toString()))
+    } }.getOrNull()
+
+    private suspend fun restoreDraft(screen: EditTransactionScreen, payload: List<String>): Boolean {
+        val restored = TransactionEditorDraft.decode(payload)
+        if (restored == null) {
+            saveError = "The previous draft could not be reopened. Review this entry before saving."
+            return true
+        }
+        val (draft, fields) = restored
+        val current = committedTransaction
+        val validIdentity = if (editMode) draft.id == screen.initialTransactionId else fields["creating"] == "true"
+        if (!validIdentity || (current != null && fields["baseline"] != TransactionEditorDraft.fingerprint(current)) ||
+            accounts.none { it.id == draft.accountId } || (draft.toAccountId != null && accounts.none { it.id == draft.toAccountId }) ||
+            (draft.categoryId != null && categories.none { it.id.value == draft.categoryId })) {
+            saveError = "This entry changed while Jvy was closed. Review the latest values before saving."
+            return true
+        }
+        if (!editMode && trnByIdAct(draft.id) != null) {
+            closeScreen() // Committed before acknowledgement; never reopen it as another Add.
+            return false
+        }
+        loadedTransaction = (current ?: draft).copy(id = draft.id, type = draft.type, accountId = draft.accountId,
+            toAccountId = draft.toAccountId, categoryId = draft.categoryId, amount = draft.amount, toAmount = draft.toAmount,
+            title = draft.title, description = draft.description, dateTime = draft.dateTime, dueDate = draft.dueDate, paidFor = draft.paidFor)
+        rememberCategoryRule = fields["rememberCategory"] == "true"
+        accountsChanged = fields["changedAccounts"] == "true"
+        hasChanges = fields["hasChanges"] == "true"
+        return true
     }
 
     @Composable
@@ -215,6 +293,8 @@ class EditTransactionViewModel @Inject constructor(
             hasChanges = getHasChanges(),
             displayLoanHelper = getDisplayLoanHelper(),
             backgroundProcessingStarted = getBackgroundProcessingStarted(),
+            saving = explicitSavePending,
+            saveError = saveError,
             customExchangeRateState = getCustomExchangeRateState(),
             tags = getTags(),
             transactionAssociatedTags = getTransactionAssociatedTags()
@@ -337,12 +417,13 @@ class EditTransactionViewModel @Inject constructor(
 
     @Suppress("CyclomaticComplexMethod")
     override fun onEvent(event: EditTransactionViewEvent) {
+        if (explicitSavePending) return // Late picker/tag callbacks cannot replace a submitted draft.
         when (event) {
-            is EditTransactionViewEvent.CreateAccount -> createAccount(event.data)
-            is EditTransactionViewEvent.CreateCategory -> createCategory(event.data)
+            is EditTransactionViewEvent.CreateAccount -> createAccount(event.data, event.onResult)
+            is EditTransactionViewEvent.CreateCategory -> createCategory(event.data, event.onResult)
             EditTransactionViewEvent.Delete -> delete()
             EditTransactionViewEvent.Duplicate -> duplicate()
-            is EditTransactionViewEvent.EditCategory -> editCategory(event.updatedCategory)
+            is EditTransactionViewEvent.EditCategory -> editCategory(event.updatedCategory, event.onResult)
             is EditTransactionViewEvent.OnAccountChanged -> onAccountChanged(event.newAccount)
             is EditTransactionViewEvent.OnAmountChanged -> onAmountChanged(event.newAmount)
             is EditTransactionViewEvent.OnCategoryChanged -> onCategoryChanged(event.newCategory)
@@ -369,12 +450,12 @@ class EditTransactionViewModel @Inject constructor(
 
     private fun handleTagEvent(event: EditTransactionViewEvent.TagEvent) {
         when (event) {
-            is EditTransactionViewEvent.TagEvent.SaveTag -> onTagSaved(event.name)
-            is EditTransactionViewEvent.TagEvent.OnTagSelect -> associateTagToTransaction(event.selectedTag)
-            is EditTransactionViewEvent.TagEvent.OnTagDeSelect -> removeTagAssociation(event.selectedTag)
+            is EditTransactionViewEvent.TagEvent.SaveTag -> onTagSaved(event.id, event.name, event.onResult)
+            is EditTransactionViewEvent.TagEvent.OnTagSelect -> selectTag(event.selectedTag, true, event.onResult)
+            is EditTransactionViewEvent.TagEvent.OnTagDeSelect -> selectTag(event.selectedTag, false, event.onResult)
             is EditTransactionViewEvent.TagEvent.OnTagSearch -> searchTag(event.query)
-            is EditTransactionViewEvent.TagEvent.OnTagDelete -> deleteTag(event.selectedTag)
-            is EditTransactionViewEvent.TagEvent.OnTagEdit -> updateTagInformation(event.newTag)
+            is EditTransactionViewEvent.TagEvent.OnTagDelete -> deleteTag(event.selectedTag, event.onResult)
+            is EditTransactionViewEvent.TagEvent.OnTagEdit -> updateTagInformation(event.oldTag, event.newTag, event.onResult)
         }
     }
 
@@ -427,7 +508,7 @@ class EditTransactionViewModel @Inject constructor(
         customExchangeRateState = if (transaction.toAccountId == null) {
             CustomExchangeRateState()
         } else {
-            val exchangeRate = transaction.toAmount / transaction.amount
+            val exchangeRate = if (transaction.amount.signum() == 0) BigDecimal.ONE else transaction.toAmount.divide(transaction.amount, java.math.MathContext.DECIMAL64)
             val toAccountCurrency =
                 accounts.find { acc -> acc.id == transaction.toAccountId }?.currency
             CustomExchangeRateState(
@@ -673,18 +754,22 @@ class EditTransactionViewModel @Inject constructor(
         }
     }
 
-    private fun createCategory(data: CreateCategoryData) {
+    private fun createCategory(data: CreateCategoryData, onResult: (Result<Unit>) -> Unit) {
+        val entry = nav.currentEntryId
+        val selectionRevision = categorySelectionRevision
         viewModelScope.launch {
-            categoryCreator.createCategory(data) {
-                categories = sortCategories()
-
-                // Select the newly created category
-                onCategoryChanged(it)
+            categoryCreator.createCategory(data, onResult) {
+                val refreshed = sortCategories()
+                if (nav.currentEntryId == entry) {
+                    categories = refreshed
+                    if (categorySelectionRevision == selectionRevision) onCategoryChanged(it)
+                }
             }
         }
     }
 
     private fun onCategoryChanged(newCategory: Category?) {
+        categorySelectionRevision++
         loadedTransaction = loadedTransaction().copy(
             categoryId = newCategory?.id?.value
         )
@@ -754,97 +839,108 @@ class EditTransactionViewModel @Inject constructor(
         }
     }
 
-    private fun editCategory(updatedCategory: Category) {
+    private fun editCategory(updatedCategory: Category, onResult: (Result<Unit>) -> Unit) {
+        val entry = nav.currentEntryId
         viewModelScope.launch {
-            categoryCreator.editCategory(updatedCategory) {
-                categories = sortCategories()
+            categoryCreator.editCategory(updatedCategory, onResult) {
+                val refreshed = sortCategories()
+                if (nav.currentEntryId == entry) categories = refreshed
             }
         }
     }
 
-    private fun createAccount(data: CreateAccountData) {
+    private fun createAccount(data: CreateAccountData, onResult: (Result<Unit>) -> Unit) {
+        val entry = nav.currentEntryId
         viewModelScope.launch {
-            accountCreator.createAccount(data) {
-                accounts = accountsAct(Unit)
+            accountCreator.createAccount(data, onResult) {
+                val refreshed = accountsAct(Unit)
+                if (nav.currentEntryId == entry) accounts = refreshed
             }
         }
     }
 
-    private fun save(closeScreen: Boolean = true) {
-        if (!validTransaction()) {
+    private fun save(closeScreen: Boolean = true, acknowledgeChanges: Boolean = true) {
+        if (!ready || explicitSavePending || !validTransaction()) {
             return
         }
 
+        val draft = try {
+            transactionWriteSnapshot(loadedTransaction(), account?.id, toAccount?.id, category?.id?.value,
+                transactionType, amount, customExchangeRateState.convertedAmount, title, description,
+                dueDate, paidHistory, timeProvider.utcNow())
+        } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
+        } catch (_: Exception) { saveError = "Could not save. Your changes are still here. Try again."; return }
+        val saveRule = rememberCategoryRule && draft.categoryId != null
+        val changedAccounts = accountsChanged
+        loadedTransaction = draft
+        val revision = ++writeRevision
+        if (acknowledgeChanges) explicitSavePending = true
+        saveError = null
+        val ownerEntryId = startedEntryId
         viewModelScope.launch {
-            saveInternal(closeScreen = closeScreen)
+            try {
+                saveMutex.lock()
+                try {
+                    if (startedEntryId == ownerEntryId) saveInternal(draft, saveRule, changedAccounts,
+                        closeScreen, acknowledgeChanges, ownerEntryId, revision)
+                } finally { saveMutex.unlock() }
+            } finally { if (acknowledgeChanges && startedEntryId == ownerEntryId) explicitSavePending = false }
         }
     }
 
-    private suspend fun saveInternal(closeScreen: Boolean) {
+    private suspend fun saveInternal(draft: Transaction, saveRule: Boolean, changedAccounts: Boolean,
+        closeScreen: Boolean, acknowledgeChanges: Boolean, ownerEntryId: UUID?, revision: Long) {
         try {
-            ioThread {
-                val amount = amount.toBigDecimal()
-
-                loadedTransaction = loadedTransaction().copy(
-                    accountId = account?.id ?: error("no accountId"),
-                    toAccountId = toAccount?.id,
-                    toAmount = customExchangeRateState.convertedAmount?.toBigDecimal()
-                        ?: amount,
-                    title = title?.trim(),
-                    description = description?.trim(),
-                    amount = amount,
-                    type = transactionType,
-                    dueDate = dueDate,
-                    paidFor = paidHistory,
-                    dateTime = when {
-                        loadedTransaction().dateTime == null &&
-                                dueDate == null -> {
-                            timeProvider.utcNow()
-                        }
-
-                        else -> loadedTransaction().dateTime
-                    },
-                    categoryId = category?.id?.value,
-                    isSynced = false
-                )
-
-                if (loadedTransaction?.loanId != null) {
+            atomicWrites.run {
+                if (draft.loanId != null) {
                     loanTransactionsLogic.updateAssociatedLoanData(
-                        loadedTransaction!!.copy(),
+                        draft,
                         onBackgroundProcessingStart = {
-                            backgroundProcessingStarted = true
+                            if (startedEntryId == ownerEntryId) backgroundProcessingStarted = true
                         },
                         onBackgroundProcessingEnd = {
-                            backgroundProcessingStarted = false
+                            if (startedEntryId == ownerEntryId) backgroundProcessingStarted = false
                         },
-                        accountsChanged = accountsChanged
+                        accountsChanged = changedAccounts
                     )
 
-                    // Reset Counter
-                    accountsChanged = false
                 }
 
-                loadedTransaction().toDomain(transactionMapper)?.let {
-                    transactionRepo.save(it)
-                }
+                transactionRepo.save(requireNotNull(draft.toDomain(transactionMapper)))
 
-                if (rememberCategoryRule && category != null) {
+                if (saveRule) {
                     categoryRuleRepository.saveFromTransaction(
-                        title = loadedTransaction().title,
-                        description = loadedTransaction().description,
-                        categoryId = category!!.id.value.toString(),
+                        title = draft.title,
+                        description = draft.description,
+                        categoryId = requireNotNull(draft.categoryId).toString(),
                     )
-                    rememberCategoryRule = false
                 }
 
-                refreshWidget(WalletBalanceWidgetReceiver::class.java)
             }
 
-            if (closeScreen) {
+            if (startedEntryId == ownerEntryId) committedTransaction = draft
+
+            // These are acknowledgements/side effects of the committed write, not staged state.
+            if (isCurrentTransactionWrite(ownerEntryId, revision, startedEntryId, writeRevision)) {
+                accountsChanged = false
+                rememberCategoryRule = false
+                saveError = null
+            }
+            try { refreshWidget(WalletBalanceWidgetReceiver::class.java) }
+            catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) { /* A widget refresh cannot undo a committed ledger write. */ }
+
+            if (acknowledgeChanges && isCurrentTransactionWrite(ownerEntryId, revision, startedEntryId, writeRevision)) hasChanges = false
+            if (closeScreen && isCurrentTransactionWrite(ownerEntryId, revision, nav.currentEntryId, writeRevision)) {
                 closeScreen()
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            if (isCurrentTransactionWrite(ownerEntryId, revision, startedEntryId, writeRevision))
+                saveError = "Could not save. Your changes are still here. Try again."
+        } finally {
+            if (startedEntryId == ownerEntryId) backgroundProcessingStarted = false
         }
     }
 
@@ -870,13 +966,18 @@ class EditTransactionViewModel @Inject constructor(
 
     private suspend fun baseCurrency(): String = ioThread { settingsDao.findFirst().currency }
 
-    private fun closeScreen() {
+    fun closeScreen() {
         if (nav.backStackEmpty()) {
             nav.resetBackStack()
             nav.navigateTo(MainScreen)
         } else {
             nav.back()
         }
+    }
+
+    override fun onCleared() {
+        unregisterBackGuard?.invoke()
+        super.onCleared()
     }
 
     // Comment for push
@@ -997,32 +1098,31 @@ class EditTransactionViewModel @Inject constructor(
         if (editMode) {
             hasChanges = true
 
-            save(closeScreen)
+            save(closeScreen, acknowledgeChanges = false)
         }
     }
 
     private suspend fun getAllTags(): ImmutableList<Tag> =
         tagRepository.findAll().toImmutableList()
 
-    private fun onTagSaved(name: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            NotBlankTrimmedString.from(name.toLowerCaseLocal())
-                .onRight {
-                    val tag = with(tagMapper) { createNewTag(name = it) }
-                    tagRepository.save(tag)
-                    this@EditTransactionViewModel.tags = getAllTags()
-                }
-
-            saveIfEditMode()
+    private fun onTagSaved(id: TagId, name: String, onResult: (Result<Unit>) -> Unit) {
+        val entry = nav.currentEntryId
+        viewModelScope.launch {
+            tagCreator.create(id, name, onResult) {
+                val refreshed = getAllTags()
+                if (nav.currentEntryId == entry) tags = refreshed
+            }
         }
     }
 
-    private fun associateTagToTransaction(selectedTag: Tag) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val associatedId = AssociationId(loadedTransaction().id)
-            tagRepository.associateTagToEntity(associatedId, selectedTag.id)
-            transactionAssociatedTags =
-                tagRepository.findByAssociatedId(associatedId).map(Tag::id).toImmutableList()
+    private fun selectTag(selectedTag: Tag, selected: Boolean, onResult: (Result<Unit>) -> Unit) {
+        val entry = nav.currentEntryId
+        val id = loadedTransaction().id
+        viewModelScope.launch {
+            tagCreator.select(selectedTag, id, selected, onResult) {
+                val refreshed = tagRepository.findByAssociatedId(AssociationId(id)).map(Tag::id).toImmutableList()
+                if (nav.currentEntryId == entry) transactionAssociatedTags = refreshed
+            }
         }
     }
 
@@ -1035,43 +1135,39 @@ class EditTransactionViewModel @Inject constructor(
         }
     }
 
-    private fun removeTagAssociation(selectedTag: Tag) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val associatedId = AssociationId(loadedTransaction().id)
-            tagRepository.removeTagAssociation(associatedId, selectedTag.id)
-            transactionAssociatedTags =
-                tagRepository.findByAssociatedId(associatedId).map(Tag::id).toImmutableList()
+    private fun searchTag(query: String) {
+        val entry = nav.currentEntryId
+        tagSearchJob?.cancel()
+        tagSearchJob = viewModelScope.launch {
+            delay(tagSearchDebounceTimeInMills) // Debounce effect
+            val refreshed = ioThread {
+                if (query.isBlank()) tagRepository.findAll().toImmutableList()
+                else tagRepository.findByText(query.toLowerCaseLocal()).toImmutableList()
+            }
+            if (nav.currentEntryId == entry) tags = refreshed
         }
     }
 
-    private fun searchTag(query: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            tagSearchJob?.cancelAndJoin()
-            delay(tagSearchDebounceTimeInMills) // Debounce effect
-            tagSearchJob = launch(Dispatchers.IO) {
-                NotBlankTrimmedString.from(query.toLowerCaseLocal())
-                    .onRight {
-                        tags =
-                            tagRepository.findByText(text = it.value).toImmutableList()
-                    }
-                    .onLeft {
-                        tags = tagRepository.findAll().toImmutableList()
-                    }
+    private fun deleteTag(selectedTag: Tag, onResult: (Result<Unit>) -> Unit) {
+        val entry = nav.currentEntryId
+        viewModelScope.launch {
+            tagCreator.delete(selectedTag, onResult) {
+                val refreshed = getAllTags()
+                if (nav.currentEntryId == entry) {
+                    tags = refreshed
+                    transactionAssociatedTags = transactionAssociatedTags.filterNot { it == selectedTag.id }.toImmutableList()
+                }
             }
         }
     }
 
-    private fun deleteTag(selectedTag: Tag) {
-        viewModelScope.launch(Dispatchers.IO) {
-            tagRepository.deleteById(selectedTag.id)
-            tags = tagRepository.findAll().toImmutableList()
-        }
-    }
-
-    private fun updateTagInformation(newTag: Tag) {
-        viewModelScope.launch(Dispatchers.IO) {
-            tagRepository.save(newTag)
-            tags = tagRepository.findAll().toImmutableList()
+    private fun updateTagInformation(oldTag: Tag, newTag: Tag, onResult: (Result<Unit>) -> Unit) {
+        val entry = nav.currentEntryId
+        viewModelScope.launch {
+            tagCreator.edit(oldTag, newTag, onResult) {
+                val refreshed = getAllTags()
+                if (nav.currentEntryId == entry) tags = refreshed
+            }
         }
     }
 

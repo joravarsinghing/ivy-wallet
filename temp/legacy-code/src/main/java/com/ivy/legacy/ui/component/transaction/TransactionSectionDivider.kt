@@ -3,6 +3,11 @@ package com.ivy.legacy.ui.component.transaction
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -15,6 +20,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -22,14 +30,11 @@ import androidx.compose.ui.unit.dp
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
 import com.ivy.legacy.IvyWalletComponentPreview
-import com.ivy.legacy.utils.clickableNoIndication
 import com.ivy.legacy.utils.format
-import com.ivy.legacy.utils.rememberInteractionSource
 import com.ivy.legacy.utils.springBounce
 import com.ivy.ui.R
 import com.ivy.wallet.ui.theme.Orange
 import com.ivy.wallet.ui.theme.Red
-import com.ivy.wallet.ui.theme.components.IvyDividerDot
 import com.ivy.wallet.ui.theme.components.IvyIcon
 
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
@@ -46,14 +51,15 @@ fun SectionDivider(
 
     setExpanded: (Boolean) -> Unit
 ) {
+    val expansionState = stringResource(if (expanded) R.string.jvy_section_expanded else R.string.jvy_section_collapsed)
     Spacer(Modifier.height(24.dp))
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickableNoIndication(rememberInteractionSource()) {
-                setExpanded(!expanded)
-            },
+            .heightIn(min = 48.dp)
+            .clickable(role = Role.Button) { setExpanded(!expanded) }
+            .semantics { stateDescription = expansionState },
         verticalAlignment = Alignment.CenterVertically
     ) {
         val expandIconRotation by animateFloatAsState(
@@ -63,7 +69,7 @@ fun SectionDivider(
 
         Spacer(Modifier.width(24.dp))
 
-        Column {
+        Column(Modifier.weight(1f)) {
             Text(
                 modifier = Modifier.testTag("upcoming_title"),
                 text = title,
@@ -86,8 +92,6 @@ fun SectionDivider(
             }
         }
 
-        Spacer(Modifier.weight(1f))
-
         IvyIcon(
             modifier = Modifier.rotate(expandIconRotation),
             icon = R.drawable.ic_expandarrow
@@ -97,57 +101,36 @@ fun SectionDivider(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SectionDividerIncomeExpenseRow(
     income: Double,
     expenses: Double,
     baseCurrency: String
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically
+    val hidden = com.ivy.design.system.LocalFinancialVisibility.current.hidden
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        if (expenses > 0) {
+        if (expenses > 0 || hidden) {
             Text(
                 modifier = Modifier.testTag("upcoming_expense"),
-                text = "${expenses.format(baseCurrency)} $baseCurrency",
-                style = UI.typo.nC.style(
+                text = "${com.ivy.design.system.financialText("${expenses.format(baseCurrency)} $baseCurrency")} ${stringResource(R.string.expenses_lowercase)}",
+                style = com.ivy.design.system.JvyTypography.Supporting.copy(
                     fontWeight = FontWeight.ExtraBold,
                     color = UI.colors.pureInverse
                 )
             )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = stringResource(R.string.expenses_lowercase),
-                style = UI.typo.c.style(
-                    fontWeight = FontWeight.Normal,
-                    color = UI.colors.pureInverse
-                )
-            )
         }
 
-        if (income > 0 && expenses > 0) {
-            Spacer(Modifier.width(8.dp))
-
-            IvyDividerDot()
-
-            Spacer(Modifier.width(8.dp))
-        }
-
-        if (income > 0) {
+        if (income > 0 || hidden) {
             Text(
                 modifier = Modifier.testTag("upcoming_income"),
-                text = "${income.format(baseCurrency)} $baseCurrency",
-                style = UI.typo.nC.style(
+                text = "${com.ivy.design.system.financialText("${income.format(baseCurrency)} $baseCurrency")} ${stringResource(R.string.income_lowercase)}",
+                style = com.ivy.design.system.JvyTypography.Supporting.copy(
                     fontWeight = FontWeight.ExtraBold,
                     color = UI.colors.green
-                )
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = stringResource(R.string.income_lowercase),
-                style = UI.typo.c.style(
-                    fontWeight = FontWeight.Normal,
-                    color = UI.colors.pureInverse
                 )
             )
         }

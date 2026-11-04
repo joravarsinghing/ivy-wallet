@@ -42,7 +42,7 @@ class CategoryRepository @Inject constructor(
         }
     )
 
-    suspend fun findMaxOrderNum(): Double = if (memo.findAllMemoized) {
+    suspend fun findMaxOrderNum(): Double = if (kotlinx.coroutines.currentCoroutineContext()[AtomicWriteSession] == null && memo.findAllMemoized) {
         memo.items.maxOfOrNull { (_, acc) -> acc.orderNum } ?: 0.0
     } else {
         withContext(dispatchersProvider.io) {

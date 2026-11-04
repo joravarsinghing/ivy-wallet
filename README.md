@@ -21,7 +21,9 @@ No bank sync. No ads. No cloud account. Just an honest ledger you control.
 ![Local-first](https://img.shields.io/badge/Data-Local--first-success)
 ![No ads](https://img.shields.io/badge/Ads-None-success)
 ![No bank sync](https://img.shields.io/badge/Bank%20sync-None%20by%20design-lightgrey)
-[![Build](https://img.shields.io/github/actions/workflow/status/joravarsinghing/ivy-wallet/build.yml?logo=githubactions&logoColor=white&label=build)](https://github.com/joravarsinghing/ivy-wallet/actions)
+[![Tests](https://img.shields.io/github/actions/workflow/status/joravarsinghing/ivy-wallet/test.yml?logo=githubactions&logoColor=white&label=tests)](https://github.com/joravarsinghing/ivy-wallet/actions/workflows/test.yml)
+
+Public-release acceptance, supported update paths and recovery rules are tracked in the [release checklist](docs/releases/PUBLIC-RELEASE-CHECKLIST.md). English is the first reviewed launch language; existing translations remain available but are not all release-certified. No automatic crash diagnostics are included in the next public release.
 [![Last commit](https://img.shields.io/github/last-commit/joravarsinghing/ivy-wallet?logo=git&logoColor=white)](https://github.com/joravarsinghing/ivy-wallet/commits)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
 

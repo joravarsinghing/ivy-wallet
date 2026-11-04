@@ -60,7 +60,7 @@ data class TimePeriod(
     }
 
     fun isValid(): Boolean =
-        month != null || fromToRange != null || lastNRange != null
+        month != null || fromToRange != null || (lastNRange?.periodN ?: 0) > 0
 
     fun toRange(
         startDateOfMonth: Int,

@@ -94,6 +94,9 @@ import java.util.UUID
 fun BoxWithConstraintsScope.CategoriesScreen(screen: CategoriesScreen) {
     val viewModel: CategoriesViewModel = screenScopedViewModel()
     val state = viewModel.uiState()
+    val modalsResolved = com.ivy.legacy.ui.rememberEditorModalRestoration(viewModel.editorModals, viewModel.modalRestorationReady, state.baseCurrency,
+        emptyList(), viewModel.restorationCategories)
+    if (!modalsResolved) return
 
     UI(
         state = state,
@@ -121,49 +124,22 @@ private fun BoxWithConstraintsScope.UI(
                 ?: 0
         )
     }
-    LazyColumn(
+    com.ivy.design.system.JvySubsectionScaffold(stringResource(R.string.categories), { nav.back() }, actions = {
+        CircleButtonFilled(icon = R.drawable.ic_sort_by_alpha_24,
+            onClick = { onEvent(CategoriesScreenEvent.OnSortOrderModalVisible(visible = true)) }, clickAreaPadding = 12.dp)
+        Spacer(Modifier.width(8.dp))
+        ReorderButton { onEvent(CategoriesScreenEvent.OnReorderModalVisible(true)) }
+    }, footer = {
+        com.ivy.design.system.JvyPrimaryAction(stringResource(R.string.add_category), {
+            onEvent(CategoriesScreenEvent.OnCategoryModalVisible(CategoryModalData(category = null)))
+        })
+    }) {
+      LazyColumn(
         modifier = Modifier
-            .fillMaxSize()
-            .statusBarsPadding()
-            .navigationBarsPadding(),
+            .fillMaxSize(),
         state = listState
     ) {
         item {
-            Spacer(Modifier.height(32.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Spacer(Modifier.width(24.dp))
-
-                Text(
-                    text = stringResource(R.string.categories),
-                    style = UI.typo.h2.style(
-                        color = UI.colors.pureInverse,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                )
-
-                Spacer(Modifier.weight(1f))
-
-                CircleButtonFilled(
-                    icon = R.drawable.ic_sort_by_alpha_24,
-                    onClick = {
-                        onEvent(CategoriesScreenEvent.OnSortOrderModalVisible(visible = true))
-                    },
-                    clickAreaPadding = 12.dp
-                )
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                ReorderButton {
-                    onEvent(CategoriesScreenEvent.OnReorderModalVisible(true))
-                }
-
-                Spacer(Modifier.width(24.dp))
-            }
-
             if (state.showCategorySearchBar) {
                 Spacer(Modifier.height(16.dp))
                 SearchField(onSearch = { onEvent(CategoriesScreenEvent.OnSearchQueryUpdate(it)) })
@@ -190,21 +166,10 @@ private fun BoxWithConstraintsScope.UI(
         }
 
         item {
-            Spacer(Modifier.height(150.dp)) // scroll hack
+            Spacer(Modifier.height(16.dp))
         }
     }
-    CategoriesBottomBar(
-        onAddCategory = {
-            onEvent(
-                CategoriesScreenEvent.OnCategoryModalVisible(
-                    CategoryModalData(category = null)
-                )
-            )
-        },
-        onClose = {
-            nav.back()
-        },
-    )
+    }
 
     ReorderModalSingleType(
         visible = state.reorderModalVisible,
@@ -231,12 +196,12 @@ private fun BoxWithConstraintsScope.UI(
 
     CategoryModal(
         modal = state.categoryModalData,
-        onCreateCategory = {
-            onEvent(CategoriesScreenEvent.OnCreateCategory(it))
+        onCreateCategory = { data, complete ->
+            onEvent(CategoriesScreenEvent.OnCreateCategory(data, complete))
         },
-        onEditCategory = { },
+        onEditCategory = { category, complete -> onEvent(CategoriesScreenEvent.OnEditCategory(category, complete)) },
         dismiss = {
-            onEvent(CategoriesScreenEvent.OnCategoryModalVisible(null))
+            onEvent(CategoriesScreenEvent.OnCategoryModalVisible(null, expectedId = state.categoryModalData?.id))
         }
     )
 
@@ -313,7 +278,7 @@ private fun DefaultCategoryCard(
 }
 
 @Composable
-private fun CompactCategoryCard(
+internal fun CompactCategoryCard(
     categoryData: CategoryData,
     contrastColor: Color,
     currency: String,
@@ -352,14 +317,8 @@ private fun CompactCategoryCard(
                 )
             }
 
-            Row(
-                modifier =
-                Modifier
-                    .padding(horizontal = 8.dp)
-                    .fillMaxWidth()
-                    .fillMaxHeight(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.weight(1f).padding(start = 8.dp),
             ) {
                 Text(
                     text = category.name.value,
@@ -368,31 +327,14 @@ private fun CompactCategoryCard(
                     )
                 )
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Format the monthly balance according to the currency format and remove
-                    // any '+' or '-' signs that might be included from the prefix to ensure
-                    // a clean and consistent representation.
-                    val currencyFormatted =
-                        categoryData.monthlyBalance.format(currency).replace(Regex("[+-]"), "")
-
-                    Text(
-                        text = "$balancePrefixValue$currencyFormatted",
-                        style = UI.typo.nB1.style(
-                            color = UI.colors.pureInverse,
-                            fontWeight = FontWeight.Bold
-                        )
+                val currencyFormatted = categoryData.monthlyBalance.format(currency).replace(Regex("[+-]"), "")
+                Text(
+                    text = com.ivy.design.system.financialText("$balancePrefixValue$currencyFormatted $currency"),
+                    style = UI.typo.nB2.style(
+                        color = UI.colors.pureInverse,
+                        fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = currency,
-                        style = UI.typo.nB2.style(
-                            color = UI.colors.pureInverse,
-                            fontWeight = FontWeight.Medium
-                        )
-                    )
-                }
+                )
             }
         }
     }
@@ -588,13 +530,8 @@ fun BoxWithConstraintsScope.SortModal(
                 applyChange()
             }
         },
+        title = title,
     ) {
-        Spacer(Modifier.height(32.dp))
-
-        ModalTitle(text = title)
-
-        Spacer(Modifier.height(32.dp))
-
         items.forEach {
             SelectTypeButton(
                 text = it.displayName,

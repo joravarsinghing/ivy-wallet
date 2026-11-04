@@ -28,6 +28,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.ivy.ui.R
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Color
@@ -57,8 +59,9 @@ fun HomeTrendCard(
     modifier: Modifier = Modifier,
     plotStyle: HomeTrendPlotStyle = HomeTrendPlotStyle.Line,
 ) {
+    val hidden = hideBalance || com.ivy.design.system.LocalFinancialVisibility.current.hidden
     var showValues by rememberSaveable(state.range) { mutableStateOf(false) }
-    val refreshing = state.loading && state.hasData && !hideBalance && state.visibleMetrics.isNotEmpty()
+    val refreshing = state.loading && state.hasData && !hidden && state.visibleMetrics.isNotEmpty()
     val showRefreshHint by produceState(false, refreshing, state.range) {
         value = false
         if (refreshing) {
@@ -82,13 +85,11 @@ fun HomeTrendCard(
                 color = MaterialTheme.colorScheme.primary,
             )
         }
-        Row(
+        HomeCardHeading(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 16.dp, end = 12.dp, top = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
+            heading = {
                 Text(
                     text = "Balance trend",
                     style = MaterialTheme.typography.titleMedium,
@@ -98,9 +99,11 @@ fun HomeTrendCard(
                     text = if (state.range.isDaily) "Daily balance and cash flow" else "Period-end balance and cash flow",
                     style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            }
-            JvyTextButton(onOpenEditor) { Text("Edit") }
-        }
+                state.window?.let { Text(stringResource(R.string.home_chart_range_caption, it.displayLabel()),
+                    style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            },
+            action = { JvyTextButton(onOpenEditor) { Text("Edit") } },
+        )
 
         Spacer(Modifier.height(12.dp))
 
@@ -123,7 +126,7 @@ fun HomeTrendCard(
 
         Box(modifier = Modifier.fillMaxWidth()) {
             when {
-                hideBalance -> TrendMessage("Balances hidden. Reveal them to see your trend.")
+                hidden -> TrendMessage("Balances hidden. Reveal them to see your trend.")
                 state.visibleMetrics.isEmpty() -> {
                     TrendMessage("Choose at least one measure in Edit to see your trend.")
                 }
@@ -162,7 +165,7 @@ fun HomeTrendCard(
                                 point = rangeTotals,
                                 visibleMetrics = state.visibleMetrics,
                                 currency = currency,
-                                hideBalance = hideBalance,
+                                hideBalance = hidden,
                                 modifier = Modifier.padding(horizontal = 16.dp),
                             )
                         }

@@ -25,6 +25,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.ivy.design.api.LocalTimeConverter
+import com.ivy.ui.R
 import com.ivy.base.model.TransactionType
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
@@ -80,16 +83,19 @@ fun HomeSpendingBreakdownCard(
     currency: String,
     hideBalance: Boolean,
     modifier: Modifier = Modifier,
+    dateWindow: HomeDateWindow? = null,
 ) {
     val nav = navigation()
+    val converter = LocalTimeConverter.current
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp)
             .clip(com.ivy.design.system.JvyShapes.Card)
             .background(androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(onClick = {
-                nav.navigateTo(PieChartStatisticScreen(type = TransactionType.EXPENSE))
+            .clickable(enabled = dateWindow != null, onClick = {
+                dateWindow?.let { nav.navigateTo(PieChartStatisticScreen(type = TransactionType.EXPENSE,
+                    filterExcluded = false, dateRange = it.navigationRange(converter))) }
             })
             .semantics {
                 role = Role.Button
@@ -97,27 +103,30 @@ fun HomeSpendingBreakdownCard(
             }
             .padding(16.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        HomeCardHeading(heading = {
             Text(
                 text = "Where your money went",
-                modifier = Modifier.weight(1f),
                 style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
             )
+        }, action = {
             Text(
                 text = "View chart",
-                style = androidx.compose.material3.MaterialTheme.typography.labelLarge, color = androidx.compose.material3.MaterialTheme.colorScheme.primary,
+                style = androidx.compose.material3.MaterialTheme.typography.labelLarge,
+                color = if (dateWindow == null) androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+                    else androidx.compose.material3.MaterialTheme.colorScheme.primary,
             )
-        }
+        })
         Spacer(Modifier.height(3.dp))
         Text(
-            text = "Top spending categories for this period",
+            text = dateWindow?.let { stringResource(R.string.home_chart_range_caption, it.displayLabel()) }
+                ?: stringResource(R.string.home_chart_range_loading),
             style = com.ivy.design.system.JvyTypography.Supporting, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(18.dp))
 
         if (!state.hasSpending) {
             Text(
-                text = "Categorized expenses will appear here as you track them.",
+                text = stringResource(R.string.home_spending_range_empty),
                 style = com.ivy.design.system.JvyTypography.Supporting, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
@@ -148,11 +157,11 @@ private fun SpendingBreakdownRow(
                 style = com.ivy.design.system.JvyTypography.Supporting, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = if (hideBalance) "••••" else "${groupedHomeAmount(row.amount)} $currency",
+                text = if (hideBalance) "••••" else com.ivy.design.system.financialText("${groupedHomeAmount(row.amount)} $currency"),
                 style = com.ivy.design.system.JvyTypography.AmountSmall, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
             )
         }
-        if (!hideBalance) Row(verticalAlignment = Alignment.CenterVertically) {
+        if (!hideBalance && !com.ivy.design.system.LocalFinancialVisibility.current.hidden) Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier
                     .weight(1f)

@@ -5,6 +5,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -78,6 +80,16 @@ fun BoxWithConstraintsScope.SettingsScreen() {
     val viewModel: SettingsViewModel = screenScopedViewModel()
     val uiState = viewModel.uiState()
     val rootScreen = rootScreen()
+
+    uiState.currencyError?.let { message ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { viewModel.onEvent(SettingsEvent.DismissCurrencyError) },
+            text = { Text(message, Modifier.verticalScroll(rememberScrollState())) },
+            confirmButton = { com.ivy.design.system.JvyTextButton({ viewModel.onEvent(SettingsEvent.DismissCurrencyError) }) {
+                Text(stringResource(android.R.string.ok))
+            } },
+        )
+    }
 
     UI(
         currencyCode = uiState.currencyCode,
@@ -183,11 +195,9 @@ private fun BoxWithConstraintsScope.UI(
             .testTag("settings_lazy_column")
     ) {
         stickyHeader {
-            IvyToolbar(
+            com.ivy.design.system.JvyScreenHeader(stringResource(R.string.settings),
                 onBack = { nav.onBackPressed() },
             ) {
-                Spacer(Modifier.weight(1f))
-
                 val rootScreen = rootScreen()
                 Text(
                     modifier = Modifier.clickable {
@@ -200,23 +210,12 @@ private fun BoxWithConstraintsScope.UI(
                     )
                 )
 
-                Spacer(Modifier.width(32.dp))
             }
             // onboarding toolbar include paddingBottom 16.dp
         }
 
         item {
-            Spacer(Modifier.height(8.dp))
-
-            Text(
-                modifier = Modifier.padding(start = 32.dp),
-                text = stringResource(R.string.settings),
-                style = UI.typo.h2.style(
-                    fontWeight = FontWeight.Black
-                )
-            )
-
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(16.dp))
 
             CurrencyButton(currency = currencyCode) {
                 currencyModalVisible = true
@@ -406,9 +405,9 @@ private fun BoxWithConstraintsScope.UI(
             val rootScreen = rootScreen()
             SettingsDefaultButton(
                 icon = R.drawable.ic_custom_star_m,
-                text = stringResource(R.string.rate_us_on_google_play),
+                text = stringResource(R.string.jvy_feedback_support),
             ) {
-                rootScreen.reviewIvyWallet(dismissReviewCard = false)
+                rootScreen.openUrlInBrowser("https://github.com/joravarsinghing/ivy-wallet/issues")
             }
 
             Spacer(Modifier.height(12.dp))

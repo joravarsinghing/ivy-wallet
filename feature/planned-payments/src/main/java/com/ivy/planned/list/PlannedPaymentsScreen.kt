@@ -21,6 +21,8 @@ import com.ivy.data.model.primitive.NotBlankTrimmedString
 import com.ivy.design.l0_system.Purple
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
+import com.ivy.design.system.JvySubsectionScaffold
+import com.ivy.design.system.JvyPrimaryAction
 import com.ivy.legacy.IvyWalletPreview
 import com.ivy.legacy.datamodel.Account
 import com.ivy.legacy.datamodel.PlannedPaymentRule
@@ -49,13 +51,22 @@ fun BoxWithConstraintsScope.PlannedPaymentsScreen(screen: PlannedPaymentsScreen)
 }
 
 @Composable
-private fun BoxWithConstraintsScope.UI(
+internal fun BoxWithConstraintsScope.UI(
     state: PlannedPaymentsScreenState,
     onEvent: (PlannedPaymentsScreenEvent) -> Unit = {}
 ) {
-    PlannedPaymentsLazyColumn(
+    val nav = navigation()
+    val add = {
+        nav.navigateTo(EditPlannedScreen(type = TransactionType.EXPENSE, plannedPaymentRuleId = null))
+    }
+    val empty = state.oneTimePlannedPayment.isEmpty() && state.recurringPlannedPayment.isEmpty()
+    JvySubsectionScaffold(stringResource(R.string.planned_payments_inline), { nav.back() }, footer = {
+        if (!empty) JvyPrimaryAction(stringResource(R.string.add_payment), add)
+    }) {
+      PlannedPaymentsLazyColumn(
         Header = {
-            Spacer(Modifier.height(32.dp))
+          if (!empty) {
+            Spacer(Modifier.height(12.dp))
 
             CashFlowForecastCard(
                 forecast = state.forecast,
@@ -63,17 +74,7 @@ private fun BoxWithConstraintsScope.UI(
             )
 
             Spacer(Modifier.height(16.dp))
-
-            Text(
-                modifier = Modifier.padding(start = 24.dp),
-                text = stringResource(R.string.planned_payments_inline),
-                style = UI.typo.h2.style(
-                    fontWeight = FontWeight.ExtraBold,
-                    color = UI.colors.pureInverse
-                )
-            )
-
-            Spacer(Modifier.height(24.dp))
+          }
         },
         currency = state.currency,
         categories = state.categories,
@@ -92,23 +93,10 @@ private fun BoxWithConstraintsScope.UI(
         setRecurringExpanded = {
             onEvent(PlannedPaymentsScreenEvent.OnRecurringPaymentsExpanded(it))
         },
-        listState = rememberScrollPositionListState(key = "plannedPayments")
+        listState = rememberScrollPositionListState(key = "plannedPayments"),
+        onAdd = add,
     )
-
-    val nav = navigation()
-    PlannedPaymentsBottomBar(
-        onClose = {
-            nav.back()
-        },
-        onAdd = {
-            nav.navigateTo(
-                EditPlannedScreen(
-                    type = TransactionType.EXPENSE,
-                    plannedPaymentRuleId = null
-                )
-            )
-        }
-    )
+    }
 }
 
 @Preview

@@ -32,7 +32,6 @@ import com.ivy.wallet.ui.theme.Gray
 import com.ivy.wallet.ui.theme.Red
 import com.ivy.wallet.ui.theme.modal.IvyModal
 import com.ivy.wallet.ui.theme.modal.ModalSet
-import com.ivy.wallet.ui.theme.modal.ModalTitle
 import com.notkamui.keval.Keval
 import java.util.UUID
 
@@ -54,6 +53,7 @@ fun BoxWithConstraintsScope.CalculatorModal(
     IvyModal(
         id = id,
         visible = visible,
+        title = stringResource(R.string.calculator),
         dismiss = dismiss,
         PrimaryAction = {
             ModalSet(
@@ -67,12 +67,6 @@ fun BoxWithConstraintsScope.CalculatorModal(
             }
         }
     ) {
-        Spacer(Modifier.height(32.dp))
-
-        ModalTitle(text = stringResource(R.string.calculator))
-
-        Spacer(Modifier.height(32.dp))
-
         val isEmpty = expression.isBlank()
         Text(
             modifier = Modifier

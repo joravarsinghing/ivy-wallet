@@ -1,6 +1,7 @@
 package com.ivy.wallet.domain.deprecated.logic.model
 
 import androidx.compose.ui.graphics.Color
+import java.util.UUID
 
 data class CreateAccountData(
     val name: String,
@@ -9,4 +10,5 @@ data class CreateAccountData(
     val icon: String?,
     val balance: Double,
     val includeBalance: Boolean = true,
+    val id: UUID = UUID.randomUUID(),
 )

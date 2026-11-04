@@ -99,8 +99,7 @@ $gradleArguments = @(
     "--console=plain"
     "-Pkotlin.compiler.execution.strategy=in-process"
 )
-# A local numbered APK build must not publish mapping files to Firebase.
-$gradleArguments += @("-x", ":app:uploadCrashlyticsMappingFile$variantTitle")
+# Public builds no longer include Firebase or its publishing tasks.
 & $gradle @gradleArguments
 
 if ($LASTEXITCODE -ne 0) {

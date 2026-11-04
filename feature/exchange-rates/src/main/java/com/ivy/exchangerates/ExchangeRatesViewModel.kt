@@ -123,17 +123,24 @@ class ExchangeRatesViewModel @Inject constructor(
     }
 
     private suspend fun handleAddRate(event: RatesEvent.AddRate) {
-        withContext(dispatchers.io) {
-            either {
+        try {
+          withContext(dispatchers.io) {
+            val rate = either {
                 ExchangeRate(
                     baseCurrency = AssetCode.from(event.rate.from).bind(),
                     currency = AssetCode.from(event.rate.to).bind(),
                     rate = PositiveDouble.from(event.rate.rate).bind(),
                     manualOverride = true
                 )
-            }.onRight {
-                exchangeRatesRepo.save(it)
-            }.onLeft { toaster.show(it) }
+            }.getOrNull() ?: error("Invalid rate")
+            exchangeRatesRepo.save(rate)
+          }
+          event.onResult(Result.success(Unit))
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            event.onResult(Result.failure(error))
+            throw error
+        } catch (error: Exception) {
+            event.onResult(Result.failure(error))
         }
     }
     // endregion

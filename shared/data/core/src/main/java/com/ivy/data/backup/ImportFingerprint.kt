@@ -1,6 +1,7 @@
 package com.ivy.data.backup
 
 import com.ivy.data.db.entity.TransactionEntity
+import com.ivy.base.model.TransactionType
 import java.math.BigDecimal
 
 /**
@@ -15,6 +16,7 @@ data class ImportFingerprint(
     val toAccountId: String?,
     val toAmount: String?,
     val dateTime: String?,
+    val dueDate: String?,
     val title: String?,
     val description: String?,
 )
@@ -23,9 +25,10 @@ fun TransactionEntity.importFingerprint(): ImportFingerprint = ImportFingerprint
     accountId = accountId.toString(),
     type = type.name,
     amount = amount.normalizedImportAmount(),
-    toAccountId = toAccountId?.toString(),
-    toAmount = toAmount?.normalizedImportAmount(),
+    toAccountId = toAccountId?.toString()?.takeIf { type == TransactionType.TRANSFER },
+    toAmount = if (type == TransactionType.TRANSFER) (toAmount ?: amount).normalizedImportAmount() else null,
     dateTime = dateTime?.toString(),
+    dueDate = dueDate?.toString()?.takeIf { dateTime == null },
     title = title.normalizedImportText(),
     description = description.normalizedImportText(),
 )

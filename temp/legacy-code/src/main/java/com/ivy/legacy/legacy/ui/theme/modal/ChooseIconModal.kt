@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,13 +57,12 @@ fun BoxWithConstraintsScope.ChooseIconModal(
     visible: Boolean,
     initialIcon: String?,
     color: Color,
-
-    id: UUID = UUID.randomUUID(),
-
     dismiss: () -> Unit,
+    id: UUID = UUID.fromString(rememberSaveable { UUID.randomUUID().toString() }),
     onIconChosen: (String?) -> Unit
 ) {
-    var selectedIcon by remember(id) {
+    if (!visible) return
+    var selectedIcon by rememberSaveable(id.toString()) {
         mutableStateOf(initialIcon)
     }
 
@@ -71,6 +71,7 @@ fun BoxWithConstraintsScope.ChooseIconModal(
         visible = visible,
         dismiss = dismiss,
         scrollState = null,
+        title = stringResource(R.string.choose_icon),
         includeActionsRowPadding = false,
         PrimaryAction = {
             ModalSave(
@@ -89,21 +90,10 @@ fun BoxWithConstraintsScope.ChooseIconModal(
         LazyColumn(
             modifier = Modifier.fillMaxSize()
         ) {
-            item {
-                Spacer(Modifier.height(32.dp))
-
-                ModalTitle(text = stringResource(R.string.choose_icon))
-
-                Spacer(Modifier.height(4.dp))
-            }
-
             icons(selectedIcon = selectedIcon, color = color) {
                 selectedIcon = it
             }
 
-            item {
-                Spacer(Modifier.height(160.dp))
-            }
         }
     }
 }
@@ -295,7 +285,7 @@ private fun Icon(
             .padding(all = 8.dp)
             .testTag(icon),
         iconName = icon,
-        tint = if (selected) color.dynamicContrast() else UI.colors.mediumInverse
+        tint = if (selected) com.ivy.wallet.ui.theme.findContrastTextColor(color) else UI.colors.mediumInverse
     )
 }
 

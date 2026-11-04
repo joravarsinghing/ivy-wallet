@@ -34,6 +34,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -70,6 +72,12 @@ import java.time.LocalDateTime
 fun BoxWithConstraintsScope.LoansScreen(screen: LoansScreen) {
     val viewModel: LoanViewModel = viewModel()
     val state = viewModel.uiState()
+    val resolved = com.ivy.legacy.ui.restoreEditorDescriptor("loan-editor", viewModel.modalRestorationReady, viewModel::saveModal, viewModel::restoreModal)
+    if (!resolved) {
+        val nav = navigation()
+        JvyEditorLoading(stringResource(R.string.loans), state.loadError != null, { nav.back() }, { viewModel.onEvent(LoanScreenEvent.Retry) })
+        return
+    }
     UI(
         state = state,
         onEventHandler = viewModel::onEvent
@@ -85,7 +93,7 @@ private fun BoxWithConstraintsScope.UI(
     val scrollState = rememberScrollPositionListState(key = "loans_lazy_column",
         initialFirstVisibleItemIndex = ivyWalletCtx().loanListState?.firstVisibleItemIndex ?: 0,
         initialFirstVisibleItemScrollOffset = ivyWalletCtx().loanListState?.firstVisibleItemScrollOffset ?: 0)
-    LoanPlanningContent(state, onEventHandler, { nav.back() }, scrollState) { item ->
+    LoanPlanningContent(state, onEvent = onEventHandler, onBack = { nav.back() }, listState = scrollState) { item ->
         nav.navigateTo(LoanDetailsScreen(loanId = item.loan.id))
     }
 
@@ -98,20 +106,20 @@ private fun BoxWithConstraintsScope.UI(
 
     if (state.loanModalData != null) {
         LoanModal(accounts = state.accounts,
-            onCreateAccount = { onEventHandler(LoanScreenEvent.OnCreateAccount(it)) }, modal = state.loanModalData,
-            onCreateLoan = { onEventHandler(LoanScreenEvent.OnLoanCreate(it)) }, onEditLoan = { _, _ -> },
+            onCreateAccount = { data, complete -> onEventHandler(LoanScreenEvent.OnCreateAccount(data, complete)) }, modal = state.loanModalData,
+            onCreateLoan = { data, complete -> onEventHandler(LoanScreenEvent.OnLoanCreate(data, complete)) }, onEditLoan = { _, _, complete -> complete(Result.failure(IllegalStateException())) },
             dismiss = { onEventHandler(LoanScreenEvent.OnLoanModalDismiss) }, dateTime = state.dateTime,
             onSetDate = { onEventHandler(LoanScreenEvent.OnChangeDate) }, onSetTime = { onEventHandler(LoanScreenEvent.OnChangeTime) })
     }
 }
 
 @Composable
-fun LoanPlanningContent(state: LoanScreenState, onEvent: (LoanScreenEvent) -> Unit = {},
+fun LoanPlanningContent(state: LoanScreenState, modifier: Modifier = Modifier, onEvent: (LoanScreenEvent) -> Unit = {},
                         onBack: () -> Unit = {}, listState: LazyListState = rememberLazyListState(),
                         onLoanClick: (DisplayLoan) -> Unit = {}) {
     val loans = if (state.selectedTab == LoanTab.PENDING) state.pendingLoans else state.completedLoans
     val add = { onEvent(LoanScreenEvent.OnAddLoan) }
-    Box(Modifier.fillMaxSize().systemBarsPadding()) {
+    Box(modifier.fillMaxSize().systemBarsPadding()) {
     Column(
         modifier = Modifier
             .widthIn(max = 960.dp).fillMaxSize().align(Alignment.TopCenter)
@@ -132,18 +140,26 @@ fun LoanPlanningContent(state: LoanScreenState, onEvent: (LoanScreenEvent) -> Un
             }
         }
         LoanTabControls(state.selectedTab) { onEvent(LoanScreenEvent.OnTabChanged(it)) }
+        if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+        state.loadError?.let { error ->
+            Column(Modifier.padding(horizontal = 24.dp)) {
+                Text(error, Modifier.semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite },
+                    style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.error)
+                com.ivy.design.system.JvyTextButton({ onEvent(LoanScreenEvent.Retry) }) { Text("Try again") }
+            }
+        }
         LazyColumn(Modifier.weight(1f), state = listState, contentPadding = PaddingValues(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (state.totalOweAmount.isNotEmpty() || state.totalOwedAmount.isNotEmpty()) item {
                 Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (state.totalOweAmount.isNotEmpty()) Text(stringResource(R.string.you_owe, state.totalOweAmount), style = JvyTypography.Supporting)
-                    if (state.totalOwedAmount.isNotEmpty()) Text(stringResource(R.string.you_are_owed, state.totalOwedAmount), style = JvyTypography.Supporting)
+                    if (state.totalOweAmount.isNotEmpty()) Text(stringResource(R.string.you_owe, com.ivy.design.system.financialText(state.totalOweAmount)), style = JvyTypography.Supporting)
+                    if (state.totalOwedAmount.isNotEmpty()) Text(stringResource(R.string.you_are_owed, com.ivy.design.system.financialText(state.totalOwedAmount)), style = JvyTypography.Supporting)
                 }
             }
             if (loans.isEmpty()) item {
                 JvyEmptyState(if (state.selectedTab == LoanTab.PENDING) stringResource(R.string.no_loans) else "No completed loans yet",
                     "Keep track of money you borrowed or lent, and record repayments in one place.",
-                    Icons.Outlined.ReceiptLong, stringResource(R.string.add_loan), add)
+                    Icons.Outlined.ReceiptLong, actionLabel = stringResource(R.string.add_loan), onAction = add)
             }
             items(loans, key = { it.loan.id }) { item -> LoanItem(item) { onLoanClick(item) } }
         }
@@ -168,9 +184,9 @@ private fun LoanItem(displayLoan: DisplayLoan, onClick: () -> Unit) {
                 Column(Modifier.weight(1f)) { Text(loan.name, style = MaterialTheme.typography.titleMedium)
                     Text(loan.humanReadableType(), style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
-            Text(com.ivy.ui.money.formatDecimalMoney(java.math.BigDecimal.valueOf(remaining), currency), style = JvyTypography.Amount)
-            Text(displayLoan.formattedDisplayText, style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            LinearProgressIndicator(displayLoan.percentPaid.toFloat().coerceIn(0f, 1f), Modifier.fillMaxWidth().height(6.dp),
+            Text(com.ivy.design.system.financialText(com.ivy.ui.money.formatDecimalMoney(java.math.BigDecimal.valueOf(remaining), currency)), style = JvyTypography.Amount)
+            Text(com.ivy.design.system.financialText(displayLoan.formattedDisplayText), style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (!com.ivy.design.system.LocalFinancialVisibility.current.hidden) LinearProgressIndicator(displayLoan.percentPaid.toFloat().coerceIn(0f, 1f), Modifier.fillMaxWidth().height(6.dp),
                 color = MaterialTheme.colorScheme.secondary, trackColor = MaterialTheme.colorScheme.surfaceVariant)
         }
     }

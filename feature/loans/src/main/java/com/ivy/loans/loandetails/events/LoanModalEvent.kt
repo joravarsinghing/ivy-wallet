@@ -4,7 +4,7 @@ import com.ivy.legacy.datamodel.Loan
 
 sealed interface LoanModalEvent : LoanDetailsScreenEvent {
     data object OnDismissLoanModal : LoanModalEvent
-    data class OnEditLoanModal(val loan: Loan, val createLoanTransaction: Boolean) :
+    data class OnEditLoanModal(val loan: Loan, val createLoanTransaction: Boolean, val onResult: (Result<Unit>) -> Unit) :
         LoanModalEvent
 
     data object PerformCalculation : LoanModalEvent

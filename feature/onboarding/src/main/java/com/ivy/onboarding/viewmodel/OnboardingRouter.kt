@@ -26,6 +26,8 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.ivy.base.threading.DispatchersProvider
 
 class OnboardingRouter(
     private val opGoogleSignIn: MutableState<OpResult<Unit>?>,
@@ -43,6 +45,7 @@ class OnboardingRouter(
     private val categoryRepository: CategoryRepository,
     private val logoutLogic: LogoutLogic,
     private val syncExchangeRatesUseCase: SyncExchangeRatesUseCase,
+    private val dispatchers: DispatchersProvider,
 ) {
 
     var isLoginCache = false
@@ -125,7 +128,7 @@ class OnboardingRouter(
     }
 
     private suspend fun isLogin(): Boolean {
-        isLoginCache = ioThread { accountDao.findAll().isNotEmpty() }
+        isLoginCache = withContext(dispatchers.io) { accountDao.findAll().isNotEmpty() }
         return isLoginCache
     }
 
@@ -180,11 +183,10 @@ class OnboardingRouter(
     }
 
     suspend fun accountsSkip() {
-        routeToCategories()
-
-        ioThread {
+        withContext(dispatchers.io) {
             preloadDataLogic.preloadAccounts()
         }
+        routeToCategories()
     }
     // ------------------------------------- Step 4 -------------------------------------------------
 
@@ -194,15 +196,28 @@ class OnboardingRouter(
     }
 
     suspend fun categoriesSkip(baseCurrency: IvyCurrency?) {
-        completeOnboarding(baseCurrency = baseCurrency)
-
-        ioThread {
+        withContext(dispatchers.io) {
             preloadDataLogic.preloadCategories()
         }
+        completeOnboarding(baseCurrency = baseCurrency)
     }
     // ------------------------------------- Step 5 -------------------------------------------------
 
     // -------------------------------------- Routes ------------------------------------------------
+    /** Rehydrate an interrupted setup step; never preload defaults or finish setup on restore. */
+    suspend fun restoreStep(step: OnboardingState, currency: IvyCurrency,
+        accountsWithBalance: suspend () -> ImmutableList<AccountBalance>) {
+        when (step) {
+            OnboardingState.ACCOUNTS -> routeToAccounts(currency, accountsWithBalance)
+            OnboardingState.CATEGORIES -> {
+                routeToAccounts(currency, accountsWithBalance)
+                routeToCategories()
+            }
+            OnboardingState.SPLASH -> splashNext()
+            else -> state.value = step
+        }
+    }
+
     private suspend fun routeToAccounts(
         baseCurrency: IvyCurrency,
         accountsWithBalance: suspend () -> ImmutableList<AccountBalance>,
@@ -217,7 +232,7 @@ class OnboardingRouter(
 
     private suspend fun routeToCategories() {
         categories.value =
-            ioThread { categoryRepository.findAll().toImmutableList() }
+            withContext(dispatchers.io) { categoryRepository.findAll().toImmutableList() }
         categorySuggestions.value = preloadDataLogic.categorySuggestions()
 
         state.value = OnboardingState.CATEGORIES
@@ -231,7 +246,7 @@ class OnboardingRouter(
         navigateOutOfOnboarding()
 
         // the rest below is not UI stuff so I don't care
-        ioThread {
+        withContext(dispatchers.io) {
             transactionReminderLogic.scheduleReminder()
 
             AssetCode.from(baseCurrency?.code ?: IvyCurrency.getDefault().code)

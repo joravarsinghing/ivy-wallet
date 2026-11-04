@@ -1,146 +1,71 @@
 package com.ivy.legacy.ui.component.tags
 
-import android.annotation.SuppressLint
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.layout.BoxWithConstraintsScope
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
-import arrow.core.raise.either
 import com.ivy.data.model.Tag
-import com.ivy.data.model.primitive.NotBlankTrimmedString
 import com.ivy.data.model.TagId
-import com.ivy.wallet.ui.theme.components.DeleteButton
-import com.ivy.wallet.ui.theme.components.IvyTitleTextField
-import com.ivy.wallet.ui.theme.modal.IvyModal
-import com.ivy.wallet.ui.theme.modal.ModalPositiveButton
-import com.ivy.wallet.ui.theme.modal.ModalTitle
+import com.ivy.data.model.primitive.NotBlankTrimmedString
+import com.ivy.design.system.*
 import com.ivy.ui.R
+import com.ivy.wallet.ui.theme.modal.*
 
-@Suppress("DEPRECATION")
-@SuppressLint("ComposeModifierMissing")
-@ExperimentalFoundationApi
 @Composable
 fun BoxWithConstraintsScope.AddOrEditTagModal(
     id: TagId,
-    @Suppress("UNUSED_PARAMETER") modifier: Modifier = Modifier,
-    visible: Boolean = false,
-    initialTag: Tag? = null,
-    onTagAdd: (String) -> Unit = {},
-    onTagEdit: (oldTag: Tag, newTag: Tag) -> Unit = { _, _ -> },
-    onTagDelete: (Tag) -> Unit = {},
-    onDismiss: () -> Unit
+    onTagAdd: (TagId, String, (Result<Unit>) -> Unit) -> Unit,
+    onTagEdit: (Tag, Tag, (Result<Unit>) -> Unit) -> Unit,
+    onTagDelete: (Tag, (Result<Unit>) -> Unit) -> Unit,
+    modifier: Modifier = Modifier, visible: Boolean = false, initialTag: Tag? = null,
+    submission: EditorSubmission = remember(id) { tagEditorSubmission() },
+    onDismiss: () -> Unit,
 ) {
-    val titleFocus = FocusRequester()
-
-    var titleTextFieldValue by remember(id) {
-        mutableStateOf(
-            TextFieldValue(
-                initialTag?.name?.value ?: "",
-                selection = TextRange(initialTag?.name?.value?.length ?: 0)
-            )
-        )
+    val latestId by rememberUpdatedState(id)
+    var name by rememberSaveable(id.value.toString()) { mutableStateOf(initialTag?.name?.value.orEmpty()) }
+    var deleteVisible by rememberSaveable(id.value.toString()) { mutableStateOf(false) }
+    val editable = !submission.saving && !submission.requiresReview
+    fun editableNow() = !submission.saving && !submission.requiresReview
+    val close = { if (latestId == id && !submission.saving) onDismiss() }
+    fun save() {
+        val valid = NotBlankTrimmedString.from(name).getOrNull() ?: return
+        if (!editableNow() || latestId != id) return
+        submission.submit({ complete ->
+            if (initialTag == null) onTagAdd(id, valid.value, complete)
+            else onTagEdit(initialTag, initialTag.copy(name = valid), complete)
+        }, onSuccess = { if (latestId == id) onDismiss() })
     }
-
-    var filename by remember(id) {
-        mutableStateOf(initialTag?.name?.value ?: "")
-    }
-
-    IvyModal(
-        id = id.value,
-        visible = visible,
-        dismiss = onDismiss,
+    IvyModal(id.value, visible, close, title = if (initialTag == null) "New tag" else "Edit tag", dismissEnabled = !submission.saving,
+        hasUnsavedChanges = !submission.requiresReview && name != initialTag?.name?.value.orEmpty(),
         PrimaryAction = {
-            ModalPositiveButton(
-                onClick = {
-                    if (initialTag != null) {
-                        val updatedTag = either {
-                            initialTag.copy(
-                                name = NotBlankTrimmedString.from(filename).bind()
-                            )
-                        }.getOrNull()
-
-                        if (updatedTag != null) {
-                            onTagEdit(initialTag, updatedTag)
-                        }
-                    } else {
-                        onTagAdd(filename)
-                    }
-                    onDismiss()
-                },
-                text = stringResource(R.string.done),
-                iconStart = R.drawable.ic_custom_document_s,
-                enabled = filename.isNotEmpty()
-            )
-        }
-    ) {
-        Spacer(Modifier.height(32.dp))
-
-        Row(
-            modifier = Modifier
-                .padding(start = 0.dp, end = 32.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            ModalTitle(text = if (initialTag == null) "Tag Name" else "Edit Tag Name")
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            if (initialTag != null) {
-                DeleteButton(
-                    hasShadow = false,
-                    onClick = {
-                        onTagDelete(initialTag)
-                    }
-                )
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (submission.saving) {
+                    LinearProgressIndicator(Modifier.fillMaxWidth())
+                    Text(stringResource(R.string.jvy_saving), style = JvyTypography.Supporting)
+                }
+                submission.error?.let { Text(it, Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                    color = MaterialTheme.colorScheme.error, style = JvyTypography.Supporting) }
+                JvyButton(if (submission.requiresReview) close else ::save, Modifier.fillMaxWidth(),
+                    enabled = submission.requiresReview || (editable && name.isNotBlank())) { Text(stringResource(R.string.done)) }
             }
+        }) {
+        OutlinedTextField(name, { if (editableNow()) name = it }, modifier.fillMaxWidth().padding(horizontal = 24.dp),
+            enabled = editable, label = { Text("Tag name") }, textStyle = JvyTypography.Body,
+            shape = JvyShapes.Control, singleLine = true)
+        if (initialTag != null) JvyTextButton({ deleteVisible = true }, Modifier.padding(horizontal = 24.dp), enabled = editable) {
+            Text(stringResource(R.string.delete), color = if (editable) MaterialTheme.colorScheme.error
+                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f))
         }
-
-        Spacer(Modifier.height(24.dp))
-
-        IvyTitleTextField(
-            modifier = Modifier
-                .padding(horizontal = 32.dp)
-                .focusRequester(titleFocus),
-            dividerModifier = Modifier
-                .padding(horizontal = 24.dp),
-            value = titleTextFieldValue,
-            hint = "Enter TagName",
-            keyboardOptions = KeyboardOptions(
-                autoCorrect = true,
-                keyboardType = KeyboardType.Text,
-                imeAction = ImeAction.Next,
-                capitalization = KeyboardCapitalization.Sentences
-            ),
-            keyboardActions = KeyboardActions(
-                onNext = {}
-            )
-        ) {
-            titleTextFieldValue = it
-            filename = it.text
-        }
-
-        LaunchedEffect(titleFocus) {
-            titleFocus.requestFocus()
-        }
+    }
+    DeleteModal(visible = visible && deleteVisible, title = stringResource(R.string.confirm_deletion),
+        description = "Delete this tag? It will be removed from transactions, but the transactions themselves will stay.",
+        dismiss = { deleteVisible = false }) {
+        deleteVisible = false
+        if (initialTag != null && editableNow()) submission.submit({ complete -> onTagDelete(initialTag, complete) },
+            onSuccess = { if (latestId == id) onDismiss() })
     }
 }

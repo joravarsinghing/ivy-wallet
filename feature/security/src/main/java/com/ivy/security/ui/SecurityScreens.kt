@@ -115,11 +115,10 @@ internal fun SecuritySettingsContent(
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = 640.dp).fillMaxWidth().systemBarsPadding().imePadding()
                 .verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                TextButton(onClick = onBack) { Text("Back") }
+                com.ivy.design.system.JvyScreenHeader("Security", onBack, horizontalPadding = 0.dp)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     JvyLogo(Modifier.size(56.dp))
                     Column {
-                        Text("Security", style = MaterialTheme.typography.headlineMedium)
                         Text("Your wallet. Your peace of mind.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }

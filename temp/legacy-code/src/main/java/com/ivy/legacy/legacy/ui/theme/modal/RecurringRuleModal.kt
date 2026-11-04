@@ -6,6 +6,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -20,6 +23,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -32,6 +37,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import com.ivy.design.system.JvyOutlinedButton
+import com.ivy.design.system.JvySpacing
+import com.ivy.design.system.JvyTypography
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DateRange
 import com.ivy.data.model.IntervalType
 import com.ivy.design.api.LocalTimeProvider
 import com.ivy.design.l0_system.UI
@@ -81,16 +95,20 @@ fun BoxWithConstraintsScope.RecurringRuleModal(
     onRuleChanged: (LocalDateTime, oneTime: Boolean, Int?, IntervalType?) -> Unit,
 ) {
     val timeProvider = LocalTimeProvider.current
-    var startDate by remember(modal) {
-        mutableStateOf(modal?.initialStartDate ?: timeProvider.localNow())
+    val initialDate = rememberSaveable(modal?.id?.toString()) {
+        (modal?.initialStartDate ?: timeProvider.localNow()).toString()
     }
-    var oneTime by remember(modal) {
+    var startDate by rememberSaveable(modal?.id?.toString(), stateSaver = Saver<LocalDateTime, String>(
+        save = { it.toString() }, restore = { LocalDateTime.parse(it) })) {
+        mutableStateOf(LocalDateTime.parse(initialDate))
+    }
+    var oneTime by rememberSaveable(modal?.id?.toString()) {
         mutableStateOf(modal?.initialOneTime ?: false)
     }
-    var intervalN by remember(modal) {
+    var intervalN by rememberSaveable(modal?.id?.toString()) {
         mutableStateOf(modal?.initialIntervalN ?: 1)
     }
-    var intervalType by remember(modal) {
+    var intervalType by rememberSaveable(modal?.id?.toString()) {
         mutableStateOf(modal?.initialIntervalType ?: IntervalType.MONTH)
     }
 
@@ -100,7 +118,10 @@ fun BoxWithConstraintsScope.RecurringRuleModal(
         id = modal?.id,
         visible = modal != null,
         dismiss = dismiss,
+        hasUnsavedChanges = startDate.toString() != initialDate || oneTime != (modal?.initialOneTime ?: false) ||
+            intervalN != (modal?.initialIntervalN ?: 1) || intervalType != (modal?.initialIntervalType ?: IntervalType.MONTH),
         scrollState = modalScrollState,
+        title = stringResource(R.string.plan_for),
         PrimaryAction = {
             ModalSet(
                 modifier = Modifier.testTag("recurringModalSet"),
@@ -116,16 +137,10 @@ fun BoxWithConstraintsScope.RecurringRuleModal(
             }
         }
     ) {
-        Spacer(Modifier.height(32.dp))
-
         val rootView = LocalView.current
         onScreenStart {
             hideKeyboard(rootView)
         }
-
-        ModalTitle(text = stringResource(R.string.plan_for))
-
-        Spacer(Modifier.height(16.dp))
 
         // One-time & Multiple Times
         TimesSelector(oneTime = oneTime) {
@@ -170,28 +185,23 @@ private fun validate(
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun TimesSelector(
     oneTime: Boolean,
 
     onSetOneTime: (Boolean) -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .padding(horizontal = 24.dp)
-            .fillMaxWidth()
-            .background(UI.colors.medium, UI.shapes.r2),
-        verticalAlignment = Alignment.CenterVertically
+    FlowRow(
+        modifier = Modifier.padding(horizontal = JvySpacing.PageGutter).fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(JvySpacing.Related),
+        verticalArrangement = Arrangement.spacedBy(JvySpacing.Related),
     ) {
-        Spacer(Modifier.width(8.dp))
-
         TimesSelectorButton(
             selected = oneTime,
             label = stringResource(R.string.one_time)
         ) {
             onSetOneTime(true)
         }
-
-        Spacer(Modifier.width(8.dp))
 
         TimesSelectorButton(
             selected = !oneTime,
@@ -200,37 +210,21 @@ private fun TimesSelector(
             onSetOneTime(false)
         }
 
-        Spacer(Modifier.width(8.dp))
     }
 }
 
 @Composable
-private fun RowScope.TimesSelectorButton(
+private fun TimesSelectorButton(
     selected: Boolean,
     label: String,
     onClick: () -> Unit
 ) {
-    val rFull = UI.shapes.rFull
-
-    Text(
-        modifier = Modifier
-            .weight(1f)
-            .clip(UI.shapes.rFull)
-            .clickable {
-                onClick()
-            }
-            .padding(vertical = 8.dp)
-            .thenIf(selected) {
-                background(GradientIvy.asHorizontalBrush(), rFull)
-            }
-            .padding(vertical = 8.dp),
-        text = label,
-        style = UI.typo.b2.style(
-            color = if (selected) White else Gray,
-            fontWeight = FontWeight.ExtraBold,
-            textAlign = TextAlign.Center
-        )
-    )
+    JvyOutlinedButton(onClick, Modifier.semantics { this.selected = selected },
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent,
+            contentColor = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.primary)) {
+        Text(label, style = JvyTypography.Body)
+    }
 }
 
 @Composable
@@ -239,13 +233,12 @@ private fun OneTime(
     date: LocalDateTime,
     onDatePicked: (LocalDateTime) -> Unit
 ) {
-    Spacer(Modifier.height(44.dp))
+    Spacer(Modifier.height(JvySpacing.Group))
 
     DateRow(dateTime = date) {
         onDatePicked(it)
     }
 
-    Spacer(Modifier.height(64.dp))
 }
 
 @Composable
@@ -260,11 +253,11 @@ private fun MultipleTimes(
     onSetIntervalN: (Int) -> Unit,
     onSetIntervalType: (IntervalType) -> Unit
 ) {
-    Spacer(Modifier.height(40.dp))
+    Spacer(Modifier.height(JvySpacing.Group))
 
     Text(
         modifier = Modifier
-            .padding(start = 32.dp),
+            .padding(start = JvySpacing.PageGutter),
         text = stringResource(R.string.starts_on),
         style = UI.typo.b2.style(
             color = UI.colors.pureInverse,
@@ -272,23 +265,23 @@ private fun MultipleTimes(
         )
     )
 
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(JvySpacing.Related))
 
     DateRow(dateTime = startDate) {
         onSetStartDate(it)
     }
 
-    Spacer(Modifier.height(32.dp))
+    Spacer(Modifier.height(JvySpacing.Group))
 
     IvyDividerLine(
         modifier = Modifier.padding(horizontal = 24.dp)
     )
 
-    Spacer(Modifier.height(32.dp))
+    Spacer(Modifier.height(JvySpacing.Group))
 
     Text(
         modifier = Modifier
-            .padding(start = 32.dp),
+            .padding(start = JvySpacing.PageGutter),
         text = stringResource(R.string.repeats_every_text),
         style = UI.typo.b2.style(
             fontWeight = FontWeight.ExtraBold,
@@ -296,7 +289,7 @@ private fun MultipleTimes(
         )
     )
 
-    Spacer(Modifier.height(16.dp))
+    Spacer(Modifier.height(JvySpacing.Related))
 
     val rootView = LocalView.current
     val coroutineScope = rememberCoroutineScope()
@@ -319,7 +312,6 @@ private fun MultipleTimes(
         onSetIntervalType = onSetIntervalType
     )
 
-    Spacer(Modifier.height(48.dp))
 }
 
 @Composable
@@ -328,20 +320,10 @@ private fun DateRow(
     dateTime: LocalDateTime,
     onDatePicked: (LocalDateTime) -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Spacer(Modifier.width(32.dp))
-
-        val ivyContext = ivyWalletCtx()
-
-        Column(
-            modifier = Modifier.clickableNoIndication(rememberInteractionSource()) {
-                ivyContext.pickDate(dateTime.toLocalDate(), onDatePicked)
-            }
-        ) {
+    val ivyContext = ivyWalletCtx()
+    JvyOutlinedButton({ ivyContext.pickDate(dateTime.toLocalDate(), onDatePicked) },
+        Modifier.fillMaxWidth().padding(horizontal = JvySpacing.PageGutter).testTag("recurring_modal_pick_date")) {
+        Column(Modifier.weight(1f)) {
             val date = dateTime.toLocalDate()
             val closeDay = date.closeDay()
 
@@ -349,10 +331,7 @@ private fun DateRow(
                 text = closeDay ?: date.formatNicely(
                     pattern = "EEEE, dd MMM"
                 ),
-                style = UI.typo.h2.style(
-                    fontWeight = FontWeight.Normal,
-                    color = UI.colors.pureInverse
-                )
+                style = JvyTypography.Body,
             )
 
             if (closeDay != null) {
@@ -360,30 +339,14 @@ private fun DateRow(
 
                 Text(
                     text = date.formatDateWeekDayLong(),
-                    style = UI.typo.b2.style(
-                        fontWeight = FontWeight.SemiBold,
-                        color = Gray
-                    )
+                    style = JvyTypography.Supporting,
                 )
             }
         }
 
-        Spacer(Modifier.width(24.dp))
-        Spacer(Modifier.weight(1f))
-
-        IvyCircleButton(
-            modifier = Modifier
-                .size(48.dp)
-                .testTag("recurring_modal_pick_date"),
-            backgroundPadding = 4.dp,
-            icon = R.drawable.ic_calendar,
-            backgroundGradient = Gradient.solid(UI.colors.pureInverse),
-            tint = UI.colors.pure
-        ) {
-            ivyContext.pickDate(dateTime.toLocalDate(), onDatePicked)
-        }
-
-        Spacer(Modifier.width(32.dp))
+        Spacer(Modifier.width(JvySpacing.Related))
+        androidx.compose.material3.Icon(Icons.Outlined.DateRange, null,
+            Modifier.size(24.dp))
     }
 }
 

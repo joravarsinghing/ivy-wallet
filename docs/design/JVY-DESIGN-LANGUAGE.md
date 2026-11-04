@@ -12,6 +12,7 @@ Reuse existing translated string resources when restyling an established label. 
 
 - Shared tokens and components: [`JvyDesign.kt`](../../shared/ui/core/src/main/java/com/ivy/design/system/JvyDesign.kt).
 - Planning-page headers, primary actions and empty states: [`JvyPlanningComponents.kt`](../../shared/ui/core/src/main/java/com/ivy/design/system/JvyPlanningComponents.kt).
+- Subsection shell, canonical Back/Close controls and standalone app bars: [`JvySubsectionScaffold.kt`](../../shared/ui/core/src/main/java/com/ivy/design/system/JvySubsectionScaffold.kt).
 - Theme and semantic colors: [`IvyMaterial3Theme.kt`](../../shared/ui/core/src/main/java/com/ivy/design/system/IvyMaterial3Theme.kt).
 - Date/time selection: [`JvyPickerDialogs.kt`](../../shared/ui/core/src/main/java/com/ivy/ui/time/JvyPickerDialogs.kt), the existing injected `DateTimePicker` facade and the thin `JvyDateField` adapter. Do not introduce another platform dialog or feature-owned calendar.
 - Legacy bridge: [`IvyWalletDesign.kt`](../../temp/old-design/src/main/java/com/ivy/design/api/systems/IvyWalletDesign.kt). It uses the same bundled families and size scale; it retains legacy baseline offsets and weights for compatibility.
@@ -58,11 +59,32 @@ Use theme roles, not raw hex values in features. Purple is the brand/action acce
 
 Always pair a container with its matching `on…` role. Text contrast must be at least 4.5:1 and meaningful control outlines at least 3:1. Theme tests enforce shared palette pairs. Preserve user-assigned account/category colors; they are identifiers, not replacements for readable text. Account glyphs adjust only their rendered tint toward white/black when needed for 3:1 visibility; the saved color is unchanged. Labels and icons must explain meaning without relying on color alone. Home charts retain their documented income/expense/balance series meanings.
 
+Legacy account/category identifiers share `identifierForeground` through both
+`findContrastTextColor` adapters. Compare actual luminance ratios, not an arbitrary
+“dark colour” threshold: bright green also needs a dark foreground. Retain Ivy's
+off-white/off-black endpoints where they reach 4.5:1, using pure white/black near
+the crossover only when required. This policy is for opaque identifier surfaces;
+page text still uses semantic theme roles. Never change a saved category colour to
+repair its displayed contrast.
+
 ## Shape, spacing and controls
 
 - Controls, PIN fields, method selectors, buttons and small inset panels: **16dp** corner radius (`JvyShapes.Control`). Do not mix a capsule button with a square PIN field in the same flow.
 - Cards: **20dp** (`JvyShapes.Card`). Sheets/dialogs: **24dp** (`JvyShapes.Sheet`). A card containing controls may therefore have a different outer radius; sibling controls must agree.
 - Page gutter: **24dp**. Standard card inset: **16dp**, or 20dp for a deliberate summary. Related elements: 4–8dp; grouped content: 12–16dp; security sections: 20dp; major transitions: 24–32dp. Avoid double padding.
+- Shared rhythm lives in `JvySpacing`: Related 8dp, Group 16dp, Section/PageGutter
+  24dp, ModalMargin 16dp, ActionInset 12dp and TouchTarget 48dp. A host owns its
+  horizontal gutter once; child rows do not silently add another. Use 8dp from a
+  label to its choices and at least 8dp between wrapped rows of independent
+  controls; a search-to-action/results transition uses 16dp. Preserve full text
+  height rather than squeezing chips back to a fixed compact height.
+- `JvyDialogHeader` owns one title/Close row for modern and titled legacy forms.
+  Titles align to the 24dp body/footer column; the 48dp Close target stays outside
+  scrolling content. Pass `title` to `IvyModal` instead of putting `ModalTitle`
+  plus 24–32dp blank spacers below a separate Close row. Titled legacy bodies get
+  8dp top and 16dp bottom breathing room; callers still own their horizontal
+  fields/selectors. Modern form bodies retain their own documented padding. Do
+  not restore old 56–160dp footer-compensation spacers: footers are in layout flow.
 - Interactive targets are at least **48dp**. Use the shared button wrappers, Material IconButton, or another explicitly accessible target. Visual chips can be compact but must retain Material's minimum touch target.
 - Use one primary action in a decision group. Secondary actions are outlined or text. Allow height to grow with wrapped labels; never fix a text field or button to a height that clips scaled text.
 - Planning pages use `JvyScreenHeader` for a predictable top-left Back action, not a mixture of bottom Back text, circular close controls and floating add buttons. Populated pages use `JvyPrimaryAction` in the layout flow; empty pages show one contextual action through `JvyEmptyState`, not a duplicate footer action. Empty states use meaningful static vector icons, not symbols that resemble loading indicators.
@@ -81,7 +103,46 @@ Primary navigation is **Home · Accounts · Plan · Net worth · More**. Use a b
 
 Contextual tools menus (for example Net worth date, rates and CSV export) are allowed; they must not become another global app menu. Keep existing deep-link/screen entrypoints valid even when a redundant shortcut disappears.
 
+### One subsection navigation contract
+
+- Full-page subsections use **top-left Back** in LTR (top-start with a mirrored arrow in RTL), never a bottom-left arrow/X or text-only Back. Use `JvySubsectionScaffold` for new pages, or `JvyScreenHeader` / `JvyTopAppBar` within an existing shell. Specialized colored statistic/editor headers may use `JvyBackButton` with the existing contrast tint, not a different navigation glyph.
+- Back remains a 48dp target with a localized accessible label. The shared control only invokes the supplied callback; it does not decide whether to discard, save, dismiss a modal, pop a substep or return through the stack. Retain the existing destination's handler.
+- Root Home/Accounts/Plan/Net worth/More retain the bottom bar/rail and have no artificial Back. The initial welcome/unlock/root legal surfaces do not invent a previous page. Onboarding/import substeps use the same subsection header; an active import shows disabled Back and retains its non-interruptible write guard.
+- Real dialogs/sheets use Close/Cancel, not page Back. Shared and legacy modal hosts put Close at the top-right, outside the scrolling body; keep their current dismissal, keyboard and save semantics. Report filters follow this modal rule. Native confirmation dialogs may retain their standard Cancel action.
+- A bottom area owns task actions only. Keep it in layout flow above system/keyboard insets; no second exit control, fading bottom navigation line or magic spacer to conceal overlap. An empty page has one contextual Add action, while populated management lists may have one footer Add action.
+- Transaction/planned editors use the shared page heading and labelled Actions
+  menu for type changes, Duplicate and Delete. Do not wrap a row of destructive
+  buttons into a second header row on an ordinary phone. Preserve the real
+  transaction type; a loan-record restriction is a separate capability flag, not
+  a fake Transfer label. Pending explicit saves disable page Back/context actions.
+- Onboarding substeps use the same in-flow subsection shell; welcome has no
+  artificial previous page. Keep welcome copy/links scrollable and bound logo/text
+  to the current content column, never absolute screen coordinates. Initial
+  account cards stack their amount below the name and use a neutral surface with
+  a coloured identifier. Suggestions use the same outlined controls, not another
+  capsule/shadow system.
+- Titles, Back targets and actions use the shared gutters, typography and wrap behavior. Context actions must wrap or move to a labeled menu on compact/large-text windows instead of squeezing the Back target or clipping labels.
+- At large text sizes, the stacked page title has 8dp separation from its
+  navigation/action row. Local Pending/Completed filters grow to at least 48dp
+  instead of clipping a scaled label inside a compact chip.
+- Loan-detail names, type labels and dates stack in a bounded text column rather
+  than squeezing a type badge into the last few pixels of a name row. Repayment
+  metrics wrap as groups and keep readable contrast on legacy identifier-coloured
+  headers. Use actual navigation insets plus a final 24dp list inset, not footer
+  compensation spacers.
+- Audit every registered route and its nested steps when changing navigation. `NavigationLayoutContractTest` requires an explicit entry for every destination and rejects legacy bottom-exit bars or Close-as-Back. This source guard complements, not replaces, actual renders and device navigation testing.
+- A route's arguments are not its visit identity. `Navigation.currentEntryId`
+  stays unchanged across rotation/theme/capture recomposition, gets a fresh value
+  for every forward visit (even equal arguments), and restores the earlier value
+  on Back. Saveable page state is keyed to that entry; discard its state after the
+  entry leaves history. Editor initialization guards compare entry identity as
+  well as arguments. Pending writes consume system Back, and a late save result
+  may close only the entry that initiated it. Do not reuse the preceding new
+  transaction merely because both visits have a null transaction ID.
+
 ## Financial clarity and privacy
+
+- Home's plot, spending breakdown and recent activity share one explicit chart-selected date window. The top-bar period anchors historical dates; it must not silently clip a rolling range to the selected month. Publish the three results together, retain exact dates in spending drill-down/restoration, and clear old-currency results together. Keep upcoming payment actions separate from past activity. See the [Home date-window checkpoint](../plans/004-v2-home-window-checkpoint-2026-11-04.md).
 
 - Import assistance uses a copyable public schema/guide and a read-only validation/count preview before explicit confirmation. Never automatically send financial data to an AI, imply validation proves accounting accuracy, silently discard unsupported fields, save imported payloads into UI saved state, or let an AI conversion alter authentication/preferences. See the [AI conversion contract](../import-compatibility/AI-CONVERSION.md). Keep advanced schema text behind an explicit disclosure; retain a reachable Back control and confirmation action across window sizes.
 
@@ -101,7 +162,72 @@ Contextual tools menus (for example Net worth date, rates and CSV export) are al
 - Chart updates use a 160ms outgoing/axis crossfade and a 360ms eased, left-to-right reveal of the replacement paths (`JvyMotion.ChartUpdateMillis`). Exact totals change immediately; never count through invented currency values or morph unrelated daily/monthly observations. Initial display is static. Keep the old plot in place while loading; no floating loading pill or chart-obscuring overlay. Only slow refreshes (350ms+) show a thin, height-reserved top-edge progress indicator. Compose's platform motion-duration scale applies; disabled animations settle immediately. Cache geometry/brushes and read animation progress only while drawing, not during financial calculations. Calculate trend buckets off the UI thread and publish only current-generation results on it. No polling, decorative loops or extra network work. Hiding balances removes all outgoing layers immediately, and currency changes discard the previous plot.
 - Chart axes show their currency once; large-text ticks must not clip. Distinct line patterns, visible series labels, exact summaries and an expandable value list complement color. Hidden-balance mode suppresses the plot, scale, detailed values and spending-percentage bars. Convert percentage values to fractions before drawing proportional bars.
 - Hidden balances redact **every** amount and any magnitude-revealing presentation, including allocation bars, summaries and currency equivalents. Do not reveal values through an extra card.
+- This includes date-divider cash flow, income/expense header and section totals,
+  complete category sign/value strings and receiving transfer equivalents. Mask
+  before the text reaches accessibility semantics. Hidden summaries must not
+  reveal a zero through conditional amount-row presence, or a net-positive value
+  through its colour. Keep dates, transaction types and nonmonetary counts readable;
+  hiding balances is not general anonymization of user-entered names or notes.
+- Read-only presenters use `LocalFinancialVisibility` / `financialText`; the root observes the stored preference reactively. Replace hidden plots rather than merely fading or masking their labels. Explicit editing may expose the field being edited. Exports retain full values and require a private-data warning; never silently redact a financial backup.
+- Legacy forms adapt to the same bounded, IME-safe host and labelled 16dp outlined controls. Account/amount controls belong in the scrolling transaction form; Save stays in layout flow, not at a screen-height coordinate. No scroll-padding hacks. Nonsensitive drafts use stable primitive IDs and savers; credentials and imported payloads never enter saved state.
+- Horizontal account selectors use real content padding, stable string account
+  keys and ID-based selection. Initial selection, refresh and reordering must
+  keep the chosen account visible; decorative spacer items must not offset scroll
+  indices. Use the same behaviour in previews and production, with labelled,
+  48dp-or-larger controls and a readable selected boundary.
+- Currency selection is one shared, lazy search/radio list in onboarding and
+  dialogs. Save only currency codes/search text, allow long names to wrap, show a
+  no-results explanation, and let the containing shell own IME insets. No custom
+  keyboard listeners, 120dp footer compensation or random session ID on every
+  recomposition. Selection does not write wallet settings until its host confirms.
+- Saves require acknowledgement. `EditorSubmission` guards duplicate attempts and retains generic errors; asynchronous feature owners close only after storage success. Do not assume a `Unit` event dispatch means persistence succeeded. New editors must not inherit optimistic legacy callbacks; finish migration before claiming that a legacy flow is release-ready.
+- Category create/edit uses that acknowledgement end to end, including nested
+  transaction/planned editors and onboarding suggestions. Disable the actual
+  name/icon/colour controls and Close while pending; show progress and a polite,
+  generic retry error without exposing storage exceptions. Creation retries use
+  the original intent UUID, not a new record ID. A refresh failure after a
+  committed write is not a failed write. Keep live submission state with the
+  ViewModel-owned modal/session across configuration changes, never serialize
+  pending operations into a Bundle. Scope late dismissal to its originating
+  modal and refresh application to its route entry; an old completion must not
+  overwrite a newer category selection. This is not a claim that all legacy
+  modal hosts restore after process death.
 - Reservations are metadata, not a transfer or transaction. Preserve existing balance/reserved/available calculations.
+- Loan/repayment and tag forms follow the same acknowledgement contract. Keep
+  their live submission controller and nested account/tag host with the owning
+  ViewModel/session, and save only primitive drafts. Pending controls and Close
+  are natively disabled; recoverable errors retain the form, and a changed or
+  missing record offers Close and review. Stable creation IDs are transient
+  intent IDs, not new backup fields. A loan and its linked wallet entry commit
+  together; retrying creation must not duplicate the payment or reprice a
+  committed repayment. Tag deletion removes associations atomically, never the
+  transactions themselves. Tag editing is a visible action, not long-press-only.
+- A missing foreign-currency quote is a recoverable error, not an implicit
+  same-currency amount. Offer a matching-currency account or an exchange-rate
+  correction; keep the draft. Principal edits read their current linked wallet
+  entry within the transaction so a stale editor cannot create a second one.
+  Preserve its stored instant on metadata-only changes; change its date only
+  when the user actually changes the loan date. Queued transaction writes use
+  an immutable submitted draft, and only the latest originating route/revision
+  may acknowledge, clear or display failure for it.
+- Loan date/time controls reuse `DateTimeRow` and the shared confirmed pickers.
+  Controls wrap at narrow/large-text widths and keep the current chosen value
+  when reopening a picker; a late chooser cannot update a replacement form.
+  Recurrence and keypad drafts retain their primitive values during recreation.
+  This does not certify full route restoration after process death.
+- Recurrence and report `last N` counts must be positive whole numbers. Clearing
+  or mistyping the count must invalidate the parent selection, never retain the
+  preceding valid value invisibly. Keep the raw nonsensitive draft, show a useful
+  error and disable confirmation; existing calendar/all-time ranges stay valid.
+- Account forms use the same acknowledged submission pattern, with native
+  disabled inputs/Close and a politely announced recoverable error. Creation
+  retries retain their original account/opening UUIDs; a confirmed creation must
+  not reset later activity. Changed committed drafts or deleted accounts require
+  explicit close/review, never silent overwrite or resurrection. Suggestion
+  shortcuts retain failed intents but allocate a fresh intent after success,
+  including when a renamed item makes the same suggestion visible again. These
+  live controllers/intents are not saved credentials or backup-schema additions;
+  remaining local modal-host/process restoration still needs separate acceptance.
 - Security offers PIN, biometrics or either, while retaining legacy device authentication. Existing fingerprint users can verify their current method and create a backup/recovery code without changing it. There is **one active code**, not a batch of codes; replacement invalidates the old one. Show it once in a protected dialog and ask users to keep it outside Jvy.
 - Generating a code requires a fresh current-method proof, an unlocked session and unlocked device. Recovery proof can reset the PIN, not independently rotate credentials. Credentials remain encrypted outside financial backups.
 - A change to a net-worth item's accounting type, source or other financial definition creates a dated replacement and archives the preceding setup from that date. Existing historical values are not rewritten. Show the effective date and explain this before saving; earlier valuations remain editable without changing their setup.
@@ -157,3 +283,5 @@ The [Home trend motion follow-up](HOME-TREND-MOTION-2026-10-25.md) records the o
 The [Goals and shared-theme audit](UI-AUDIT-2026-10-26.md) records the dark-mode root cause, calendar and save-flow fixes, regression scope and remaining validation limits.
 
 The [picker coherence follow-up](PICKER-CONSOLIDATION-2026-10-26.md) records entry-point consolidation, timestamp boundaries, legacy limit/cancel fixes and verification scope.
+
+See the [app-wide navigation sweep](NAVIGATION-COHERENCE-2026-10-27.md) for the destination inventory, Planned Payments correction and verification limits.

@@ -139,7 +139,8 @@ class ImportViewModel @Inject constructor(
             TestIdlingResource.increment()
             _importStep.value = ImportStep.LOADING
             try {
-                _importResult.value = backupDataUseCase.importAiPreview(preview)
+                val result: com.ivy.data.backup.ImportResult = backupDataUseCase.importAiPreview(preview)
+                _importResult.value = result
                 _aiPreview.value = null
                 _importStep.value = ImportStep.RESULT
             } catch (error: CancellationException) {
@@ -186,8 +187,10 @@ class ImportViewModel @Inject constructor(
                     }
 
                     _importStep.value = ImportStep.RESULT
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
-                    Timber.e(e, "Import error")
+                    Timber.e("Import failed; details are available in the in-app result.")
                     _importResult.value = failureResult(e)
                     _importStep.value = ImportStep.RESULT
                 } finally {
@@ -235,12 +238,14 @@ class ImportViewModel @Inject constructor(
                 )
 
                 if (result.failedRows.isNotEmpty()) {
-                    Timber.e("Import failed rows: ${result.failedRows}")
+                    Timber.e("Import rejected ${result.failedRows.size} rows; see the in-app result.")
                 }
 
                 result
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                Timber.e(e, "CSV import error")
+                Timber.e("CSV import failed; details are available in the in-app result.")
                 ImportResult(
                     rowsFound = 0,
                     transactionsImported = 0,

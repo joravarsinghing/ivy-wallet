@@ -14,6 +14,10 @@ Before any UI work, read [`docs/design/JVY-DESIGN-LANGUAGE.md`](docs/design/JVY-
 
 Every new or modified feature must follow this design language, including plain-language financial explanations, hidden-balance behavior, large-text/phone/foldable/DeX layouts and protected credential flows. Update the standard and token tests when intentionally changing shared tokens. Render candidate previews and request visual approval before updating screenshot goldens. UI work must preserve financial calculations, stored data, backups, app identity and signing.
 
+Subsections use shared top-start Back; dialogs/sheets use top-right Close, outside scrolling content. Bottom areas contain task actions, never a second page exit. Keep root tabs unchanged. When adding/changing routes, update and run `NavigationLayoutContractTest`, inspect nested steps, and verify adaptive candidates; see the [navigation audit](docs/design/NAVIGATION-COHERENCE-2026-10-27.md).
+
+Public-release work must update the [execution ledger](docs/plans/004-public-release-readiness.md) and honor the [release gates](docs/releases/PUBLIC-RELEASE-CHECKLIST.md). Keep implemented, rendered, interaction-verified and owner-accepted separate. Do not certify hardware behavior from source checks or promote screenshot references without review. Never reintroduce automatic diagnostics, upstream paid surveys or a base-currency write bypass that reinterprets implicit financial records.
+
 ## APK versioning is mandatory
 
 For any APK intended for installation, sharing, QA, or release, use the official numbered build workflow:

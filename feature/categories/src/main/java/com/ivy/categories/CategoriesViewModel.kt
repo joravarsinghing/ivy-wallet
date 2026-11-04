@@ -1,5 +1,8 @@
 package com.ivy.categories
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -58,7 +61,10 @@ class CategoriesViewModel @Inject constructor(
         mutableStateOf<ImmutableList<CategoryData>>(persistentListOf<CategoryData>())
     private val searchQuery = mutableStateOf("")
     private val reorderModalVisible = mutableStateOf(false)
-    private val categoryModalData = mutableStateOf<CategoryModalData?>(null)
+    val editorModals = com.ivy.legacy.ui.EditorModalHost()
+    var modalRestorationReady by mutableStateOf(false)
+        private set
+    val restorationCategories get() = categories.value.map { it.category }
     private val sortModalVisible = mutableStateOf(false)
     private val sortOrder = mutableStateOf(SortOrder.DEFAULT)
 
@@ -112,7 +118,7 @@ class CategoriesViewModel @Inject constructor(
 
     @Composable
     private fun getCategoryModalData(): CategoryModalData? {
-        return categoryModalData.value
+        return editorModals.category
     }
 
     @Composable
@@ -189,6 +195,7 @@ class CategoriesViewModel @Inject constructor(
 
             val sortedList = sortList(categories, sortOrder.value).toImmutableList()
             this.categories.value = sortedList
+            modalRestorationReady = true
         }
     }
 
@@ -242,8 +249,8 @@ class CategoriesViewModel @Inject constructor(
         }
     }
 
-    private suspend fun createCategory(data: CreateCategoryData) {
-        categoryCreator.createCategory(data) {
+    private suspend fun createCategory(data: CreateCategoryData, onResult: (Result<Unit>) -> Unit) {
+        categoryCreator.createCategory(data, onResult) {
             loadCategories()
         }
     }
@@ -252,7 +259,8 @@ class CategoriesViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.Default) {
             when (event) {
                 is CategoriesScreenEvent.OnReorder -> reorder(event.newOrder, event.sortOrder)
-                is CategoriesScreenEvent.OnCreateCategory -> createCategory(event.createCategoryData)
+                is CategoriesScreenEvent.OnCreateCategory -> createCategory(event.createCategoryData, event.onResult)
+                is CategoriesScreenEvent.OnEditCategory -> categoryCreator.editCategory(event.category, event.onResult) { loadCategories() }
                 is CategoriesScreenEvent.OnReorderModalVisible -> {
                     reorderModalVisible.value = event.visible
                 }
@@ -262,7 +270,9 @@ class CategoriesViewModel @Inject constructor(
                 }
 
                 is CategoriesScreenEvent.OnCategoryModalVisible -> {
-                    categoryModalData.value = event.categoryModalData
+                    if (event.expectedId == null || editorModals.category?.id == event.expectedId) {
+                        editorModals.category = event.categoryModalData
+                    }
                 }
 
                 is CategoriesScreenEvent.OnSearchQueryUpdate -> updateSearchQuery(event.queryString)

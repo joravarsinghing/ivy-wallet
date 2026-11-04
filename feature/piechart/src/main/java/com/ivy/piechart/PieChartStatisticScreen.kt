@@ -270,9 +270,7 @@ private fun Header(
     ) {
         Spacer(Modifier.width(20.dp))
 
-        CloseButton {
-            onClose()
-        }
+        com.ivy.design.system.JvyBackButton(onClose)
 
         // Balance mini row
         if (percentExpanded < 1f) {
@@ -461,6 +459,7 @@ private fun PercentText(
     selectedState: Boolean,
     contrastColor: Color
 ) {
+    if (com.ivy.design.system.LocalFinancialVisibility.current.hidden) return
     Text(
         text = if (totalAmount != 0.0) {
             stringResource(R.string.percent, ((amount / totalAmount) * 100).format(2))

@@ -63,6 +63,8 @@ data class ReportFilter(
     )
 
     fun validate(): Boolean {
+        if (minAmount != null && (!minAmount.isFinite() || minAmount < 0)) return false
+        if (maxAmount != null && (!maxAmount.isFinite() || maxAmount < 0)) return false
         if (minAmount != null && maxAmount != null) {
             if (minAmount > maxAmount) return false
             if (maxAmount < minAmount) return false

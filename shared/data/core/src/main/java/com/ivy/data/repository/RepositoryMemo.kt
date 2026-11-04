@@ -7,6 +7,7 @@ import com.ivy.data.DeleteOperation
 import com.ivy.data.model.sync.Identifiable
 import com.ivy.data.model.sync.UniqueId
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.currentCoroutineContext
 import javax.inject.Inject
 
 class RepositoryMemoFactory @Inject constructor(
@@ -32,19 +33,34 @@ class RepositoryMemo<T : Identifiable<TID>, TID : UniqueId> internal constructor
 ) {
 
     private val _memo = mutableMapOf<TID, T>()
-    val items: Map<TID, T> = _memo
+    private val cacheLock = Any()
+    private var generation = 0L
+    val items: Map<TID, T> get() = synchronized(cacheLock) { _memo.toMap() }
+    @Volatile
     var findAllMemoized = false
         private set
+
+    /** Discard derived reads after a transaction, including ambiguous cancellation. */
+    internal fun invalidate() {
+        synchronized(cacheLock) {
+            generation++
+            _memo.clear()
+            findAllMemoized = false
+        }
+    }
 
     suspend fun findAll(
         findAllOperation: suspend () -> List<T>,
         sortMemo: Collection<T>.() -> List<T>,
     ): List<T> {
-        return if (findAllMemoized) {
-            sortMemo(_memo.values)
-        } else {
-            withContext(dispatchers.io) {
-                findAllOperation().also {
+        if (currentCoroutineContext()[AtomicWriteSession] != null) return withContext(dispatchers.io) { findAllOperation().let(sortMemo) }
+        val (cached, request) = synchronized(cacheLock) {
+            (if (findAllMemoized) _memo.values.toList() else null) to generation
+        }
+        return cached?.let(sortMemo) ?: withContext(dispatchers.io) {
+            findAllOperation().also {
+                synchronized(cacheLock) {
+                    if (generation != request) return@synchronized
                     memoize(it)
                     findAllMemoized = true
                 }
@@ -56,8 +72,14 @@ class RepositoryMemo<T : Identifiable<TID>, TID : UniqueId> internal constructor
         id: TID,
         findByIdOperation: suspend (TID) -> T?
     ): T? {
-        return items[id] ?: withContext(dispatchers.io) {
-            findByIdOperation(id)?.also(::memoize)
+        if (currentCoroutineContext()[AtomicWriteSession] != null) return withContext(dispatchers.io) { findByIdOperation(id) }
+        val (cached, request) = synchronized(cacheLock) { _memo[id] to generation }
+        return cached ?: withContext(dispatchers.io) {
+            findByIdOperation(id)?.also {
+                synchronized(cacheLock) {
+                    if (generation == request) memoize(it)
+                }
+            }
         }
     }
 
@@ -71,8 +93,14 @@ class RepositoryMemo<T : Identifiable<TID>, TID : UniqueId> internal constructor
         writeOperation: suspend (T) -> Unit,
     ) {
         withContext(dispatchers.io) {
+            val session = currentCoroutineContext()[AtomicWriteSession]
+            session?.touch(this@RepositoryMemo, ::invalidate)
             writeOperation(value)
-            memoize(value)
+            if (session != null) {
+                session.afterCommit { dataObserver.post(getDataWriteSaveEvent(listOf(value))) }
+                return@withContext
+            }
+            synchronized(cacheLock) { generation++; memoize(value) }
             dataObserver.post(getDataWriteSaveEvent(listOf(value)))
         }
     }
@@ -82,8 +110,14 @@ class RepositoryMemo<T : Identifiable<TID>, TID : UniqueId> internal constructor
         writeOperation: suspend (List<T>) -> Unit,
     ) {
         withContext(dispatchers.io) {
+            val session = currentCoroutineContext()[AtomicWriteSession]
+            session?.touch(this@RepositoryMemo, ::invalidate)
             writeOperation(values)
-            memoize(values)
+            if (session != null) {
+                session.afterCommit { dataObserver.post(getDataWriteSaveEvent(values)) }
+                return@withContext
+            }
+            synchronized(cacheLock) { generation++; memoize(values) }
             dataObserver.post(getDataWriteSaveEvent(values))
         }
     }
@@ -93,8 +127,14 @@ class RepositoryMemo<T : Identifiable<TID>, TID : UniqueId> internal constructor
         deleteByIdOperation: suspend (TID) -> Unit,
     ) {
         withContext(dispatchers.io) {
-            _memo.remove(id)
+            val session = currentCoroutineContext()[AtomicWriteSession]
+            session?.touch(this@RepositoryMemo, ::invalidate)
             deleteByIdOperation(id)
+            if (session != null) {
+                session.afterCommit { dataObserver.post(getDataWriteDeleteEvent(DeleteOperation.Just(listOf(id)))) }
+                return@withContext
+            }
+            synchronized(cacheLock) { generation++; _memo.remove(id) }
             dataObserver.post(
                 getDataWriteDeleteEvent(DeleteOperation.Just(listOf(id)))
             )
@@ -105,8 +145,14 @@ class RepositoryMemo<T : Identifiable<TID>, TID : UniqueId> internal constructor
         deleteAllOperation: suspend () -> Unit,
     ) {
         withContext(dispatchers.io) {
-            _memo.clear()
+            val session = currentCoroutineContext()[AtomicWriteSession]
+            session?.touch(this@RepositoryMemo, ::invalidate)
             deleteAllOperation()
+            if (session != null) {
+                session.afterCommit { dataObserver.post(getDataWriteDeleteEvent(DeleteOperation.All)) }
+                return@withContext
+            }
+            synchronized(cacheLock) { generation++; _memo.clear() }
             dataObserver.post(getDataWriteDeleteEvent(DeleteOperation.All))
         }
     }

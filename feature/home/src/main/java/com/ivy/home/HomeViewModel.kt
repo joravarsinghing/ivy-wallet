@@ -17,7 +17,6 @@ import com.ivy.base.legacy.TransactionHistoryItem
 import com.ivy.base.time.TimeConverter
 import com.ivy.base.time.TimeProvider
 import com.ivy.data.datastore.IvyDataStore
-import com.ivy.data.model.Category
 import com.ivy.data.model.primitive.AssetCode
 import com.ivy.data.repository.CategoryRepository
 import com.ivy.data.repository.GoalRepository
@@ -37,7 +36,6 @@ import com.ivy.legacy.data.LegacyDueSection
 import com.ivy.legacy.data.model.MainTab
 import com.ivy.legacy.data.model.Month
 import com.ivy.legacy.data.model.TimePeriod
-import com.ivy.legacy.data.model.FromToTimeRange
 import com.ivy.legacy.data.model.toUTCCloseTimeRange
 import com.ivy.legacy.datamodel.Account
 import com.ivy.legacy.datamodel.Settings
@@ -52,7 +50,6 @@ import com.ivy.navigation.Navigation
 import com.ivy.navigation.ReportScreen
 import com.ivy.ui.ComposeViewModel
 import com.ivy.wallet.domain.action.account.AccountsAct
-import com.ivy.wallet.domain.action.category.LegacyCategoryIncomeWithAccountFiltersAct
 import com.ivy.wallet.domain.action.global.StartDayOfMonthAct
 import com.ivy.wallet.domain.action.settings.CalcBufferDiffAct
 import com.ivy.wallet.domain.action.settings.SettingsAct
@@ -102,7 +99,7 @@ class HomeViewModel @Inject constructor(
     private val settingsAct: SettingsAct,
     private val accountsAct: AccountsAct,
     private val categoryRepository: CategoryRepository,
-    private val categoryIncomeWithAccountFiltersAct: LegacyCategoryIncomeWithAccountFiltersAct,
+    private val rangeActivityLoader: HomeRangeActivityLoader,
     private val goalRepository: GoalRepository,
     private val calcBufferDiffAct: CalcBufferDiffAct,
     private val upcomingAct: UpcomingAct,
@@ -122,6 +119,7 @@ class HomeViewModel @Inject constructor(
     private val features: Features,
     private val dataStore: IvyDataStore,
     private val savedAnalyticsRepository: SavedAnalyticsRepository,
+    private val transactionRepository: com.ivy.data.repository.TransactionRepository,
 ) : ComposeViewModel<HomeState, HomeEvent>() {
     private var currentTheme by mutableStateOf(Theme.AUTO)
     private var name by mutableStateOf("")
@@ -345,7 +343,7 @@ class HomeViewModel @Inject constructor(
             ).toUTCCloseTimeRange()
         )
     } then ::loadAppBaseData then ::loadIncomeExpenseBalance then
-            ::loadBuffer then ::loadMoneyComingUp then ::loadTrnHistory then
+            ::loadBuffer then ::loadMoneyComingUp then
             ::loadDueTrns thenInvokeAfter ::loadCustomerJourney
 
     private suspend fun loadAppBaseData(
@@ -360,16 +358,20 @@ class HomeViewModel @Inject constructor(
         } thenInvokeAfter { (accounts, categories) ->
             val (settings, timeRange) = input
 
-            if (baseData.baseCurrency != settings.baseCurrency) {
-                // Never show the previous currency's plot/totals under a new currency label.
-                trendLoadGeneration++
-                trend = trend.copy(points = persistentListOf(), loading = true)
+            androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
+                if (baseData.baseCurrency != settings.baseCurrency) {
+                    // All three cards must discard old-currency values before relabeling.
+                    trendLoadGeneration++
+                    trend = trend.copy(points = persistentListOf(), loading = true, window = null)
+                    history = persistentListOf()
+                    spendingBreakdown = HomeSpendingBreakdownState()
+                }
+                baseData = AppBaseData(
+                    baseCurrency = settings.baseCurrency,
+                    categories = categories.toImmutableList(),
+                    accounts = accounts.toImmutableList()
+                )
             }
-            baseData = AppBaseData(
-                baseCurrency = settings.baseCurrency,
-                categories = categories.toImmutableList(),
-                accounts = accounts.toImmutableList()
-            )
 
             Triple(settings, timeRange, accounts)
         }
@@ -408,15 +410,20 @@ class HomeViewModel @Inject constructor(
         trend = trend.copy(loading = true)
 
         val end = trendEndDate()
-        val points = withContext(Dispatchers.Default) {
-            calculateTrendPoints(range, end, baseCurrency, accounts, generation)
+        val window = HomeDateWindow.ending(range, end)
+        val categories = baseData.categories.toList()
+        val result = withContext(Dispatchers.Default) {
+            val points = calculateTrendPoints(range, end, baseCurrency, accounts, generation) ?: return@withContext null
+            val activity = rangeActivityLoader.load(window, timeConverter, baseCurrency, accounts, categories)
+            points to activity
         } ?: return
 
-        if (generation != trendLoadGeneration || range != trend.range) return
-        trend = trend.copy(
-            points = points.toImmutableList(),
-            loading = false,
-        )
+        if (generation != trendLoadGeneration || range != trend.range || baseCurrency != baseData.baseCurrency) return
+        androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
+            history = result.second.history
+            spendingBreakdown = result.second.spending
+            trend = trend.copy(points = result.first.toImmutableList(), loading = false, window = window)
+        }
     }
 
     /** Query/fold work stays off the UI thread; only immutable results are published above. */
@@ -427,6 +434,9 @@ class HomeViewModel @Inject constructor(
         accounts: List<Account>,
         generation: Long,
     ): List<HomeTrendPoint>? {
+        val firstRecordedActivity = transactionRepository.findFirstSettledTime(
+            accounts.map { com.ivy.data.model.AccountId(it.id) }
+        )?.let { with(timeConverter) { it.toLocalDate() } }
         val buckets = (range.periodCount - 1 downTo 0).map { offset ->
             if (generation != trendLoadGeneration) return null
             val pointDate = if (range.isDaily) {
@@ -451,9 +461,7 @@ class HomeViewModel @Inject constructor(
             val balanceAtEnd = calcWalletBalanceAct(
                 CalcWalletBalanceAct.Input(
                     baseCurrency = baseCurrency,
-                    range = ClosedTimeRange.to(
-                        timeConverter.run { bucket.end.plusDays(1).atStartOfDay().toUTC() }
-                    ),
+                    range = ClosedTimeRange.to(HomeDateWindow(bucket.start, bucket.end).toUtcRange(timeConverter).to),
                 )
             )
             val pointDate = bucket.start
@@ -474,7 +482,7 @@ class HomeViewModel @Inject constructor(
                 },
             )
         }
-        return buildHomeTrendPoints(rawPoints, range, anchorDate = end)
+        return buildHomeTrendPoints(rawPoints, range, anchorDate = end, firstRecordedActivity = firstRecordedActivity)
     }
 
     private suspend fun calculateTrendStats(
@@ -503,12 +511,10 @@ class HomeViewModel @Inject constructor(
     )
 
     private fun trendRange(from: LocalDate, to: LocalDate): ClosedTimeRange =
-        FromToTimeRange(
-            from = timeConverter.run { from.atStartOfDay().toUTC() },
-            to = timeConverter.run { to.plusDays(1).atStartOfDay().toUTC() },
-        ).toUTCCloseTimeRange()
+        HomeDateWindow(from, to).toUtcRange(timeConverter)
 
     private fun trendEndDate(): LocalDate {
+        period.fromToRange?.to?.let { return with(timeConverter) { it.toLocalDate() } }
         val selectedStart = trendAnchorDate()
         val now = timeProvider.localDateNow()
         return if (selectedStart.year == now.year && selectedStart.month == now.month) {
@@ -627,47 +633,6 @@ class HomeViewModel @Inject constructor(
             accounts = baseData.accounts.toList(),
         )
         return input
-    }
-
-    private suspend fun loadTrnHistory(
-        input: Pair<String, ClosedTimeRange>
-    ): Pair<String, ClosedTimeRange> {
-        val (baseCurrency, timeRange) = input
-
-        history = historyWithDateDivsAct(
-            HistoryWithDateDivsAct.Input(
-                range = timeRange,
-                baseCurrency = baseCurrency
-            )
-        )
-
-        loadSpendingBreakdown(history.filterIsInstance<Transaction>())
-
-        return baseCurrency to timeRange
-    }
-
-    private suspend fun loadSpendingBreakdown(transactions: List<Transaction>) {
-        val categories: List<Category?> = baseData.categories.toList() + listOf(null)
-        val rows = categories.mapNotNull { category ->
-            val result = categoryIncomeWithAccountFiltersAct(
-                LegacyCategoryIncomeWithAccountFiltersAct.Input(
-                    transactions = transactions,
-                    accountFilterList = baseData.accounts.toList(),
-                    category = category,
-                    baseCurrency = baseData.baseCurrency,
-                )
-            )
-            val amount = result.expense
-            if (amount.signum() <= 0) return@mapNotNull null
-            HomeSpendingBreakdownRow(
-                categoryId = category?.id?.value?.toString(),
-                label = category?.name?.value ?: "Uncategorized",
-                color = category?.color?.value ?: 0xFF777777.toInt(),
-                amount = amount,
-                percentage = BigDecimal.ZERO,
-            )
-        }
-        spendingBreakdown = buildHomeSpendingBreakdown(rows)
     }
 
     private suspend fun loadDueTrns(

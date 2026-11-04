@@ -101,6 +101,8 @@ fun BoxWithConstraintsScope.TransactionsScreen(screen: TransactionsScreen) {
     val ivyContext = ivyWalletCtx()
     val nav = navigation()
     val uiState = viewModel.uiState()
+    val modalsResolved = com.ivy.legacy.ui.rememberEditorModalRestoration(viewModel.editorModals, viewModel.modalRestorationReady, uiState.currency,
+        uiState.accounts, uiState.categories, balances = uiState.account?.let { mapOf(it.id to uiState.balance) }.orEmpty())
 
     val view = LocalView.current
     LaunchedEffect(Unit) {
@@ -115,7 +117,9 @@ fun BoxWithConstraintsScope.TransactionsScreen(screen: TransactionsScreen) {
         }
     }
 
+    if (!modalsResolved) return
     UI(
+        editorModals = viewModel.editorModals,
         screen = screen,
         allTransactions = screen.allTransactions,
         period = uiState.period,
@@ -172,11 +176,11 @@ fun BoxWithConstraintsScope.TransactionsScreen(screen: TransactionsScreen) {
         onDelete = {
             viewModel.onEvent(TransactionsEvent.Delete(screen))
         },
-        onEditCategory = {
-            viewModel.onEvent(TransactionsEvent.EditCategory(it))
+        onEditCategory = { category, complete ->
+            viewModel.onEvent(TransactionsEvent.EditCategory(category, complete))
         },
-        onEditAccount = { acc, newBalance ->
-            viewModel.onEvent(TransactionsEvent.EditAccount(screen, acc, newBalance))
+        onEditAccount = { acc, newBalance, complete ->
+            viewModel.onEvent(TransactionsEvent.EditAccount(screen, acc, newBalance, complete))
         },
         onPayOrGet = { transaction ->
             viewModel.onEvent(TransactionsEvent.PayOrGet(screen, transaction))
@@ -206,7 +210,8 @@ fun BoxWithConstraintsScope.TransactionsScreen(screen: TransactionsScreen) {
     )
 }
 
-@Suppress("LongMethod", "LongParameterList")
+// Preserve the legacy positional adapter while migrating its nested editors.
+@Suppress("LongMethod", "LongParameterList", "ComposeParameterOrder")
 @Composable
 private fun BoxWithConstraintsScope.UI(
     screen: TransactionsScreen,
@@ -238,12 +243,13 @@ private fun BoxWithConstraintsScope.UI(
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
     onSetPeriod: (TimePeriod) -> Unit,
-    onEditAccount: (Account, Double) -> Unit,
-    onEditCategory: (Category) -> Unit,
+    onEditAccount: (Account, Double, (Result<Unit>) -> Unit) -> Unit,
+    onEditCategory: (Category, (Result<Unit>) -> Unit) -> Unit,
     onDelete: () -> Unit,
     deleteModal1Visible: Boolean,
     onDeleteModal1Visible: (Boolean) -> Unit,
 
+    editorModals: com.ivy.legacy.ui.EditorModalHost = remember { com.ivy.legacy.ui.EditorModalHost() },
     initWithTransactions: Boolean = false,
     treatTransfersAsIncomeExpense: Boolean = false,
     upcomingExpanded: Boolean = true,
@@ -268,8 +274,8 @@ private fun BoxWithConstraintsScope.UI(
         (account?.color ?: category?.color?.value)?.toComposeColor() ?: Gray
     }
 
-    var categoryModalData: CategoryModalData? by remember { mutableStateOf(null) }
-    var accountModalData: AccountModalData? by remember { mutableStateOf(null) }
+    val categoryModalData = editorModals.category
+    val accountModalData = editorModals.account
 
     val swipeListenerState = rememberSwipeListenerState()
     Column(
@@ -327,7 +333,7 @@ private fun BoxWithConstraintsScope.UI(
                     onEdit = {
                         when {
                             account != null -> {
-                                accountModalData = AccountModalData(
+                                editorModals.account = AccountModalData(
                                     account = account,
                                     baseCurrency = currency,
                                     balance = balance,
@@ -336,7 +342,7 @@ private fun BoxWithConstraintsScope.UI(
                             }
 
                             category != null -> {
-                                categoryModalData = CategoryModalData(
+                                editorModals.category = CategoryModalData(
                                     category = category,
                                     autoFocusKeyboard = false
                                 )
@@ -347,7 +353,7 @@ private fun BoxWithConstraintsScope.UI(
                     onBalanceClick = {
                         when {
                             account != null -> {
-                                accountModalData = AccountModalData(
+                                editorModals.account = AccountModalData(
                                     account = account,
                                     baseCurrency = currency,
                                     balance = balance,
@@ -358,13 +364,13 @@ private fun BoxWithConstraintsScope.UI(
                         }
                     },
                     showCategoryModal = {
-                        categoryModalData = CategoryModalData(
+                        editorModals.category = CategoryModalData(
                             category = category,
                             autoFocusKeyboard = false
                         )
                     },
                     showAccountModal = {
-                        accountModalData = AccountModalData(
+                        editorModals.account = AccountModalData(
                             account = account,
                             baseCurrency = currency,
                             balance = balance,
@@ -450,19 +456,19 @@ private fun BoxWithConstraintsScope.UI(
 
     CategoryModal(
         modal = categoryModalData,
-        onCreateCategory = { },
+        onCreateCategory = { _, complete -> complete(Result.failure(IllegalStateException("Creation is unavailable in this edit-only context."))) },
         onEditCategory = onEditCategory,
         dismiss = {
-            categoryModalData = null
+            editorModals.closeCategory(categoryModalData?.id)
         }
     )
 
     AccountModal(
         modal = accountModalData,
-        onCreateAccount = { },
+        onCreateAccount = { _, complete -> complete(Result.failure(IllegalStateException("Creation is unavailable in this edit-only context."))) },
         onEditAccount = onEditAccount,
         dismiss = {
-            accountModalData = null
+            editorModals.closeAccount(accountModalData?.id)
         }
     )
 
@@ -870,8 +876,8 @@ private fun BoxWithConstraintsScope.Preview_empty() {
             onPreviousMonth = {},
             onNextMonth = {},
             onDelete = {},
-            onEditAccount = { _, _ -> },
-            onEditCategory = {},
+            onEditAccount = { _, _, complete -> complete(Result.failure(IllegalStateException("Editing is unavailable in this create-only context."))) },
+            onEditCategory = { _, _ -> },
             updateAccountNameConfirmation = {},
             enableDeletionButton = true,
             deleteModal1Visible = false,
@@ -917,8 +923,8 @@ private fun BoxWithConstraintsScope.Preview_crypto() {
             onPreviousMonth = {},
             onNextMonth = {},
             onDelete = {},
-            onEditAccount = { _, _ -> },
-            onEditCategory = {},
+            onEditAccount = { _, _, complete -> complete(Result.failure(IllegalStateException("Editing is unavailable in this create-only context."))) },
+            onEditCategory = { _, _ -> },
             updateAccountNameConfirmation = {},
             enableDeletionButton = true,
             deleteModal1Visible = false,
@@ -957,8 +963,8 @@ private fun BoxWithConstraintsScope.Preview_empty_upcoming() {
             onPreviousMonth = {},
             onNextMonth = {},
             onDelete = {},
-            onEditAccount = { _, _ -> },
-            onEditCategory = {},
+            onEditAccount = { _, _, complete -> complete(Result.failure(IllegalStateException("Editing is unavailable in this create-only context."))) },
+            onEditCategory = { _, _ -> },
             upcoming = persistentListOf(
                 Transaction(
                     UUID(1L, 2L),

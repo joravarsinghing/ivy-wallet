@@ -162,6 +162,7 @@ fun LoanPlanningContent(state: LoanScreenState, modifier: Modifier = Modifier, o
                     Icons.Outlined.ReceiptLong, actionLabel = stringResource(R.string.add_loan), onAction = add)
             }
             items(loans, key = { it.loan.id }) { item -> LoanItem(item) { onLoanClick(item) } }
+            if (loans.isNotEmpty()) item(key = "loan-overview-chart", contentType = "chart") { LoanOverviewChart(loans) }
         }
         if (loans.isNotEmpty()) JvyPrimaryAction(stringResource(R.string.add_loan), add)
     }

@@ -95,7 +95,7 @@ fun HomeSpendingBreakdownCard(
             .background(androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant)
             .clickable(enabled = dateWindow != null, onClick = {
                 dateWindow?.let { nav.navigateTo(PieChartStatisticScreen(type = TransactionType.EXPENSE,
-                    filterExcluded = false, dateRange = it.navigationRange(converter))) }
+                    filterExcluded = true, dateRange = it.navigationRange(converter), cashFlowOnly = true)) }
             })
             .semantics {
                 role = Role.Button

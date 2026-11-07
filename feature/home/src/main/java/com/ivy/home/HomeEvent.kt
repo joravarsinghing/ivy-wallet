@@ -20,6 +20,8 @@ sealed interface HomeEvent {
     data class SetCurrency(val currency: String) : HomeEvent
 
     data class SetPeriod(val period: TimePeriod) : HomeEvent
+    data class SetHomePeriod(val selection: HomePeriodSelection) : HomeEvent
+    data object RefreshHomePeriod : HomeEvent
 
     data class PayOrGetPlanned(val transaction: Transaction) : HomeEvent
     data class SkipPlanned(val transaction: Transaction) : HomeEvent

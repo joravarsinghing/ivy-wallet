@@ -1,7 +1,6 @@
 package com.ivy.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,13 +10,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.FilterChip
 import com.ivy.design.system.JvyShapes
 import com.ivy.design.system.JvyTypography
 import com.ivy.design.system.JvyTextButton
@@ -65,7 +62,7 @@ fun HomeTrendCard(
         state.points.isEmpty() && !state.range.isDaily
     val dailySamples = if (state.points.isEmpty()) state.range.isDaily
         else state.points.all { it.periodIdentity is HomeTrendPeriodIdentity.Day }
-    var showValues by rememberSaveable(state.range) { mutableStateOf(false) }
+    var showValues by rememberSaveable(state.window, state.range) { mutableStateOf(false) }
     val refreshing = state.loading && state.hasData && !hidden && state.visibleMetrics.isNotEmpty()
     val showRefreshHint by produceState(false, refreshing, state.range) {
         value = false
@@ -100,7 +97,7 @@ fun HomeTrendCard(
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Spacer(Modifier.height(2.dp))
-                Text(
+                if (state.window == null) Text(
                     text = when {
                         intervalSamples -> "30 points across this range"
                         dailySamples -> "Daily balance and cash flow"
@@ -115,23 +112,6 @@ fun HomeTrendCard(
         )
 
         Spacer(Modifier.height(12.dp))
-
-        Row(
-            modifier = Modifier
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            HomeTrendRange.values().forEach { range ->
-                TrendRangeChip(
-                    range = range,
-                    selected = range == state.range,
-                    onClick = { onRangeSelected(range) },
-                )
-            }
-        }
-
-        Spacer(Modifier.height(14.dp))
 
         Box(modifier = Modifier.fillMaxWidth()) {
             when {
@@ -234,11 +214,6 @@ fun HomeTrendCard(
             onClose = onCloseEditor,
         )
     }
-}
-
-@Composable
-private fun TrendRangeChip(range: HomeTrendRange, selected: Boolean, onClick: () -> Unit) {
-    FilterChip(selected, onClick, label = { Text(range.label) }, shape = JvyShapes.Control)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -355,10 +330,23 @@ private fun groupedAmount(amount: BigDecimal): String =
     String.format(Locale.US, "%,.2f", amount.toDouble())
 
 internal fun compactAxisAmount(amount: BigDecimal): String {
-    val value = amount.toDouble()
-    return when {
-        kotlin.math.abs(value) >= 1_000_000 -> String.format(Locale.US, "%.1fm", value / 1_000_000)
-        kotlin.math.abs(value) >= 1_000 -> String.format(Locale.US, "%.1fk", value / 1_000)
-        else -> String.format(Locale.US, "%.0f", value)
+    if (amount.signum() == 0) return "0"
+    val magnitude = amount.abs()
+    if (magnitude < BigDecimal("0.001") || magnitude >= BigDecimal("1e15")) {
+        val rounded = amount.round(java.math.MathContext(3)).stripTrailingZeros()
+        val exponent = rounded.precision() - rounded.scale() - 1
+        return "${rounded.movePointLeft(exponent).toPlainString()}e$exponent"
     }
+    val exponent = when {
+        magnitude >= BigDecimal("1e12") -> 12
+        magnitude >= BigDecimal("1e9") -> 9
+        magnitude >= BigDecimal("1e6") -> 6
+        magnitude >= BigDecimal("1e3") -> 3
+        else -> 0
+    }
+    val value = amount.movePointLeft(exponent)
+    val rounded = if (exponent > 0) value.setScale(1, java.math.RoundingMode.HALF_UP)
+        else value.round(java.math.MathContext(4))
+    val suffix = when (exponent) { 12 -> "t"; 9 -> "b"; 6 -> "m"; 3 -> "k"; else -> "" }
+    return rounded.stripTrailingZeros().toPlainString() + suffix
 }

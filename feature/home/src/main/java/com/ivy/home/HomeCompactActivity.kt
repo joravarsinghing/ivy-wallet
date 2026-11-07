@@ -52,12 +52,14 @@ fun HomeCompactActivity(
     onSkipAllTransactions: (List<Transaction>) -> Unit,
     modifier: Modifier = Modifier,
     dateWindow: HomeDateWindow? = null,
+    showPlanned: Boolean = true,
+    showRecent: Boolean = true,
 ) {
     val nav = navigation()
     val recent = compactHistory(history, 7)
     val planned = overdue.trns + upcoming.trns
     Column(modifier = modifier.fillMaxWidth()) {
-        if (planned.isNotEmpty()) {
+        if (showPlanned && planned.isNotEmpty()) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)
                 .clip(com.ivy.design.system.JvyShapes.Card).background(UI.colors.medium).padding(vertical = 18.dp)) {
                 Text(stringResource(R.string.planned_payments_inline), Modifier.padding(horizontal = 20.dp),
@@ -75,7 +77,7 @@ fun HomeCompactActivity(
             }
             Spacer(Modifier.size(16.dp))
         }
-        Column(
+        if (showRecent) Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)

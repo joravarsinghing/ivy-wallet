@@ -81,9 +81,9 @@ import java.time.format.TextStyle
 import java.util.Locale
 import javax.inject.Inject
 
-private val HOME_TREND_RANGE_KEY = stringPreferencesKey("home_trend_range")
 private val HOME_TREND_METRICS_KEY = stringSetPreferencesKey("home_trend_metrics")
 private val HOME_DASHBOARD_CARDS_KEY = stringSetPreferencesKey("home_dashboard_cards")
+private val HOME_PERIOD_KEY = stringPreferencesKey("home_period_v1")
 
 @Stable
 @HiltViewModel
@@ -120,10 +120,18 @@ class HomeViewModel @Inject constructor(
     private val dataStore: IvyDataStore,
     private val savedAnalyticsRepository: SavedAnalyticsRepository,
     private val transactionRepository: com.ivy.data.repository.TransactionRepository,
+    private val timelineLoader: HomeTimelineLoader,
 ) : ComposeViewModel<HomeState, HomeEvent>() {
     private var currentTheme by mutableStateOf(Theme.AUTO)
     private var name by mutableStateOf("")
     private var period by mutableStateOf(ivyContext.selectedPeriod)
+    private var periodSelection by mutableStateOf<HomePeriodSelection>(HomePeriodSelection.CurrentCycle)
+    private var appliedPeriodSelection by mutableStateOf<HomePeriodSelection>(HomePeriodSelection.CurrentCycle)
+    private var periodError by mutableStateOf<String?>(null)
+    private var periodCapped by mutableStateOf(false)
+    private val timelineGeneration = HomeTimelineGeneration()
+    private var lastCalendarDay: LocalDate? = null
+    private var lastTimeZone: java.time.ZoneId? = null
     private var baseData by mutableStateOf(
         AppBaseData(
             baseCurrency = "",
@@ -161,7 +169,6 @@ class HomeViewModel @Inject constructor(
     private var expanded by mutableStateOf(true)
     private var moneyComingUp by mutableStateOf(MoneyComingUpState())
     private var trend by mutableStateOf(HomeTrendState())
-    @Volatile private var trendLoadGeneration = 0L
     private var spendingBreakdown by mutableStateOf(HomeSpendingBreakdownState())
     private var visibleDashboardCards by mutableStateOf(defaultVisibleHomeDashboardCards)
     private var dashboardEditorVisible by mutableStateOf(false)
@@ -195,6 +202,10 @@ class HomeViewModel @Inject constructor(
             visibleDashboardCards = visibleDashboardCards,
             dashboardEditorVisible = dashboardEditorVisible,
             savedAnalytics = savedAnalytics,
+            periodSelection = periodSelection,
+            appliedPeriodSelection = appliedPeriodSelection,
+            periodError = periodError,
+            periodCapped = periodCapped,
         )
     }
 
@@ -283,6 +294,8 @@ class HomeViewModel @Inject constructor(
                 is HomeEvent.SkipPlanned -> skipPlanned(event.transaction)
                 is HomeEvent.SkipAllPlanned -> skipAllPlanned(event.transactions)
                 is HomeEvent.SetPeriod -> setPeriod(event.period)
+                is HomeEvent.SetHomePeriod -> selectHomePeriod(event.selection)
+                HomeEvent.RefreshHomePeriod -> refreshForCalendarChange()
                 HomeEvent.SelectNextMonth -> onSelectNextMonth()
                 HomeEvent.SelectPreviousMonth -> onSelectPreviousMonth()
                 is HomeEvent.SetUpcomingExpanded -> setUpcomingExpanded(event.expanded)
@@ -307,6 +320,8 @@ class HomeViewModel @Inject constructor(
 
     private suspend fun start() {
         loadTrendPreferences()
+        periodSelection = decodeHomePeriod(dataStore.data.first()[HOME_PERIOD_KEY])
+        period = periodSelection.asTimePeriod(timeConverter)
         loadDashboardPreferences()
         savedAnalytics = savedAnalyticsRepository.findAll().toImmutableList()
         suspend {
@@ -319,7 +334,7 @@ class HomeViewModel @Inject constructor(
 
     // -----------------------------------------------------------------------------------
     private suspend fun reload(
-        timePeriod: TimePeriod = ivyContext.selectedPeriod
+        timePeriod: TimePeriod = period
     ) = suspend {
         val settings = settingsAct(Unit)
         val hideBalance = shouldHideBalanceAct(Unit)
@@ -336,11 +351,7 @@ class HomeViewModel @Inject constructor(
 
         Pair(
             settings,
-            period.toRange(
-                startDateOfMonth = ivyContext.startDayOfMonth,
-                timeConverter = timeConverter,
-                timeProvider = timeProvider
-            ).toUTCCloseTimeRange()
+            HomeDateWindow(timeProvider.localDateNow(), timeProvider.localDateNow().plusDays(30)).toUtcRange(timeConverter)
         )
     } then ::loadAppBaseData then ::loadIncomeExpenseBalance then
             ::loadBuffer then ::loadMoneyComingUp then
@@ -361,9 +372,10 @@ class HomeViewModel @Inject constructor(
             androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
                 if (baseData.baseCurrency != settings.baseCurrency) {
                     // All three cards must discard old-currency values before relabeling.
-                    trendLoadGeneration++
+                    timelineGeneration.next()
                     trend = trend.copy(points = persistentListOf(), loading = true, window = null)
                     history = persistentListOf()
+                    stats = IncomeExpensePair.zero()
                     spendingBreakdown = HomeSpendingBreakdownState()
                 }
                 baseData = AppBaseData(
@@ -381,171 +393,91 @@ class HomeViewModel @Inject constructor(
     ): Triple<Settings, ClosedTimeRange, BigDecimal> {
         val (settings, timeRange, accounts) = input
 
-        val incomeExpense = calcIncomeExpenseAct(
-            CalcIncomeExpenseAct.Input(
-                baseCurrency = settings.baseCurrency,
-                accounts = accounts,
-                range = timeRange
-            )
-        )
-
         val balanceAmount = calcWalletBalanceAct(
             CalcWalletBalanceAct.Input(baseCurrency = settings.baseCurrency)
         )
 
         balance = balanceAmount
-        stats = incomeExpense
-
         loadTrend(settings.baseCurrency, accounts)
 
         return Triple(settings, timeRange, balanceAmount)
     }
 
-    private suspend fun loadTrend(
-        baseCurrency: String,
-        accounts: List<Account>,
-    ) {
-        val generation = ++trendLoadGeneration
-        val range = trend.range
+    private suspend fun loadTrend(baseCurrency: String, accounts: List<Account>) {
+        val generation = timelineGeneration.next()
+        val selection = periodSelection
+        val today = timeProvider.localDateNow()
+        lastCalendarDay = today
+        lastTimeZone = timeProvider.getZoneId()
         trend = trend.copy(loading = true)
-
-        val end = trendEndDate()
-        val window = HomeDateWindow.ending(range, end)
-        val categories = baseData.categories.toList()
-        val result = withContext(Dispatchers.Default) {
-            val points = calculateTrendPoints(range, end, baseCurrency, accounts, generation) ?: return@withContext null
-            val activity = rangeActivityLoader.load(window, timeConverter, baseCurrency, accounts, categories)
-            points to activity
-        } ?: return
-
-        if (generation != trendLoadGeneration || range != trend.range || baseCurrency != baseData.baseCurrency) return
-        androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
-            history = result.second.history
-            spendingBreakdown = result.second.spending
-            trend = trend.copy(points = result.first.toImmutableList(), loading = false, window = window)
-        }
-    }
-
-    /** Query/fold work stays off the UI thread; only immutable results are published above. */
-    private suspend fun calculateTrendPoints(
-        range: HomeTrendRange,
-        end: LocalDate,
-        baseCurrency: String,
-        accounts: List<Account>,
-        generation: Long,
-    ): List<HomeTrendPoint>? {
-        val firstRecordedActivity = transactionRepository.findFirstSettledTime(
-            accounts.map { com.ivy.data.model.AccountId(it.id) }
-        )?.let { with(timeConverter) { it.toLocalDate() } }
-        val buckets = homeTrendSamplingWindows(range, end).map { window ->
-            if (generation != trendLoadGeneration) return null
-            val transactions = historyWithDateDivsAct(
-                HistoryWithDateDivsAct.Input(window.toUtcRange(timeConverter), baseCurrency)
-            ).filterIsInstance<Transaction>().filter(::isTrendTransaction)
-            TrendBucket(window.from, window.through, transactions)
-        }
-        val rawPoints = buckets.map { bucket ->
-            if (generation != trendLoadGeneration) return null
-            val stats = calculateTrendStats(bucket.transactions, accounts, baseCurrency)
-            val balanceAtEnd = calcWalletBalanceAct(
-                CalcWalletBalanceAct.Input(
-                    baseCurrency = baseCurrency,
-                    range = ClosedTimeRange.to(HomeDateWindow(bucket.start, bucket.end).toUtcRange(timeConverter).to),
-                )
-            )
-            val pointDate = bucket.start
-            HomeTrendPoint(
-                periodLabel = if (range.isDaily) {
-                    "${pointDate.month.getDisplayName(TextStyle.SHORT, Locale.US)} ${pointDate.dayOfMonth}"
-                } else {
-                    HomeDateWindow(bucket.start, bucket.end).displayLabel()
-                },
-                income = stats?.income ?: BigDecimal.ZERO,
-                expenses = stats?.expense ?: BigDecimal.ZERO,
-                balance = balanceAtEnd,
-                isObserved = bucket.transactions.isNotEmpty(),
-                periodIdentity = if (range.isDaily) {
-                    HomeTrendPeriodIdentity.Day(pointDate)
-                } else {
-                    HomeTrendPeriodIdentity.Interval(bucket.start, bucket.end)
-                },
-            )
-        }
-        return coverHomeTrendSamples(rawPoints, firstRecordedActivity)
-    }
-
-    private suspend fun calculateTrendStats(
-        transactions: List<Transaction>,
-        accounts: List<Account>,
-        baseCurrency: String,
-    ) = transactions.takeIf { it.isNotEmpty() }?.let {
-        calcTrnsIncomeExpenseAct(
-            LegacyCalcTrnsIncomeExpenseAct.Input(
-                transactions = it,
-                accounts = accounts,
-                baseCurrency = baseCurrency,
-            )
-        )
-    }
-
-    private fun isTrendTransaction(transaction: Transaction): Boolean =
-        transaction.type != TransactionType.TRANSFER &&
-            !(transaction.type == TransactionType.INCOME &&
-                transaction.title?.trim()?.equals("Adjust balance", ignoreCase = true) == true)
-
-    private data class TrendBucket(
-        val start: LocalDate,
-        val end: LocalDate,
-        val transactions: List<Transaction>,
-    )
-
-    private fun trendEndDate(): LocalDate {
-        period.fromToRange?.to?.let { return with(timeConverter) { it.toLocalDate() } }
-        val selectedStart = trendAnchorDate()
-        val now = timeProvider.localDateNow()
-        return if (selectedStart.year == now.year && selectedStart.month == now.month) {
-            now
-        } else {
-            selectedStart.plusMonths(1).minusDays(1)
-        }
-    }
-
-    private fun trendAnchorDate(): LocalDate {
-        val selectedMonth = period.month
-        return if (selectedMonth != null) {
-            LocalDate.of(
-                period.year ?: timeProvider.localDateNow().year,
-                selectedMonth.monthValue,
-                1,
-            )
-        } else {
-            timeProvider.localDateNow().withDayOfMonth(1)
+        periodError = null
+        try {
+            val first = withContext(Dispatchers.IO) {
+                transactionRepository.findFirstSettledTime(accounts.map { com.ivy.data.model.AccountId(it.id) })
+            }?.let { with(timeConverter) { it.toLocalDate() } }
+            val resolved = selection.resolve(today, ivyContext.startDayOfMonth, first)
+            val request = HomeTimelineRequest(selection, resolved.window, baseCurrency,
+                accounts.toList(), baseData.categories.toList(), first)
+            val result = withContext(Dispatchers.Default) { timelineLoader.load(request) { timelineGeneration.owns(generation) } }
+            if (!timelineGeneration.owns(generation) || selection != periodSelection || baseCurrency != baseData.baseCurrency) return
+            androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
+                stats = result.totals
+                history = result.activity.history
+                spendingBreakdown = result.activity.spending
+                appliedPeriodSelection = selection
+                periodCapped = resolved.cappedAtToday
+                trend = trend.copy(points = result.points.toImmutableList(), loading = false, window = resolved.window)
+            }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            if (timelineGeneration.owns(generation)) {
+                trend = trend.copy(loading = false)
+                periodError = "Couldn't update this period. Your previous results are still shown. Try again."
+            }
         }
     }
 
     private suspend fun loadTrendPreferences() {
         val preferences = dataStore.data.first()
-        val storedRange = preferences[HOME_TREND_RANGE_KEY]
-            ?.let { value -> HomeTrendRange.values().firstOrNull { it.name == value } }
-            ?: HomeTrendRange.THIRTY_DAYS
-        val storedMetrics = preferences[HOME_TREND_METRICS_KEY]
-            ?.mapNotNull(HomeTrendMetric::fromStoredName)
-            ?.toSet()
-            ?.takeIf { it.isNotEmpty() }
-            ?: HomeTrendState().visibleMetrics
-
-        trend = trend.copy(
-            range = storedRange,
-            visibleMetrics = storedMetrics,
-        )
+        trend = trend.copy(visibleMetrics = preferences[HOME_TREND_METRICS_KEY]
+            ?.mapNotNull(HomeTrendMetric::fromStoredName)?.toSet()?.takeIf { it.isNotEmpty() }
+            ?: HomeTrendState().visibleMetrics)
     }
 
     private suspend fun setTrendRange(range: HomeTrendRange) {
-        if (trend.range == range) return
-        trendLoadGeneration++
-        trend = trend.copy(range = range, loading = true)
-        dataStore.edit { it[HOME_TREND_RANGE_KEY] = range.name }
-        if (trend.range == range) loadTrend(baseData.baseCurrency, baseData.accounts.toList())
+        selectHomePeriod(HomePeriodSelection.Rolling(range.periodCount,
+            if (range.isDaily) com.ivy.data.model.IntervalType.DAY else com.ivy.data.model.IntervalType.MONTH))
+    }
+
+    private suspend fun selectHomePeriod(selection: HomePeriodSelection) {
+        try {
+            // Validate before persisting; unknown all-time coverage is resolved by the loader.
+            selection.resolve(timeProvider.localDateNow(), ivyContext.startDayOfMonth, null)
+        } catch (_: IllegalArgumentException) {
+            periodError = "Choose a period that starts today or earlier."
+            return
+        }
+        val intent = timelineGeneration.next()
+        periodSelection = selection
+        period = selection.asTimePeriod(timeConverter)
+        try {
+            dataStore.edit { it[HOME_PERIOD_KEY] = selection.encode() }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            if (timelineGeneration.owns(intent)) {
+                trend = trend.copy(loading = false)
+                periodError = "Couldn't save your date choice. Try again."
+            }
+            return
+        }
+        if (timelineGeneration.owns(intent) && selection == periodSelection)
+            loadTrend(baseData.baseCurrency, baseData.accounts.toList())
+    }
+
+    private suspend fun refreshForCalendarChange() {
+        if (lastCalendarDay != null && (lastCalendarDay != timeProvider.localDateNow() || lastTimeZone != timeProvider.getZoneId())) reload()
     }
 
     private suspend fun toggleTrendMetric(metric: HomeTrendMetric) {
@@ -778,7 +710,7 @@ class HomeViewModel @Inject constructor(
     }
 
     private suspend fun setPeriod(period: TimePeriod) {
-        reload(period)
+        selectHomePeriod(homePeriodFromLegacy(period, timeProvider.localDateNow(), timeConverter))
     }
 
     @JvmName("setExpandedMethod")

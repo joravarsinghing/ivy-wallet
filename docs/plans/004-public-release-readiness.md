@@ -4,7 +4,94 @@ Approved direction: owner-signed GitHub APK; English-first; no automatic crash
 diagnostics; guard implicit-currency records instead of migrating their schema.
 Premium means reliable, accessible and understandable, not a paid tier.
 
+Owner-requested APK handoff: **0.6.0 / 231**. The official minor-release build
+completed in 10m 43s. Signature, owner-certificate continuity, package/version,
+non-debuggable manifest, alignment, checksum and temporary-key cleanup verified.
+See [candidate evidence](../releases/0.6.0-candidate.md). This supersedes the
+historical no-APK/version statements below; hardware acceptance and publication
+remain pending. No push, tag or public release is included.
+
+Latest contextual distribution (2026-11-07): [charts throughout the app](../design/CONTEXTUAL-CHARTS-2026-11-07.md).
+Accounts, budgets, goals, loans, planned payments, balance, activity/search and
+wealth subviews now consume shared native charts. Existing Home, pie and
+goal-detail progress visuals remain; task-only omissions are explicitly audited.
+Management comparisons follow operational cards and scheduled-payment controls.
+The old dotted wealth history now uses the shared, gap-preserving renderer.
+Models/geometry live in shared base, pure reducers in shared domain and drawing
+in shared UI; other features do not depend on Reports. Current positions,
+scoped cash flow, reservation ratios and projections remain distinct. No new
+ledger query/FX fetch is required for contextual transaction or loan charts.
+
+Final gate passed in **11m 2s**: **512 tests / 36 suites**, zero failures,
+errors or skips; affected native adaptive candidates, financial/query/lifecycle
+and route-coverage guards, app compilation and app lint against the unchanged
+baseline. Log: `artifacts/verification/contextual-charts-handoff-2026-11-07.log`.
+An earlier gate caught two new public composables lacking modifier parameters;
+both now expose/apply them at their roots. Baselines were not weakened. Render
+review also moved comparisons below management cards and removed blank plot
+frames for isolated observations. Account phone, fold/large-text principal,
+large-text percentages, planned-payment ordering and AMOLED forecast candidates
+were inspected; no goldens promoted. Physical scrolling, keyboard/TalkBack,
+phone/fold/DeX, rollover and large-wallet timing remain pending, not certified
+by LayoutLib. No database/backup schema or version change, APK, commit, push,
+tag or publication.
+
+Latest analytics implementation (2026-11-07): [Reports → Explore](../design/REPORTS-EXPLORE-2026-11-07.md).
+Twenty conditional chart views across Spending, Cash flow, Wealth, Debt and
+Goals use seven native chart families, advanced disclosure and exact-value
+fallbacks. Existing report filters feed historical flows; current workspaces
+are explicitly separate. Read-only wealth access cannot trigger migration or
+quote/snapshot writes. Hidden mode removes chart geometry and monetary readouts.
+Missing conversion rates block partial ratios; portfolio holdings are not
+double-counted. No financial formula, database/backup schema or root route change.
+
+Verification: **154 focused tests / 14 suites**, zero failures/errors/skips:
+121 report/query/analytics cases (including 80 adaptive native candidates) and
+33 unchanged wealth regression cases. App compilation and lint against the
+unchanged baseline passed. Full guard log:
+`artifacts/verification/explore-verified-2026-11-07.log` (**2m 4s**);
+final layout/legend handoff reran all 121 report cases, app compilation and lint:
+`artifacts/verification/explore-handoff-2026-11-07.log` (**1m 39s**).
+The first gate caught a decimal-scale-only test expectation, corrected to numeric
+comparison; the reducer value was correct. Native Light/AMOLED, large-text and
+plot candidates inspected; no goldens promoted. Physical device, keyboard,
+TalkBack, performance and owner acceptance remain pending. Forecast assumptions,
+runway liquidity selection and true contribution history remain explicit
+follow-ups, not invented or claimed shipped. No APK, version change, commit,
+push, tag or publication.
+
+Latest visual follow-up (2026-11-07): [native chart facelift](../design/HOME-CHART-FACELIFT-2026-11-07.md).
+Owner chose TradingView-inspired native styling rather than adding a chart
+library/WebView. Right-hand compact axes, finer line/grid styling and peak-to-zero
+flow gradients preserve the single Home timeline and all financial values.
+**82 focused tests / seven suites**, app compilation and lint passed; Light and
+AMOLED candidates inspected. Hardware/owner acceptance remains separate. No new
+dependency, APK/version change, commit or publication.
+
 Resumed verification and cross-session integration review: 2026-11-04.
+
+Latest implementation: [one timeline for Home](004-v2-single-home-timeline-2026-11-04.md).
+The owner approved one exact period for summaries, plot, spending and activity,
+defaulting to the current budgeting cycle through today. Shared controls are
+independent of card visibility; current balance/outlook and saved-report queries
+remain separate. **74 targeted tests / seven suites** passed, along with app
+compilation and lint against the unchanged baseline. The final preference-write
+ownership guard also passed incremental source-contract/compile/lint checks.
+Light/AMOLED candidates inspected; adaptive control actions are not hardware
+acceptance. No APK/version increment, commit, push or publication.
+
+Post-0.5.1 navigation correction: removed the inherited full-page horizontal
+swipe listeners from Home and Accounts. Both directions previously selected the
+other legacy tab, bypassing the five-destination model. All five roots now use
+the existing visible bottom bar/rail; the Home month control retains its local
+previous/next gesture. Added source guards for root ownership, five destinations
+and period-control preservation. Verification passed in **6m 8s**, 1,761 tasks:
+**495 tests / 43 suites**, zero failures/errors, covering Main/Home/Accounts and
+shared UI, plus app compilation and app lint against the unchanged baseline.
+Fresh phone/DeX account-shell candidates inspected; no goldens changed. Log:
+`artifacts/verification/root-tab-gesture-fix-2026-11-04.log`. These source/render
+checks do not certify physical touch/Back behavior. No APK/version change; the
+existing 0.5.1 APK predates this correction.
 
 Subsequent owner-requested packaging: [private release 0.5.1 / 230](../releases/0.5.1-candidate.md)
 now includes the four corrections below. Official release build succeeded;

@@ -1,6 +1,6 @@
 # Public-release UI acceptance matrix
 
-This is the per-surface worklist, not a whole-app approval. Updated 2026-11-04.
+This is the per-surface worklist, not a whole-app approval. Updated 2026-11-07.
 Use it with [the execution ledger](../plans/004-public-release-readiness.md) and
 [design language](../design/JVY-DESIGN-LANGUAGE.md). Registered routes are guarded
 by `NavigationLayoutContractTest`; every row below also needs its child controls
@@ -12,6 +12,17 @@ Evidence labels: **adaptive** = a current production-content candidate test exis
 run passed: use the execution ledger's final verification record. All device,
 TalkBack, keyboard, process-death and owner visual approvals remain **pending**.
 Do not promote screenshot references from this matrix alone.
+
+The [7 November contextual-chart distribution](../design/CONTEXTUAL-CHARTS-2026-11-07.md)
+audits every registered route, the five roots and financial subviews. Shared
+native charts now appear on Accounts, activity/search, budgets, goals, loans,
+planned payments, balance and wealth views, while the existing Home/pie/progress
+visuals remain contextual. Task-only exclusions are documented rather than
+filled with meaningless charts. Use the execution ledger for test status;
+new chart placement is not whole-app or physical-device acceptance.
+Its final local batch passed **512 tests / 36 suites**, app compilation and lint
+against the unchanged baseline. Candidate/source coverage and financial tests
+passed; physical interactions and owner visual approval remain pending.
 
 The [post-0.5.0 four-fix checkpoint](../plans/004-v2-four-fixes-checkpoint-2026-11-04.md)
 tracks 30-bucket trend sampling, actual period-control actions and reachable
@@ -39,7 +50,7 @@ spacing changes do not approve untouched pages or hardware interactions.
 | Set initial currency | adaptive onboarding | Search, empty search, selection retained on rotation, explicit confirmation |
 | Initial accounts | adaptive onboarding; acknowledged writes, retained host/suggestions and startup recreation tests | Empty/populated, suggestions, long names/amounts, Add/Edit, failure/retry, pending Next/Skip/Back; device/process-death acceptance pending |
 | Initial categories | adaptive onboarding; acknowledged writes, retained host/suggestions and startup recreation tests | Empty/populated, suggestions, Add/Edit, failure/retry, pending Finish/Skip/Back; device/process-death acceptance pending |
-| Home | existing trend/activity renders; cross-month/quiet/zero-balance coverage regressions and corrected empty-period copy | Common card date scope awaits owner choice; every card visible/hidden, loading, real rollover/resume, page scroll and root navigation |
+| Home | Owner-approved single timeline implemented; 74 focused tests, app compile/lint and final ownership-guard recheck passed; shared chart-hidden controls exercised across eight windows, Light/AMOLED candidates inspected | Physical rollover/resume, native chooser/IME, page scroll, TalkBack, fold/DeX and owner acceptance; see single-timeline checkpoint |
 | Accounts | adaptive accounts | Empty/populated, compact/full modes, balances/reserved/available, inclusion, long labels |
 | Plan hub | source | All four planning destinations, bottom bar/rail, large text |
 | Net worth — overview | adaptive net-worth | Complete/incomplete/stale, negative/zero/unknown, dated totals and help |
@@ -48,7 +59,7 @@ spacing changes do not approve untouched pages or hardware interactions.
 | More | source | Unique destinations, no duplicated global dropdown, keyboard traversal |
 | All transactions | legacy page render; 80 adaptive actual-content/semantics cases cover headers, date/section totals, receiving equivalents, crypto precision and bounded transfer badges | Full page/long lists, actual focus/Back, hidden money during transitions, remembered scroll; component candidates are not whole-page acceptance |
 | Transaction / transfer editor | adaptive transaction | Income/expense/transfer, conversion, save failure, IME, title/date/time/category/accounts/tags |
-| Reports | adaptive report navigation; actual VM restoration/queued-calculation tests and strict saved-query regressions pass | Useful default, no results, independent filters, all-time/default, saved reports, preserved Clear/draft, compare/export; real lifecycle/IME acceptance pending |
+| Reports | adaptive report navigation; actual VM restoration/queued-calculation tests and strict saved-query regressions pass; 7 Nov Explore adds 121 report cases and 33 wealth regressions, including 80 native candidates | Useful default, no results, independent filters, all-time/default, saved reports, preserved Clear/draft, compare/export; five Explore groups, conditional advanced charts, read-only workspaces, hidden/missing/gap states and exact scoped query reducers; real lifecycle/IME, keyboard/TalkBack, large-wallet performance and owner acceptance pending |
 | Search | eight-window production loading/retry candidates; actual VM query/retry/stale-result tests pass | Empty query, untitled entries, no results, restored query/scroll, latest request, return refresh, keyboard/Back, privacy; device acceptance pending |
 | Category statistics / pie chart | source | Colour contrast, totals/percentages, zero/missing, hidden geometry, back stack |
 | Budget list | adaptive budgets | Empty/populated, overspent, zero remaining, reorder, per-category totals |

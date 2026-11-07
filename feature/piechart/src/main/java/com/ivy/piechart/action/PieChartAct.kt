@@ -68,7 +68,12 @@ class PieChartAct @Inject constructor(
             )
         }
 
-        Pair(accountsUsed, transactions)
+        val cashFlowTransactions = if (cashFlowOnly) {
+            val ids = accountsUsed.map { account -> account.id }.toSet()
+            transactions.filter { transaction -> transaction.accountId in ids &&
+                com.ivy.wallet.domain.pure.transaction.isWalletCashFlowTransaction(transaction) }
+        } else transactions
+        Pair(accountsUsed, cashFlowTransactions)
     } then {
         val accountsUsed = it.first
         val transactions = it.second
@@ -295,6 +300,7 @@ class PieChartAct @Inject constructor(
         val existingTransactions: List<Transaction> = emptyList(),
         val useExplicitTransactions: Boolean = existingTransactions.isNotEmpty(),
         val filterExcluded: Boolean = true,
+        val cashFlowOnly: Boolean = false,
     )
 
     data class Output(val totalAmount: Double, val categoryAmounts: ImmutableList<CategoryAmount>)

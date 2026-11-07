@@ -41,7 +41,9 @@ class WealthWorkspaceUseCase @Inject constructor(
                 "Wallet cache observed $observed; original rate date unknown", now) }
         if (rates.isNotEmpty()) repository.merge(WealthBackup(rates = rates))
     }
-    suspend fun load(date: LocalDate, reportingCurrency: String? = null, months: Int = 6): WealthWorkspace = withContext(Dispatchers.Default) {
+    // Read-only consumers must not trigger the compatibility migration merely by viewing analytics.
+    suspend fun load(date: LocalDate, reportingCurrency: String? = null, months: Int = 6,
+                     allowLegacyMigration: Boolean = true): WealthWorkspace = withContext(Dispatchers.Default) {
         val base = settings.findFirstOrNull()?.currency ?: "USD"
         val currency = reportingCurrency ?: base
         val accountRows = accounts.findAll()
@@ -51,7 +53,7 @@ class WealthWorkspaceUseCase @Inject constructor(
         val balancesByDate = mutableMapOf<LocalDate, Map<String, BigDecimal>>()
         fun balance(id: String, day: LocalDate): BigDecimal = balancesByDate.getOrPut(day) { WealthLedgerAdapter.balances(transactionRows, day) }[id] ?: BigDecimal.ZERO
         var data = repository.read()
-        if (data.items.isEmpty()) {
+        if (allowLegacyMigration && data.items.isEmpty()) {
             val assetIds = preferences.getString(SharedPrefs.NET_WORTH_ASSET_ACCOUNT_IDS, "").orEmpty().split(',').toSet()
             val liabilityIds = preferences.getString(SharedPrefs.NET_WORTH_LIABILITY_ACCOUNT_IDS, "").orEmpty().split(',').toSet()
             val today = LocalDate.now().toString()

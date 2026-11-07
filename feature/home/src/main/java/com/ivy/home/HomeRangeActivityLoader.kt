@@ -20,9 +20,12 @@ class HomeRangeActivityLoader @Inject constructor(
     private val categoryAmounts: LegacyCategoryIncomeWithAccountFiltersAct,
 ) {
     suspend fun load(window: HomeDateWindow, converter: TimeConverter, currency: String,
-                     accounts: List<Account>, categories: List<Category>): HomeRangeActivity {
+                     accounts: List<Account>, categories: List<Category>, filterExcluded: Boolean = false): HomeRangeActivity {
         val items = history(HistoryWithDateDivsAct.Input(window.toUtcRange(converter), currency))
-        val transactions = items.filterIsInstance<Transaction>()
+        val allowedAccounts = accounts.filter { !filterExcluded || it.includeInBalance }.map { it.id }.toSet()
+        val transactions = items.filterIsInstance<Transaction>().filter {
+            !filterExcluded || (it.accountId in allowedAccounts && isHomeCashFlow(it))
+        }
         val rows = (categories + listOf(null)).mapNotNull { category ->
             val amount = categoryAmounts(LegacyCategoryIncomeWithAccountFiltersAct.Input(
                 transactions, accounts, category, currency)).expense

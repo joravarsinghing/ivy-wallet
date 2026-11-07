@@ -6,8 +6,12 @@ import java.time.temporal.ChronoUnit
 /** Nonoverlapping calendar intervals cover every selected date exactly once. */
 fun homeTrendSamplingWindows(range: HomeTrendRange, end: LocalDate): List<HomeDateWindow> {
     val window = HomeDateWindow.ending(range, end)
+    return homeTrendSamplingWindows(window)
+}
+
+fun homeTrendSamplingWindows(window: HomeDateWindow): List<HomeDateWindow> {
     val days = ChronoUnit.DAYS.between(window.from, window.through) + 1
-    val count = minOf(range.sampleCount.toLong(), days).toInt()
+    val count = minOf(30L, days).toInt()
     return (0 until count).map { index ->
         HomeDateWindow(
             window.from.plusDays(days * index / count),

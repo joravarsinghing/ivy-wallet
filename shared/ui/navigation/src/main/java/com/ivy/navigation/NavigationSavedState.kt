@@ -73,7 +73,7 @@ internal object NavigationSavedState {
             ids(screen.accountIdFilterList), (screen.restoredTransactionIds ?: screen.transactions.takeIf { it.isNotEmpty() }?.map { it.id })?.let(::ids))
         is PieChartStatisticScreen -> listOf("pie", screen.type.name, screen.filterExcluded.toString(), ids(screen.accountList),
             screen.treatTransfersAsIncomeExpense.toString(), (screen.restoredTransactionIds ?: screen.transactions.takeIf { it.isNotEmpty() }?.map { it.id })?.let(::ids),
-            screen.dateRange?.from?.toString(), screen.dateRange?.to?.toString())
+            screen.dateRange?.from?.toString(), screen.dateRange?.to?.toString(), screen.cashFlowOnly.toString())
         else -> error("Unsupported destination")
     }
 
@@ -88,7 +88,7 @@ internal object NavigationSavedState {
             "csv", "import", "loan" -> 2; "transaction" -> 5; "planned-editor", "history" -> 8; "pie" -> 6
             else -> 1
         }
-        require(fields.size == count || route == "pie" && fields.size == 8)
+        require(fields.size == count || route == "pie" && fields.size in 8..9)
         return when (route) {
             "main" -> MainScreen; "onboarding" -> OnboardingScreen; "balance" -> BalanceScreen
             "planned" -> PlannedPaymentsScreen; "categories" -> CategoriesScreen; "settings" -> SettingsScreen
@@ -104,7 +104,8 @@ internal object NavigationSavedState {
             "pie" -> PieChartStatisticScreen(type(1), bool(2), readIds(field(3)).orEmpty().toImmutableList(),
                 treatTransfersAsIncomeExpense = bool(4), restoredTransactionIds = readIds(field(5)),
                 dateRange = if (fields.size == 6 || field(6) == null && field(7) == null) null else
-                    TransactionDateRange(java.time.Instant.parse(required(6)), java.time.Instant.parse(required(7))))
+                    TransactionDateRange(java.time.Instant.parse(required(6)), java.time.Instant.parse(required(7))),
+                cashFlowOnly = if (fields.size == 9) bool(8) else false)
             else -> error("Unknown destination")
         }
     }

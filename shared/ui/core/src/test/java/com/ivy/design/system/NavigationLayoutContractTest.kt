@@ -70,6 +70,52 @@ class NavigationLayoutContractTest {
         assertTrue(chrome.contains("onBack: () -> Unit"))
     }
 
+    @Test fun `root content cannot restore the legacy two-tab swipe navigation`() {
+        val rootContent = listOf(
+            routes.getValue("MainScreen"),
+            "feature/home/src/main/java/com/ivy/home/HomeTab.kt",
+            "feature/accounts/src/main/java/com/ivy/accounts/AccountsContent.kt",
+            "feature/main/src/main/java/com/ivy/main/MainToolsHub.kt",
+            "feature/networth/src/main/java/com/ivy/networth/NetWorthScreen.kt",
+        )
+        rootContent.forEach { path ->
+            val text = source(path)
+            assertFalse("$path must leave root selection to the bar or rail",
+                text.contains("horizontalSwipeListener("))
+            assertFalse("$path must not switch root sections directly",
+                text.contains("selectMainTab("))
+        }
+        val shell = source(routes.getValue("MainScreen"))
+        listOf("HOME", "ACCOUNTS", "PLAN", "NET_WORTH", "MORE").forEach { tab ->
+            assertTrue("Keep every root destination", shell.contains("MainTab.$tab ->"))
+        }
+    }
+
+    @Test fun `month swipe remains local to the visible Home period control`() {
+        val header = source("feature/home/src/main/java/com/ivy/home/HomeHeader.kt")
+        assertTrue(header.contains("modifier = Modifier.horizontalSwipeListener("))
+        assertTrue(header.contains("onSelectNextMonth()"))
+        assertTrue(header.contains("onSelectPreviousMonth()"))
+        assertFalse(header.contains("selectMainTab("))
+    }
+
+    @Test fun `Home owns one timeline outside optional dashboard cards`() {
+        val home = source("feature/home/src/main/java/com/ivy/home/HomeTab.kt")
+        val controls = home.indexOf("HomeTimelineControls(")
+        val optionalChart = home.indexOf("if (HomeDashboardCardId.MONEY_TRENDS")
+        assertTrue(controls >= 0 && controls < optionalChart)
+        assertTrue(home.contains("HomePeriodSummary("))
+        assertTrue(home.contains("updateGlobalPeriod = false"))
+        val chart = source("feature/home/src/main/java/com/ivy/home/HomeTrendCard.kt")
+        assertFalse(chart.contains("TrendRangeChip("))
+        val vm = source("feature/home/src/main/java/com/ivy/home/HomeViewModel.kt")
+        assertFalse(vm.contains("trendEndDate()"))
+        assertFalse(vm.contains("home_trend_range"))
+        assertTrue(vm.contains("stats = result.totals"))
+        assertTrue(vm.contains("timelineGeneration.owns(generation)"))
+        assertTrue(vm.contains("timelineGeneration.owns(intent) && selection == periodSelection"))
+    }
+
     @Test fun `customization dialogs share the bounded form host`() {
         listOf("HomeDashboardEditorDialog.kt", "HomeTrendEditorDialog.kt").forEach { file ->
             assertTrue(source("feature/home/src/main/java/com/ivy/home/$file").contains("JvyFormDialogFrame("))

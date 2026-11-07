@@ -43,4 +43,8 @@ data class HomeState(
     val visibleDashboardCards: Set<HomeDashboardCardId> = defaultVisibleHomeDashboardCards,
     val dashboardEditorVisible: Boolean = false,
     val savedAnalytics: ImmutableList<SavedAnalyticsEntity> = persistentListOf(),
+    val periodSelection: HomePeriodSelection = HomePeriodSelection.CurrentCycle,
+    val appliedPeriodSelection: HomePeriodSelection = HomePeriodSelection.CurrentCycle,
+    val periodError: String? = null,
+    val periodCapped: Boolean = false,
 )

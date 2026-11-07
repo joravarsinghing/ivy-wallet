@@ -62,6 +62,7 @@ data class PieChartStatisticScreen(
     val treatTransfersAsIncomeExpense: Boolean = false,
     val restoredTransactionIds: List<UUID>? = null,
     val dateRange: TransactionDateRange? = null,
+    val cashFlowOnly: Boolean = false,
 ) : Screen {
     override val isLegacy: Boolean
         get() = true

@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import com.ivy.domain.usecase.analytics.ContextCharts
+import com.ivy.design.system.chart.JvyAnalyticsCard
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringResource
@@ -76,6 +79,12 @@ internal fun BoxWithConstraintsScope.UI(
             Spacer(Modifier.height(16.dp))
           }
         },
+        Footer = if (empty) null else ({
+            val chart = remember(state.forecast, state.currency) { ContextCharts.bridge("planned-forecast", "How scheduled payments change your balance",
+                "Uses the existing forecast: current balance plus recurring and upcoming planned net change. This is a projection, not recorded history or guaranteed money.", state.currency,
+                ContextCharts.amount(state.forecast.currentBalance), ContextCharts.amount(state.forecast.nextPeriodNet), ContextCharts.amount(state.forecast.projectedBalance)) }
+            JvyAnalyticsCard(chart)
+        }),
         currency = state.currency,
         categories = state.categories,
         accounts = state.accounts,

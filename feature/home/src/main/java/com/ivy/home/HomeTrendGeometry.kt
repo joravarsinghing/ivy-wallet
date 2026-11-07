@@ -52,10 +52,14 @@ internal fun prepareTrendScene(state: HomeTrendState): TrendScene {
         .max(BigDecimal.ONE).multiply(BigDecimal("0.1"))
     val scale = TrendScale(if (low.signum() < 0) low - padding else BigDecimal.ZERO,
         if (high.signum() > 0) high + padding else if (low.signum() < 0) BigDecimal.ZERO else BigDecimal.ONE)
-    val format = java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.getDefault())
+    val format = java.time.format.DateTimeFormatter.ofPattern(
+        if (start?.year != end?.year) "d MMM yy" else "d MMM", java.util.Locale.getDefault())
     fun axisLabel(point: HomeTrendPoint, first: Boolean): String {
-        val interval = point.periodIdentity as? HomeTrendPeriodIdentity.Interval ?: return point.periodLabel
-        return (if (first) interval.from else interval.through).format(format)
+        return when (val identity = point.periodIdentity) {
+            is HomeTrendPeriodIdentity.Interval -> (if (first) identity.from else identity.through).format(format)
+            is HomeTrendPeriodIdentity.Day -> identity.date.format(format)
+            else -> point.periodLabel
+        }
     }
     return TrendScene(state.points.map { it.periodIdentity }, state.points.firstOrNull()?.let { axisLabel(it, true) }.orEmpty(),
         state.points.lastOrNull()?.let { axisLabel(it, false) }?.takeIf { state.points.size > 1 },

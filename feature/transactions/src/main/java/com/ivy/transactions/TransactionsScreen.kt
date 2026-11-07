@@ -390,6 +390,9 @@ private fun BoxWithConstraintsScope.UI(
                 onChoosePeriodModal = onChoosePeriodModal
             )
 
+            item(key = "scoped-activity-chart", contentType = "chart") {
+                com.ivy.legacy.ui.chart.ContextualActivityChart("transaction-activity", history, accounts, baseCurrency)
+            }
             transactions(
                 baseData = AppBaseData(
                     baseCurrency,

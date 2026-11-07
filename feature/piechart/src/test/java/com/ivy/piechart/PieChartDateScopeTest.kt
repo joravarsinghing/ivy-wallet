@@ -78,4 +78,11 @@ class PieChartDateScopeTest {
         coVerify(exactly = 1) { chart(match { it.range == changed.fromToRange && it.filterExcluded }) }
         coVerify(exactly = 2) { chart(any()) }
     }
+
+    @Test fun `Home drill down passes its cash-flow eligibility with the exact dates`() = runTest(dispatcher) {
+        vm().onEvent(PieChartStatisticEvent.OnStart(PieChartStatisticScreen(TransactionType.INCOME,
+            dateRange = range, cashFlowOnly = true)))
+        advanceUntilIdle()
+        coVerify(exactly = 1) { chart(match { it.cashFlowOnly && it.filterExcluded && it.range == explicitPeriod.fromToRange }) }
+    }
 }

@@ -35,10 +35,7 @@ import com.ivy.data.model.primitive.NotBlankTrimmedString
 import com.ivy.design.system.*
 import com.ivy.legacy.IvyWalletPreview
 import com.ivy.legacy.data.model.AccountData
-import com.ivy.legacy.data.model.MainTab
 import com.ivy.legacy.ivyWalletCtx
-import com.ivy.legacy.utils.horizontalSwipeListener
-import com.ivy.legacy.utils.rememberSwipeListenerState
 import com.ivy.navigation.TransactionsScreen
 import com.ivy.navigation.navigation
 import com.ivy.navigation.screenScopedViewModel
@@ -51,6 +48,9 @@ import com.ivy.wallet.ui.theme.toComposeColor
 import kotlinx.collections.immutable.persistentListOf
 import java.math.BigDecimal
 import java.util.UUID
+import com.ivy.domain.usecase.analytics.ContextCharts
+import com.ivy.domain.usecase.analytics.MoneyPosition
+import com.ivy.design.system.chart.JvyContextCharts
 
 @Composable
 fun BoxWithConstraintsScope.AccountsTab(modifier: Modifier = Modifier) {
@@ -62,8 +62,7 @@ fun BoxWithConstraintsScope.AccountsTab(modifier: Modifier = Modifier) {
         initialFirstVisibleItemIndex = context.accountsListState?.firstVisibleItemIndex ?: 0,
         initialFirstVisibleItemScrollOffset = context.accountsListState?.firstVisibleItemScrollOffset ?: 0)
     AccountsContent(state, vm::onEvent, { id -> nav.navigateTo(TransactionsScreen(accountId = id, categoryId = null)) }, scroll,
-        modifier = modifier.horizontalSwipeListener(sensitivity = 200, state = rememberSwipeListenerState(),
-            onSwipeLeft = { context.selectMainTab(MainTab.HOME) }, onSwipeRight = { context.selectMainTab(MainTab.HOME) }))
+        modifier = modifier)
 }
 
 /** Account management only. Wealth calculations belong to the Net worth feature. */
@@ -119,6 +118,15 @@ fun BoxWithConstraintsScope.AccountsContent(
                     }
                     if (columns == 2 && row.size == 1) Spacer(Modifier.weight(1f))
                 }
+            }
+            if (state.accountsData.isNotEmpty()) item(key = "account-balance-chart", contentType = "chart") {
+                val charts = remember(state.accountsData) { ContextCharts.positions("account-balances", "Where your everyday money is",
+                    "Current native account balances, not net worth. Excluded accounts are labelled; different currencies are never added together.",
+                    state.accountsData.sortedByDescending { kotlin.math.abs(it.balance) }.map { data ->
+                        MoneyPosition(data.account.name.value + if (data.account.includeInBalance) "" else " · excluded",
+                            data.account.asset.code, ContextCharts.amount(data.balance))
+                    }) }
+                JvyContextCharts(charts, horizontalPadding = 0.dp, hidden = state.hideBalances)
             }
         }
     ReorderModalSingleType(visible = state.reorderVisible, initialItems = state.accountsData,

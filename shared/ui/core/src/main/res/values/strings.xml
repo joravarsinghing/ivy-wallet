@@ -552,8 +552,22 @@
     <string name="jvy_restore_review_message">A previous page could not be reopened because its saved context or record is no longer available. No save was repeated. Check your history before adding the same entry again.</string>
     <string name="jvy_section_expanded">Expanded</string>
     <string name="jvy_section_collapsed">Collapsed</string>
-    <string name="home_activity_period_empty">No activity in this chart range. Change the range or view all transactions to explore your history.</string>
-    <string name="home_chart_range_caption">Chart range · %1$s</string>
-    <string name="home_chart_range_loading">Loading chart range…</string>
+    <string name="home_activity_period_empty">No activity in this period. Change the Home dates or view all transactions to explore your history.</string>
+    <string name="home_chart_range_caption">Period · %1$s</string>
+    <string name="jvy_home_search">Search transactions</string>
+    <string name="jvy_home_current_balance">Current balance · Today</string>
+    <string name="jvy_home_this_month">This month</string>
+    <string name="jvy_home_last_days">Last %1$d days</string>
+    <string name="jvy_home_last_weeks">Last %1$d weeks</string>
+    <string name="jvy_home_last_months">Last %1$d months</string>
+    <string name="jvy_home_last_years">Last %1$d years</string>
+    <string name="jvy_home_custom_dates">Custom dates</string>
+    <string name="jvy_home_all_time">All time</string>
+    <string name="jvy_home_showing_dates">Showing · %1$s</string>
+    <string name="jvy_home_no_history">No recorded activity in this period.</string>
+    <string name="jvy_home_previous_period">Previous results still shown: %1$s</string>
+    <string name="jvy_home_through_today">History is shown through today, not future dates.</string>
+    <string name="jvy_home_today_upcoming">Today &amp; upcoming</string>
+    <string name="home_chart_range_loading">Loading period…</string>
     <string name="home_spending_range_empty">No spending in this chart range.</string>
 </resources>

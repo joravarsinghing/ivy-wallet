@@ -1,5 +1,8 @@
 package com.ivy.balance
 
+import com.ivy.domain.usecase.analytics.ContextCharts
+import com.ivy.design.system.chart.JvyAnalyticsCard
+
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -115,6 +118,13 @@ private fun BoxWithConstraintsScope.UI(
             plannedPaymentsAmount = state.plannedPaymentsAmount,
             balanceAfterPlannedPayments = state.balanceAfterPlannedPayments
         )
+        val chart = remember(state.currentBalance, state.plannedPaymentsAmount, state.balanceAfterPlannedPayments, state.baseCurrencyCode, state.period) {
+            ContextCharts.bridge("balance-projection", "Current to projected balance",
+                "The selected period's existing planned-payment calculation. A projection, not a historical balance. No new assumptions or ledger entries are added.", state.baseCurrencyCode,
+                ContextCharts.amount(state.currentBalance), ContextCharts.amount(state.balanceAfterPlannedPayments - state.currentBalance),
+                ContextCharts.amount(state.balanceAfterPlannedPayments))
+        }
+        JvyAnalyticsCard(chart)
 
     }
 

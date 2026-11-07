@@ -20,6 +20,9 @@ import com.ivy.navigation.GoalsScreen
 import com.ivy.navigation.navigation
 import com.ivy.navigation.screenScopedViewModel
 import java.util.Locale
+import com.ivy.domain.usecase.analytics.ContextCharts
+import com.ivy.domain.usecase.analytics.MoneyPosition
+import com.ivy.design.system.chart.JvyContextCharts
 
 @Composable
 fun BoxWithConstraintsScope.GoalsScreen(screen: GoalsScreen) {
@@ -81,6 +84,14 @@ fun BoxWithConstraintsScope.GoalsScreenContent(state: GoalScreenState, modifier:
                     items(goals.size, key = { goals[it].id }) { index ->
                         val goal = goals[index]
                         GoalCard(goal, state.accounts, state.asOfDate) { selectedId = goal.id; modalKind = "detail" }
+                    }
+                    item(key = "goal-funding-chart", contentType = "chart", span = { GridItemSpan(maxLineSpan) }) {
+                        val chart = remember(goals, state.accounts) { ContextCharts.positions("goal-funding", "How your goals compare",
+                            "Reserved as a percent of each target, not transfers or contribution history. Above 100% means more is reserved than the target. Reservations needing review have no plotted percentage.",
+                            goals.map { goal -> MoneyPosition(goal.name, "%", if (goal.reservationsNeedReview(state.accounts)) null else
+                                ContextCharts.percentage(ContextCharts.amount(goal.savedAmount), ContextCharts.amount(goal.targetAmount))) },
+                            first = "Reserved", ink = com.ivy.base.analytics.Ink.INCOME) }
+                        JvyContextCharts(chart, horizontalPadding = 0.dp)
                     }
                 }
             }

@@ -95,6 +95,12 @@ repair its displayed contrast.
 
 Primary navigation is **Home · Accounts · Plan · Net worth · More**. Use a bottom bar on narrow windows and a rail on wider ones. Do not add a second global dropdown containing the same destinations.
 
+Root sections change through the visible bar/rail, not page-wide horizontal
+swipes. Do not restore the legacy Home ↔ Accounts swipe shortcut or add an
+invisible five-page pager. Keep vertical page scrolling and control-local
+horizontal gestures (such as the month button and chip rows) independent of
+root selection; leave Android's system Back gesture intact.
+
 - **Home:** current position, activity and useful insights. Header search is a shortcut, not another menu.
 - **Accounts:** everyday account management, wallet totals, balance, reserved and available money. No net-worth card or wealth calculator here. A wallet balance is explicitly not net worth.
 - **Plan:** budgets, upcoming payments, goals and loans.
@@ -142,7 +148,23 @@ Contextual tools menus (for example Net worth date, rates and CSV export) are al
 
 ## Financial clarity and privacy
 
-- Home's plot, spending breakdown and recent activity share one explicit chart-selected date window. The top-bar period anchors historical dates; it must not silently clip a rolling range to the selected month. Publish the three results together, retain exact dates in spending drill-down/restoration, and clear old-currency results together. Keep upcoming payment actions separate from past activity. See the [Home date-window checkpoint](../plans/004-v2-home-window-checkpoint-2026-11-04.md).
+- Every financial view should expose a useful contextual visual, reusing the
+  shared chart renderer and pure reducers. Reports → Explore remains the deep
+  analytics workspace, not the sole place with charts. Follow the
+  [contextual placement audit](CONTEXTUAL-CHARTS-2026-11-07.md) for each page and
+  subview; justify omissions by task relevance or insufficient trustworthy data.
+  Editors, security, import confirmation and navigation hubs do not get
+  decorative charts. Existing relevant progress/pie/history visuals count;
+  do not add duplicates merely to increase chart count.
+
+- Deep visual analysis lives in **Reports → Explore**, not additional Home date
+  controls or root navigation. Use the [Explore contract](REPORTS-EXPLORE-2026-11-07.md)
+  for scope, supported charts, advanced disclosure, exact-value fallbacks and
+  read-only workspace access. Clearly distinguish report-filtered historical
+  flows from current wealth, loan and reservation workspaces. Never invent
+  merchant identity, contribution events, liquidity or forecast probabilities.
+
+- Home owns one explicit date window outside optional cards. Current-cycle, selected budgeting month, rolling, custom and all-time modes drive income/expense summaries, plot, spending breakdown and recent activity together. Default to the current budgeting cycle through today; past cycles use their full bounds, and rolling choices end today independently of any previously selected month. Show actual dates and preserve custom cycle starts. Chart Edit changes series, not dates. Publish historical results together, retain exact drill-down dates and clear old-currency results together. While loading or retrying, keep the previous complete result and its previous date caption. Current balance and the separately labelled Today & upcoming group are not historical values. Saved reports retain their saved queries. See the [single-timeline checkpoint](../plans/004-v2-single-home-timeline-2026-11-04.md).
 
 - Import assistance uses a copyable public schema/guide and a read-only validation/count preview before explicit confirmation. Never automatically send financial data to an AI, imply validation proves accounting accuracy, silently discard unsupported fields, save imported payloads into UI saved state, or let an AI conversion alter authentication/preferences. See the [AI conversion contract](../import-compatibility/AI-CONVERSION.md). Keep advanced schema text behind an explicit disclosure; retain a reachable Back control and confirmation action across window sizes.
 
@@ -159,9 +181,10 @@ Contextual tools menus (for example Net worth date, rates and CSV export) are al
 - Balance trends follow the owner's single-plot reference: a vivid, unshaded purple balance polyline in front of overlapping green income and red spending fills. All three share one date domain, one money scale and one zero baseline. Ordinary positive income and spending both rise from zero; do not mirror spending below it, split out a cash-flow panel, stack areas or normalize each measure independently. Genuinely negative values retain their signs and extend the shared scale below zero. Flow boundaries may use bounded curves through real samples, without overshoot; the balance remains a polyline. No dots, invented peaks or bridging missing buckets. An isolated observation supplies exact values and an honest explanation, not an invented line. Optional balance shading is a legacy test comparison, not the default or a persisted preference.
 - Use `JvyChartColors` for saturated purple/green/red plot ink, with theme-specific variants tested at 3:1 on neutral card surfaces. These are chart-outline tokens, not small-text roles: labels and exact totals retain AA text roles. Do not replace global Material colors to brighten a plot.
 - Trend legends are line-only: solid green income, dashed red spending and solid purple balance. Do not place tinted rectangles, fills or glows behind these samples; fills belong inside the plot.
+- Home's native chart takes visual inspiration from financial terminals, not their trading controls: one compact right-hand value scale, quiet 0.5dp horizontal guides, a readable zero line and a crisp 2dp balance stroke without a thick halo. Saturated flow outlines sit over restrained translucent fills (48% to 8%), never pastel replacement ink. Dates align to the plot rather than extending under the value scale; include years when the domain crosses a year. Keep tiny nonzero axis values distinguishable from zero and very large labels bounded. Exact amounts remain in the native readout. Reuse cached paths/brushes; no WebView, chart package, pan/zoom layer, remote code or additional animation loop for this styling.
 - Chart updates use a 160ms outgoing/axis crossfade and a 360ms eased, left-to-right reveal of the replacement paths (`JvyMotion.ChartUpdateMillis`). Exact totals change immediately; never count through invented currency values or morph unrelated daily/monthly observations. Initial display is static. Keep the old plot in place while loading; no floating loading pill or chart-obscuring overlay. Only slow refreshes (350ms+) show a thin, height-reserved top-edge progress indicator. Compose's platform motion-duration scale applies; disabled animations settle immediately. Cache geometry/brushes and read animation progress only while drawing, not during financial calculations. Calculate trend buckets off the UI thread and publish only current-generation results on it. No polling, decorative loops or extra network work. Hiding balances removes all outgoing layers immediately, and currency changes discard the previous plot.
 - Chart axes show their currency once; large-text ticks must not clip. Distinct line patterns, visible series labels, exact summaries and an expandable value list complement color. Hidden-balance mode suppresses the plot, scale, detailed values and spending-percentage bars. Convert percentage values to fractions before drawing proportional bars.
-- Trend sampling is separate from the chosen date horizon: 7d has seven daily samples; 30d, 3m, 6m and 12m have thirty non-overlapping calendar-date buckets across the selected window. Sum income/spending inside each bucket and calculate balance at its inclusive end, never average balances or interpolate invented values. Date intervals differ by at most one day. Show exact bucket dates in View values and identify the aggregation in supporting copy. Preserve unknown prehistory, real quiet zeroes, the full-window totals and the latest-request/motion/privacy guards. Keep query work bounded to thirty buckets, not one database query per day over an entire year.
+- Trend sampling is separate from the chosen Home window: up to thirty days use daily samples; longer exact windows use thirty non-overlapping calendar-date buckets. Sum income/spending inside each bucket and calculate balance at its inclusive end, never average balances or interpolate invented values. Date intervals differ by at most one day. Show exact bucket dates in View values and identify the aggregation in supporting copy. Preserve unknown prehistory, real quiet zeroes, full-window totals and latest-request/motion/privacy guards. Keep query work bounded to thirty buckets, not one query per day over an entire year. Summary and plot use the same existing cash-flow reducer and eligibility (wallet-included accounts, no transfers or system balance adjustments); recent activity may still display those records.
 - Period selection uses a real dialog window above root navigation and FABs, the shared bounded `JvyFormDialogFrame`, one scrolling body and a pinned, labelled Apply filter action. Close/Back cancels the draft; selecting a month is not confirmation. Use native selected chips and the shared confirmed calendar fields, including inclusive single-day ranges. Validate only the active choice, not unrelated inactive controls. Save nonsensitive draft primitives across recreation; report-filter period drafts must not commit the global Home period.
 - Hidden balances redact **every** amount and any magnitude-revealing presentation, including allocation bars, summaries and currency equivalents. Do not reveal values through an extra card.
 - This includes date-divider cash flow, income/expense header and section totals,

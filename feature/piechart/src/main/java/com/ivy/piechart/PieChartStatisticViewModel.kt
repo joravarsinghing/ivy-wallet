@@ -54,6 +54,7 @@ class PieChartStatisticViewModel @Inject constructor(
     private var accountIdFilterList by mutableStateOf<ImmutableList<UUID>>(persistentListOf())
     private var showCloseButtonOnly by mutableStateOf(false)
     private var filterExcluded by mutableStateOf(false)
+    private var cashFlowOnly = false
     private var transactions by mutableStateOf<ImmutableList<Transaction>>(persistentListOf())
     private var explicitTransactionSelection = false
     private var fixedDateScope = false
@@ -153,6 +154,7 @@ class PieChartStatisticViewModel @Inject constructor(
             } }
             explicitTransactionSelection = restored != null || screen.transactions.isNotEmpty()
             fixedDateScope = screen.dateRange != null
+            cashFlowOnly = screen.cashFlowOnly
             if (fixedDateScope) choosePeriodModal = null
             startInternally(
                 period = screen.dateRange?.let { TimePeriod(fromToRange = com.ivy.legacy.data.model.FromToTimeRange(it.from, it.to)) }
@@ -224,7 +226,8 @@ class PieChartStatisticViewModel @Inject constructor(
                     existingTransactions = transactions,
                     useExplicitTransactions = explicitTransactionSelection,
                     showAccountTransfersCategory = accountIdFilterList.isNotEmpty(),
-                    filterExcluded = filterExcluded
+                    filterExcluded = filterExcluded,
+                    cashFlowOnly = cashFlowOnly,
                 )
             )
         }

@@ -24,9 +24,9 @@ pages, child editors and Android system surfaces; a group heading is not a compl
 
 ## Signed candidate and distribution
 
-Current owner-requested candidate: **0.5.1 / 230**, privately signed and
-non-debuggable, certificate/package matching 0.5.0 (and its verified 0.4.4 chain).
-See the [0.5.1 evidence record](0.5.1-candidate.md) for test/lint, artifact hash,
+Current owner-requested candidate: **0.6.0 / 231**, privately signed and
+non-debuggable, certificate/package matching 0.5.1 (and its verified earlier chain).
+See the [0.6.0 evidence record](0.6.0-candidate.md) for test/lint, artifact hash,
 signature/manifest/alignment and key-cleanup checks.
 No connected upgrade, whole-app acceptance or publication has been completed;
 the remaining gates below still apply.

@@ -205,6 +205,7 @@ internal fun BoxWithConstraintsScope.LoanDetailsScreenContent(
             }
 
             if (state.loan != null) {
+                item(key = "loan-detail-charts", contentType = "chart") { com.ivy.loans.loan.LoanDetailsCharts(state) }
                 loanRecords(
                     loan = state.loan,
                     displayLoanRecords = state.displayLoanRecords,

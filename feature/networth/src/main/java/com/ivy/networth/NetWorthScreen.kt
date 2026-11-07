@@ -25,6 +25,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ivy.data.model.wealth.*
 import com.ivy.domain.usecase.networth.*
+import com.ivy.domain.usecase.analytics.WealthCharts
+import com.ivy.design.system.chart.JvyAnalyticsCard
+import com.ivy.design.system.chart.JvyContextCharts
 import com.ivy.navigation.navigation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -127,6 +130,7 @@ fun NetWorthScreenContent(vm: NetWorthViewModel, onBack: () -> Unit, modifier: M
     val restoration = com.ivy.design.system.rememberProcessRestoration("wealth-view", vm::saveView)
     LaunchedEffect(Unit) { vm.restoreView(restoration.payload); restoration.consumed = true; vm.load() }
     val workspace = vm.workspace
+    val wealthAssetMix = remember(workspace) { workspace?.let(WealthCharts::allocation) }
     exportConfirmation?.let { history ->
         AlertDialog(onDismissRequest = { exportConfirmation = null },
             title = { Text(stringResource(R.string.jvy_export_private_title)) },
@@ -204,7 +208,11 @@ fun NetWorthScreenContent(vm: NetWorthViewModel, onBack: () -> Unit, modifier: M
                                 } }
                             }
                             val allocation = workspace.current.lines.filter { it.item.parentId == null && it.included && (it.reportingAmount?.signum() ?: -1) >= 0 }.groupBy { it.item.kind }
-                            if (allocation.isNotEmpty()) item(key = "allocation", contentType = "allocation") {
+                            val assetMix = wealthAssetMix
+                            if (assetMix != null) item(key = "asset-mix-chart", contentType = "chart") {
+                                JvyAnalyticsCard(assetMix, horizontalPadding = 0.dp, hidden = vm.hidden)
+                            }
+                            if (assetMix == null && allocation.isNotEmpty()) item(key = "allocation", contentType = "allocation") {
                                 OutlinedCard(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                                 HelpHeading("Where your value comes from", WealthHelp.ASSETS)
                                 allocation.entries.forEach { entry ->
@@ -215,14 +223,19 @@ fun NetWorthScreenContent(vm: NetWorthViewModel, onBack: () -> Unit, modifier: M
                             }
                             item(key = "changes-heading", contentType = "help-heading") { HelpHeading("What changed since last month", WealthHelp.HISTORY) }
                             if (workspace.changes.isEmpty()) item(key = "changes-empty", contentType = "message") { Text("Keep your values up to date. Once we have a complete picture for this month and last month, you'll see what changed.", style = MaterialTheme.typography.bodySmall) }
-                            items(workspace.changes, key = { "change-${it.label}" }, contentType = { "change" }) { change ->
-                                Column { Text(change.label); Text(money(change.amount, workspace.current.currency, vm.hidden), style = JvyTypography.AmountSmall) }
+                            WealthCharts.changes(workspace)?.let { chart -> item(key = "wealth-change-chart", contentType = "chart") {
+                                JvyAnalyticsCard(chart, horizontalPadding = 0.dp, hidden = vm.hidden)
+                            }
                             }
                             item(key = "principal-explainer", contentType = "action") { TextButton(onClick = { repaymentsHelp = true }) { Text("How loan repayments affect net worth") } }
                         }
                         1, 2 -> {
                             val lines = workspace.current.lines.filter { it.item.parentId == null && (if (tab == 2) (it.reportingAmount?.signum() ?: if (it.item.kind.isDebt) -1 else 1) < 0 else (it.reportingAmount?.signum() ?: if (it.item.kind.isDebt) -1 else 1) >= 0) }
                             item(key = "positions-heading-$tab", contentType = "help-heading") { HelpHeading(if (tab == 1) "Money and things you own" else "Debts still left to repay", if (tab == 1) WealthHelp.ASSETS else WealthHelp.DEBTS) }
+                            if (lines.isNotEmpty()) item(key = "position-chart-$tab", contentType = "chart") {
+                                val chart = remember(workspace, tab) { WealthCharts.positions(workspace, tab == 2) }
+                                JvyContextCharts(chart, horizontalPadding = 0.dp, hidden = vm.hidden)
+                            }
                             if (lines.isEmpty()) item(key = "positions-empty-$tab", contentType = "message") { Text(if (tab == 1) "Start with cash or savings, then add investments, your home, a car or gold. Use an existing account instead of adding the same money twice." else "Add the amount left on credit cards, loans or a mortgage — not the monthly payment. No debts? Confirm that in your account review.") }
                             items(lines, key = { "position-${it.item.id}" }, contentType = { "position" }) { line -> ItemRow(line, workspace.current.currency, vm.hidden) { selected = line.item.id } }
                         }
@@ -312,6 +325,8 @@ private fun ItemDetail(line: WealthLine, workspace: WealthWorkspace, vm: NetWort
         val policy = workspace.data.policies.filter { it.itemId == line.item.id && it.effectiveDate <= vm.date.toString() }
             .maxWithOrNull(compareBy<WealthPolicy> { it.effectiveDate }.thenBy { java.time.Instant.parse(it.recordedAt) }.thenBy { it.id })
         Text("Last value recorded: ${line.valuationDate ?: "Not entered yet"}")
+        val itemHistory = remember(workspace, line.item.id) { WealthCharts.history(workspace, line.item.id) }
+        JvyAnalyticsCard(itemHistory, horizontalPadding = 0.dp, hidden = vm.hidden)
         TextButton(onClick = { calculationDetails = !calculationDetails }) { Text(if (calculationDetails) "Hide calculation details" else "How was this amount worked out?") }
         if (calculationDetails) {
         Text("Your share before currency conversion", style = MaterialTheme.typography.bodySmall)
@@ -378,29 +393,6 @@ private fun ItemDetail(line: WealthLine, workspace: WealthWorkspace, vm: NetWort
 
 @Composable
 private fun WealthChart(history: List<WealthHistoryPoint>, currency: String, hidden: Boolean) {
-    val observed = history.filter { it.result.complete }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Net worth history", style = MaterialTheme.typography.titleMedium)
-        if (hidden || com.ivy.design.system.LocalFinancialVisibility.current.hidden) { Text("Values hidden", Modifier.height(180.dp)); return }
-        if (observed.isEmpty()) { Text("Your progress will appear here after you've added values and checked your account list and currency rates. Missing earlier values stay blank.", Modifier.height(180.dp)); return }
-        val min = minOf(BigDecimal.ZERO, observed.minOf { it.result.netWorth })
-        val max = maxOf(BigDecimal.ZERO, observed.maxOf { it.result.netWorth })
-        val span = (max - min).takeUnless { it.signum() == 0 } ?: BigDecimal.ONE
-        Text(money(max, currency, false), style = JvyTypography.AmountSmall)
-        val color = JvyFinanceColors.asset()
-        val axis = MaterialTheme.colorScheme.outline
-        Canvas(Modifier.fillMaxWidth().height(160.dp)) {
-            fun y(value: BigDecimal) = size.height - ((value - min).divide(span, 12, RoundingMode.HALF_UP).toFloat() * size.height)
-            drawLine(axis, Offset(0f, y(BigDecimal.ZERO)), Offset(size.width, y(BigDecimal.ZERO)))
-            var previous: Offset? = null
-            history.forEachIndexed { index, point ->
-                if (!point.result.complete) { previous = null; return@forEachIndexed }
-                val p = Offset(if (history.size == 1) size.width / 2 else index.toFloat() / (history.size - 1) * size.width, y(point.result.netWorth))
-                previous?.let { drawLine(color, it, p, 3.dp.toPx()) }; drawCircle(color, 4.dp.toPx(), p); previous = p
-            }
-        }
-        Text(money(min, currency, false), style = JvyTypography.AmountSmall)
-        Text("${history.first().date} — ${history.last().date} · missing observations remain gaps", style = MaterialTheme.typography.bodySmall)
-        Text("Manual valuations carry forward from their recorded dates. Review stale values before relying on a trend.", style = MaterialTheme.typography.bodySmall)
-    }
+    val chart = remember(history, currency) { WealthCharts.history(history, currency) }
+    JvyAnalyticsCard(chart, horizontalPadding = 0.dp, hidden = hidden)
 }

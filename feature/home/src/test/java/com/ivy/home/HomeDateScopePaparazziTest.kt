@@ -62,7 +62,7 @@ class HomeDateScopePaparazziTest(@TestParameter window: JvyPreviewWindow) : JvyA
             }
         }
         assertEquals(3, labels.count { it.contains(scope.displayLabel()) })
-        assertTrue(labels.any { it.contains("No activity in this chart range") })
+        assertTrue(labels.any { it.contains("No activity in this period") })
         assertFalse(labels.contains("Planned payments"))
     }
 
@@ -85,6 +85,6 @@ class HomeDateScopePaparazziTest(@TestParameter window: JvyPreviewWindow) : JvyA
         assertTrue(labels.indexOf("Planned payments") in 0 until labels.indexOf("Recent activity"))
         assertTrue(labels.contains("Fictional upcoming payment"))
         assertTrue(labels.contains("Pay"))
-        assertTrue(labels.any { it.contains("No activity in this chart range") })
+        assertTrue(labels.any { it.contains("No activity in this period") })
     }
 }

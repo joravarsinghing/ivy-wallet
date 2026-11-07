@@ -10,6 +10,10 @@ import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.outlined.Sort
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import com.ivy.domain.usecase.analytics.ContextCharts
+import com.ivy.domain.usecase.analytics.MoneyPosition
+import com.ivy.design.system.chart.JvyContextCharts
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -74,6 +78,14 @@ fun BudgetScreenContent(state: BudgetScreenState, modifier: Modifier = Modifier,
                             onEvent(BudgetScreenEvent.OnBudgetModalData(BudgetModalData(item.budget, state.baseCurrency,
                                 state.categories, state.accounts, autoFocusKeyboard = false)))
                         }
+                    }
+                    item(key = "budget-usage-chart", contentType = "chart", span = { GridItemSpan(maxLineSpan) }) {
+                        val chart = remember(state.budgets) { ContextCharts.positions("budget-usage", "Which budgets need attention?",
+                            "Percent of each limit used in the period above. Overlapping budgets are compared separately, never added. Above 100% is over budget; refunds can reduce usage. A zero limit has no percentage.",
+                            state.budgets.map { item -> MoneyPosition(item.budget.name, "%",
+                                ContextCharts.percentage(ContextCharts.amount(item.spentAmount), ContextCharts.amount(item.budget.amount))) }, first = "Used",
+                            ink = com.ivy.base.analytics.Ink.SPENDING) }
+                        JvyContextCharts(chart, horizontalPadding = 0.dp)
                     }
                 }
             }

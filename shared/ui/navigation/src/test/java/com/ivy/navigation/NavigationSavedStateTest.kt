@@ -11,6 +11,18 @@ import java.util.UUID
 class NavigationSavedStateTest {
     private val account = UUID.randomUUID()
     private val category = UUID.randomUUID()
+    @Test fun `Home cash-flow eligibility survives restoration without changing ordinary charts`() {
+        val range = TransactionDateRange(java.time.Instant.parse("2026-10-01T00:00:00Z"),
+            java.time.Instant.parse("2026-10-31T23:59:59Z"))
+        val screen = PieChartStatisticScreen(TransactionType.INCOME, dateRange = range, cashFlowOnly = true)
+        assertEquals(screen, roundTrip(screen))
+        assertFalse((roundTrip(PieChartStatisticScreen(TransactionType.INCOME)) as PieChartStatisticScreen).cashFlowOnly)
+        val old = listOf("jvy-navigation-1", "1", UUID.randomUUID().toString(), "8", "spie", "sEXPENSE", "strue", "s", "sfalse", "n",
+            "s2026-10-01T00:00:00Z", "s2026-10-31T23:59:59Z")
+        val nav = Navigation()
+        assertTrue(nav.restoreState(old))
+        assertFalse((nav.currentScreen as PieChartStatisticScreen).cashFlowOnly)
+    }
     @Test fun `bounded chart dates round trip without serializing selected transactions`() {
         val range = TransactionDateRange(java.time.Instant.parse("2026-10-05T00:00:00Z"),
             java.time.Instant.parse("2026-11-03T23:59:59.999999999Z"))

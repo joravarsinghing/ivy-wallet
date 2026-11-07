@@ -83,6 +83,7 @@ import com.ivy.wallet.ui.theme.pureBlur
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import java.util.UUID
+import com.ivy.reports.analytics.*
 
 @ExperimentalFoundationApi
 @Composable
@@ -126,8 +127,14 @@ internal fun BoxWithConstraintsScope.UI(
 
     val listState = rememberScrollPositionListState(key = "reports")
     var saveDialogVisible by rememberSaveable { mutableStateOf(false) }
+    var explore by rememberSaveable { mutableStateOf(false) }
+    var exploreSection by rememberSaveable { mutableStateOf(ExploreSection.SPENDING.name) }
+    var advanced by rememberSaveable { mutableStateOf(false) }
+    var analyticsRetry by remember { mutableStateOf(0) }
+    val section = ExploreSection.valueOf(exploreSection)
+    val analytics = if (explore) rememberExploreLoad(state, section, analyticsRetry) else null
 
-    if (state.loading) {
+    if (state.loading && !explore) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -166,162 +173,189 @@ internal fun BoxWithConstraintsScope.UI(
                         )
                     )
                 },
-                onSave = { saveDialogVisible = true }
+                onSave = { saveDialogVisible = true },
+                transactionActions = !explore || section in setOf(ExploreSection.SPENDING, ExploreSection.CASH_FLOW)
             )
         }
 
-        item {
-            SavedAnalyticsPanel(
-                savedAnalytics = state.savedAnalytics,
-                onApply = {
-                    onEventHandler.invoke(ReportScreenEvent.OnApplySavedAnalytics(it))
-                },
-                onDelete = {
-                    onEventHandler.invoke(ReportScreenEvent.OnDeleteSavedAnalytics(it))
-                }
-            )
+        item(key = "report-mode", contentType = "controls") {
+            ReportModeControls(explore = explore, onExplore = { explore = it })
+        }
 
-            Spacer(Modifier.height(8.dp))
-
-            BalanceRow(
-                modifier = Modifier
-                    .padding(start = 24.dp, end = 24.dp),
-                textColor = UI.colors.pureInverse,
-                currency = state.baseCurrency,
-                balance = state.balance,
-                balanceAmountPrefix = when {
-                    state.balance > 0 -> "+"
-                    else -> null
-                }
-            )
-
-            Spacer(Modifier.height(20.dp))
-
-            IncomeExpensesCards(
-                history = state.history,
-                currency = state.baseCurrency,
-                income = state.income,
-                expenses = state.expenses,
-                hasAddButtons = false,
-                itemColor = UI.colors.pure,
-                incomeHeaderCardClicked = {
-                    if (state.transactions.isNotEmpty()) {
-                        nav.navigateTo(
-                            PieChartStatisticScreen(
-                                type = TransactionType.INCOME,
-                                transactions = legacyTransactions.toImmutableList(),
-                                accountList = state.accountIdFilters,
-                                treatTransfersAsIncomeExpense = state.treatTransfersAsIncExp
-                            )
-                        )
-                    }
-                },
-                expenseHeaderCardClicked = {
-                    if (state.transactions.isNotEmpty()) {
-                        nav.navigateTo(
-                            PieChartStatisticScreen(
-                                type = TransactionType.EXPENSE,
-                                transactions = legacyTransactions.toImmutableList(),
-                                accountList = state.accountIdFilters,
-                                treatTransfersAsIncomeExpense = state.treatTransfersAsIncExp
-                            )
-                        )
-                    }
-                }
-            )
-
-            if (state.previousIncome != null && state.previousExpenses != null) {
-                Text(
-                    modifier = Modifier.padding(horizontal = 24.dp),
-                    text = com.ivy.design.system.financialText("Compared with the previous period: income ${comparisonLabel(state.income, state.previousIncome)} · expenses ${comparisonLabel(state.expenses, state.previousExpenses)}"),
-                    style = UI.typo.c.style(color = Gray, fontWeight = FontWeight.Medium),
-                )
+        if (explore && analytics != null) {
+            item(key = "explore-controls", contentType = "controls") {
+                ExploreControls(section, { exploreSection = it.name }, advanced, { advanced = it })
             }
+            exploreItems(analytics, advanced, onRetry = { analyticsRetry++ }, onRecords = { card, point ->
+                val applied = state.filter
+                if (applied != null && analytics is ExploreLoad.Ready) {
+                    analyticsDrillDown(applied, card, point, analytics.board, state.categories,
+                        java.time.ZoneId.systemDefault())?.let { query ->
+                        onEventHandler(ReportScreenEvent.OnFilter(query))
+                        explore = false
+                    }
+                }
+            }, onWorkspace = when (section) {
+                ExploreSection.WEALTH -> ({ nav.navigateTo(com.ivy.navigation.NetWorthScreen) })
+                ExploreSection.GOALS -> ({ nav.navigateTo(com.ivy.navigation.GoalsScreen) })
+                ExploreSection.DEBT -> ({ nav.navigateTo(com.ivy.navigation.LoansScreen) })
+                else -> null
+            })
+        } else {
 
-            if (state.showTransfersAsIncExpCheckbox) {
-                IvyCheckboxWithText(
+            item {
+                SavedAnalyticsPanel(
+                    savedAnalytics = state.savedAnalytics,
+                    onApply = {
+                        onEventHandler.invoke(ReportScreenEvent.OnApplySavedAnalytics(it))
+                    },
+                    onDelete = {
+                        onEventHandler.invoke(ReportScreenEvent.OnDeleteSavedAnalytics(it))
+                    }
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                BalanceRow(
                     modifier = Modifier
-                        .padding(16.dp),
-                    text = stringResource(R.string.transfers_as_income_expense),
-                    checked = state.treatTransfersAsIncExp
-                ) {
-                    onEventHandler.invoke(
-                        ReportScreenEvent.OnTreatTransfersAsIncomeExpense(
-                            transfersAsIncomeExpense = it
-                        )
+                        .padding(start = 24.dp, end = 24.dp),
+                    textColor = UI.colors.pureInverse,
+                    currency = state.baseCurrency,
+                    balance = state.balance,
+                    balanceAmountPrefix = when {
+                        state.balance > 0 -> "+"
+                        else -> null
+                    }
+                )
+
+                Spacer(Modifier.height(20.dp))
+
+                IncomeExpensesCards(
+                    history = state.history,
+                    currency = state.baseCurrency,
+                    income = state.income,
+                    expenses = state.expenses,
+                    hasAddButtons = false,
+                    itemColor = UI.colors.pure,
+                    incomeHeaderCardClicked = {
+                        if (state.transactions.isNotEmpty()) {
+                            nav.navigateTo(
+                                PieChartStatisticScreen(
+                                    type = TransactionType.INCOME,
+                                    transactions = legacyTransactions.toImmutableList(),
+                                    accountList = state.accountIdFilters,
+                                    treatTransfersAsIncomeExpense = state.treatTransfersAsIncExp
+                                )
+                            )
+                        }
+                    },
+                    expenseHeaderCardClicked = {
+                        if (state.transactions.isNotEmpty()) {
+                            nav.navigateTo(
+                                PieChartStatisticScreen(
+                                    type = TransactionType.EXPENSE,
+                                    transactions = legacyTransactions.toImmutableList(),
+                                    accountList = state.accountIdFilters,
+                                    treatTransfersAsIncomeExpense = state.treatTransfersAsIncExp
+                                )
+                            )
+                        }
+                    }
+                )
+
+                if (state.previousIncome != null && state.previousExpenses != null) {
+                    Text(
+                        modifier = Modifier.padding(horizontal = 24.dp),
+                        text = com.ivy.design.system.financialText("Compared with the previous period: income ${comparisonLabel(state.income, state.previousIncome)} · expenses ${comparisonLabel(state.expenses, state.previousExpenses)}"),
+                        style = UI.typo.c.style(color = Gray, fontWeight = FontWeight.Medium),
                     )
                 }
-            } else {
-                Spacer(Modifier.height(32.dp))
-            }
 
-            TransactionsDividerLine(
-                paddingHorizontal = 0.dp
-            )
-
-            Spacer(Modifier.height(4.dp))
-        }
-
-        if (state.filter != null) {
-            transactions(
-                baseData = AppBaseData(
-                    baseCurrency = state.baseCurrency,
-                    categories = state.categories,
-                    accounts = state.accounts,
-                ),
-
-                upcoming = LegacyDueSection(
-                    trns = state.upcomingTransactions,
-                    stats = IncomeExpensePair(
-                        income = state.upcomingIncome.toBigDecimal(),
-                        expense = state.upcomingExpenses.toBigDecimal()
-                    ),
-                    expanded = state.upcomingExpanded
-                ),
-
-                setUpcomingExpanded = {
-                    onEventHandler.invoke(ReportScreenEvent.OnUpcomingExpanded(upcomingExpanded = it))
-                },
-
-                overdue = LegacyDueSection(
-                    trns = state.overdueTransactions,
-                    stats = IncomeExpensePair(
-                        income = state.overdueIncome.toBigDecimal(),
-                        expense = state.overdueExpenses.toBigDecimal()
-                    ),
-                    expanded = state.overdueExpanded
-                ),
-                setOverdueExpanded = {
-                    onEventHandler.invoke(ReportScreenEvent.OnOverdueExpanded(overdueExpanded = it))
-                },
-
-                history = state.history,
-                lastItemSpacer = 48.dp,
-
-                onPayOrGet = {
-                    onEventHandler.invoke(ReportScreenEvent.OnPayOrGetLegacy(transaction = it))
-                },
-                emptyStateTitle = stringRes(R.string.no_transactions),
-                emptyStateText = stringRes(R.string.no_transactions_for_your_filter),
-                shouldShowAccountSpecificColorInTransactions = state.showAccountColorsInTransactions,
-                onSkipTransaction = {
-                    onEventHandler.invoke(ReportScreenEvent.SkipTransactionLegacy(transaction = it))
-                },
-                onSkipAllTransactions = {
-                    onEventHandler.invoke(ReportScreenEvent.SkipTransactionsLegacy(transactions = it))
-                }
-            )
-        } else {
-            item {
-                NoFilterEmptyState(
-                    setFilterOverlayVisible = {
+                if (state.showTransfersAsIncExpCheckbox) {
+                    IvyCheckboxWithText(
+                        modifier = Modifier
+                            .padding(16.dp),
+                        text = stringResource(R.string.transfers_as_income_expense),
+                        checked = state.treatTransfersAsIncExp
+                    ) {
                         onEventHandler.invoke(
-                            ReportScreenEvent.OnFilterOverlayVisible(
-                                filterOverlayVisible = it
+                            ReportScreenEvent.OnTreatTransfersAsIncomeExpense(
+                                transfersAsIncomeExpense = it
                             )
                         )
                     }
+                } else {
+                    Spacer(Modifier.height(32.dp))
+                }
+
+                TransactionsDividerLine(
+                    paddingHorizontal = 0.dp
                 )
+
+                Spacer(Modifier.height(4.dp))
+            }
+
+            if (state.filter != null) {
+                transactions(
+                    baseData = AppBaseData(
+                        baseCurrency = state.baseCurrency,
+                        categories = state.categories,
+                        accounts = state.accounts,
+                    ),
+
+                    upcoming = LegacyDueSection(
+                        trns = state.upcomingTransactions,
+                        stats = IncomeExpensePair(
+                            income = state.upcomingIncome.toBigDecimal(),
+                            expense = state.upcomingExpenses.toBigDecimal()
+                        ),
+                        expanded = state.upcomingExpanded
+                    ),
+
+                    setUpcomingExpanded = {
+                        onEventHandler.invoke(ReportScreenEvent.OnUpcomingExpanded(upcomingExpanded = it))
+                    },
+
+                    overdue = LegacyDueSection(
+                        trns = state.overdueTransactions,
+                        stats = IncomeExpensePair(
+                            income = state.overdueIncome.toBigDecimal(),
+                            expense = state.overdueExpenses.toBigDecimal()
+                        ),
+                        expanded = state.overdueExpanded
+                    ),
+                    setOverdueExpanded = {
+                        onEventHandler.invoke(ReportScreenEvent.OnOverdueExpanded(overdueExpanded = it))
+                    },
+
+                    history = state.history,
+                    lastItemSpacer = 48.dp,
+
+                    onPayOrGet = {
+                        onEventHandler.invoke(ReportScreenEvent.OnPayOrGetLegacy(transaction = it))
+                    },
+                    emptyStateTitle = stringRes(R.string.no_transactions),
+                    emptyStateText = stringRes(R.string.no_transactions_for_your_filter),
+                    shouldShowAccountSpecificColorInTransactions = state.showAccountColorsInTransactions,
+                    onSkipTransaction = {
+                        onEventHandler.invoke(ReportScreenEvent.SkipTransactionLegacy(transaction = it))
+                    },
+                    onSkipAllTransactions = {
+                        onEventHandler.invoke(ReportScreenEvent.SkipTransactionsLegacy(transactions = it))
+                    }
+                )
+            } else {
+                item {
+                    NoFilterEmptyState(
+                        setFilterOverlayVisible = {
+                            onEventHandler.invoke(
+                                ReportScreenEvent.OnFilterOverlayVisible(
+                                    filterOverlayVisible = it
+                                )
+                            )
+                        }
+                    )
+                }
             }
         }
     }
@@ -381,21 +415,24 @@ private fun NoFilterEmptyState(
 private fun Toolbar(
     onExport: () -> Unit,
     onFilter: () -> Unit,
-    onSave: () -> Unit
+    onSave: () -> Unit,
+    transactionActions: Boolean = true,
 ) {
     val nav = navigation()
     var actions by rememberSaveable { mutableStateOf(false) }
     com.ivy.design.system.JvyScreenHeader(stringResource(R.string.reports), { nav.back() }) {
-        androidx.compose.material3.IconButton(onFilter) {
-            androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_filter_xs), stringResource(R.string.filter))
-        }
-        Box {
-            androidx.compose.material3.IconButton({ actions = true }) {
-                androidx.compose.material3.Icon(Icons.Outlined.MoreVert, stringResource(R.string.jvy_navigation_actions))
+        if (transactionActions) {
+            androidx.compose.material3.IconButton(onFilter) {
+                androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_filter_xs), stringResource(R.string.filter))
             }
-            androidx.compose.material3.DropdownMenu(actions, { actions = false }) {
-                androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(R.string.save_report)) }, onClick = { actions = false; onSave() })
-                androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(R.string.export_to_csv)) }, onClick = { actions = false; onExport() })
+            Box {
+                androidx.compose.material3.IconButton({ actions = true }) {
+                    androidx.compose.material3.Icon(Icons.Outlined.MoreVert, stringResource(R.string.jvy_navigation_actions))
+                }
+                androidx.compose.material3.DropdownMenu(actions, { actions = false }) {
+                    androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(R.string.save_report)) }, onClick = { actions = false; onSave() })
+                    androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(R.string.export_to_csv)) }, onClick = { actions = false; onExport() })
+                }
             }
         }
     }

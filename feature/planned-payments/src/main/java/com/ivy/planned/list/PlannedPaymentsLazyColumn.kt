@@ -59,6 +59,7 @@ fun PlannedPaymentsLazyColumn(
     setRecurringExpanded: (Boolean) -> Unit,
     listState: LazyListState = rememberLazyListState(),
     onAdd: () -> Unit = {},
+    Footer: (@Composable () -> Unit)? = null,
 ) {
     val nav = navigation()
 
@@ -91,6 +92,7 @@ fun PlannedPaymentsLazyColumn(
             setRecurringExpanded = setRecurringExpanded,
             onAdd = onAdd,
         )
+        if (Footer != null) item(key = "planned-projection-chart", contentType = "chart") { Footer() }
     }
 }
 

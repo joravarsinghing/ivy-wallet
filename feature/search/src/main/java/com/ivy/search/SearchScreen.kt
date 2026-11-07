@@ -127,6 +127,9 @@ internal fun SearchUi(
             state = listState
 
         ) {
+            if (!uiState.loading && !uiState.failed && uiState.resultsMatchQuery && uiState.transactions.isNotEmpty()) item(key = "search-activity-chart", contentType = "chart") {
+                com.ivy.legacy.ui.chart.ContextualActivityChart("search-activity", uiState.transactions, uiState.accounts, uiState.baseCurrency)
+            }
             if (!uiState.failed && (!uiState.loading || (uiState.resultsMatchQuery && uiState.transactions.isNotEmpty()))) transactions(
                 baseData = AppBaseData(
                     baseCurrency = uiState.baseCurrency,

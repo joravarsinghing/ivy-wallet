@@ -41,6 +41,7 @@ fun BoxWithConstraintsScope.ChoosePeriodModal(
     dismiss: () -> Unit,
     modifier: Modifier = Modifier,
     updateGlobalPeriod: Boolean = true,
+    validatePeriod: (TimePeriod) -> String? = { null },
     onPeriodSelected: (TimePeriod) -> Unit,
 ) {
     if (modal == null) return
@@ -51,7 +52,7 @@ fun BoxWithConstraintsScope.ChoosePeriodModal(
                 if (updateGlobalPeriod) context.updateSelectedPeriodInMemory(period)
                 onPeriodSelected(period)
                 dismiss()
-            }, modifier = modifier)
+            }, modifier = modifier, validatePeriod = validatePeriod)
         }
     }
 }
@@ -59,7 +60,7 @@ fun BoxWithConstraintsScope.ChoosePeriodModal(
 /** The actual dialog content is also used by adaptive interaction/render checks. */
 @Composable
 fun PeriodChooserContent(initialPeriod: TimePeriod, onClose: () -> Unit, onApply: (TimePeriod) -> Unit,
-                         modifier: Modifier = Modifier) {
+                         modifier: Modifier = Modifier, validatePeriod: (TimePeriod) -> String? = { null }) {
     var period by rememberSaveable(stateSaver = PeriodDraftSaver) { mutableStateOf<TimePeriod?>(initialPeriod) }
     val provider = LocalTimeProvider.current
     val converter = LocalTimeConverter.current
@@ -75,14 +76,17 @@ fun PeriodChooserContent(initialPeriod: TimePeriod, onClose: () -> Unit, onApply
     val from = with(converter) { range?.from?.toLocalDate() }
     val to = with(converter) { range?.to?.toLocalDate() }
     val allTime = range != null && range.from == null && (range.to == null || range.to!! > provider.utcNow())
+    val validationError = period?.takeIf(::canApplyPeriod)?.let(validatePeriod)
 
     JvyFormDialogFrame(stringResource(R.string.choose_month), onClose, footer = {
+        if (validationError != null) Text(validationError, color = MaterialTheme.colorScheme.error,
+            style = JvyTypography.Supporting)
         JvyButton(onClick = {
-            period?.takeIf(::canApplyPeriod)?.let { selected ->
+            period?.takeIf { canApplyPeriod(it) && validationError == null }?.let { selected ->
                 // Saved primitives intentionally omit translated month names.
                 onApply(selected.copy(month = selected.month?.let { months.first { month -> month.monthValue == it.monthValue } }))
             }
-        }, modifier = Modifier.fillMaxWidth().testTag("period_apply"), enabled = canApplyPeriod(period)) {
+        }, modifier = Modifier.fillMaxWidth().testTag("period_apply"), enabled = canApplyPeriod(period) && validationError == null) {
             Text(stringResource(R.string.apply_filter))
         }
     }, modifier = modifier, bodyPadding = PaddingValues(vertical = 8.dp)) {

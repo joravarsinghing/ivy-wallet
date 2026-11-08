@@ -24,6 +24,6 @@ fun JvyContextCharts(cards: List<AnalyticsCard>, modifier: Modifier = Modifier, 
             cards.forEach { choice -> FilterChip(selected = choice.id == card.id, onClick = { selected = choice.unit },
                 label = { Text(choice.unit) }, shape = JvyShapes.Control, modifier = Modifier.heightIn(min = 48.dp)) }
         }
-        JvyAnalyticsCard(card, horizontalPadding = horizontalPadding, hidden = hidden)
+        JvyAnalyticsCard(card, horizontalPadding = horizontalPadding, hidden = hidden, compact = true)
     }
 }

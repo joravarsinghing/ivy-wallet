@@ -33,6 +33,11 @@ import com.ivy.design.system.JvyFormDialogFrame
 import com.ivy.design.system.JvyTypography
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ArrowUpward
+import androidx.compose.material.icons.outlined.ArrowDownward
 
 /** Presentation-only editor for the cards shown on Home. */
 @Composable
@@ -42,19 +47,21 @@ fun HomeDashboardEditorDialog(
     onClose: () -> Unit,
     onRestoreDefaults: () -> Unit,
     cards: List<HomeDashboardCardDefinition> = defaultHomeDashboardCards,
+    onMove: (HomeDashboardCardId, Int) -> Unit = { _, _ -> },
 ) {
     Dialog(
         onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        HomeDashboardEditorContent(visibleCards, onCardToggle, onClose, onRestoreDefaults, cards)
+        HomeDashboardEditorContent(visibleCards, onCardToggle, onClose, onRestoreDefaults, cards, onMove)
     }
 }
 
 @Composable
 internal fun HomeDashboardEditorContent(visibleCards: Set<HomeDashboardCardId>, onCardToggle: (HomeDashboardCardId) -> Unit,
                                         onClose: () -> Unit, onRestoreDefaults: () -> Unit,
-                                        cards: List<HomeDashboardCardDefinition> = defaultHomeDashboardCards) {
+                                        cards: List<HomeDashboardCardDefinition> = defaultHomeDashboardCards,
+                                        onMove: (HomeDashboardCardId, Int) -> Unit = { _, _ -> }) {
     JvyFormDialogFrame("Edit Home", onClose, footer = {
         Column(Modifier.fillMaxWidth()) {
             TextButton(onRestoreDefaults, Modifier.fillMaxWidth()) { Text("Restore defaults") }
@@ -62,17 +69,27 @@ internal fun HomeDashboardEditorContent(visibleCards: Set<HomeDashboardCardId>, 
         }
     }) {
             Text(
-                text = "Choose the cards you want to see on Home.",
+                text = "Choose your cards and use the arrows to change their order. Dates stay available above every card.",
                 style = JvyTypography.Supporting,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            cards.forEach { card ->
+            cards.forEachIndexed { index, card ->
+                Column {
                 HomeDashboardToggleRow(
                     card = card,
                     checked = card.id in visibleCards,
                     onClick = { onCardToggle(card.id) },
                 )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    IconButton({ onMove(card.id, -1) }, enabled = index > 0) {
+                        Icon(Icons.Outlined.ArrowUpward, "Move ${card.label} up")
+                    }
+                    IconButton({ onMove(card.id, 1) }, enabled = index < cards.lastIndex) {
+                        Icon(Icons.Outlined.ArrowDownward, "Move ${card.label} down")
+                    }
+                }
+                }
             }
     }
 }

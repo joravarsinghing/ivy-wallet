@@ -2,6 +2,8 @@ package com.ivy.home
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Search
@@ -11,6 +13,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -75,15 +79,22 @@ internal fun HomeTimelineControls(selection: HomePeriodSelection, applied: HomeP
 ) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).testTag("home_period_controls"),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        JvyOutlinedButton(openChooser, Modifier.fillMaxWidth().testTag("home_period_chooser")) {
+        JvyTextButton(openChooser, Modifier.testTag("home_period_chooser")) {
             Icon(Icons.Outlined.CalendarMonth, null)
             Spacer(Modifier.width(8.dp))
             Text(homePeriodLabel(selection))
         }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             homeQuickPeriods.forEach { choice ->
-                FilterChip(selection == choice, { select(choice) }, label = { Text(homePeriodLabel(choice)) },
-                    modifier = Modifier.heightIn(min = 48.dp).testTag("home_period_${choice.encode()}"), shape = JvyShapes.Control)
+                val accessibleLabel = homePeriodLabel(choice)
+                FilterChip(selection == choice, { select(choice) }, label = { Text(when (choice) {
+                    HomePeriodSelection.CurrentCycle -> homePeriodLabel(choice)
+                    is HomePeriodSelection.Rolling -> "${choice.count}${if (choice.unit == IntervalType.DAY) "d" else "m"}"
+                    else -> homePeriodLabel(choice)
+                }) },
+                    modifier = Modifier.heightIn(min = 48.dp).testTag("home_period_${choice.encode()}").semantics { contentDescription = accessibleLabel }, shape = JvyShapes.Control,
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer))
             }
         }
         Text(window?.let { stringResource(R.string.jvy_home_showing_dates, it.displayLabel()) }
@@ -110,10 +121,13 @@ internal fun HomePeriodSummary(stats: IncomeExpensePair, currency: String, hidde
     FlowRow(Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         listOf(TransactionType.INCOME to stats.income, TransactionType.EXPENSE to stats.expense).forEach { (type, amount) ->
-            OutlinedCard(onClick = { if (hidden) reveal() else window?.let { nav.navigateTo(PieChartStatisticScreen(type = type,
+            val incoming = type == TransactionType.INCOME
+            Card(onClick = { if (hidden) reveal() else window?.let { nav.navigateTo(PieChartStatisticScreen(type = type,
                 dateRange = it.navigationRange(converter), cashFlowOnly = true)) } }, enabled = window != null,
                 modifier = Modifier.widthIn(min = minWidth).weight(1f).testTag(if (type == TransactionType.INCOME) "home_card_income" else "home_card_expense"),
-                shape = JvyShapes.Card) {
+                shape = JvyShapes.Card, colors = CardDefaults.cardColors(
+                    containerColor = if (incoming) JvySummaryColors.Income else JvySummaryColors.Expenses,
+                    contentColor = if (incoming) JvySummaryColors.OnIncome else JvySummaryColors.OnExpenses)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(stringResource(if (type == TransactionType.INCOME) R.string.income else R.string.expenses), style = MaterialTheme.typography.titleSmall)
                     Text(if (hidden) "••••" else financialText(formatDecimalMoney(amount, currency)), style = JvyTypography.AmountSmall)

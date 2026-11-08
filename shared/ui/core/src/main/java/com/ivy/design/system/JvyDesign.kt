@@ -73,6 +73,14 @@ object JvyShapes {
     val Material = Shapes(extraSmall = Control, small = Control, medium = Card, large = Sheet, extraLarge = Sheet)
 }
 
+/** Home cash-flow tiles retain Ivy's vivid green / silver personality in every theme. */
+object JvySummaryColors {
+    val Income = Color(0xFF14CC9E)
+    val OnIncome = Color(0xFF09241E)
+    val Expenses = Color(0xFFE4E1EB)
+    val OnExpenses = Color(0xFF201D29)
+}
+
 /** One rhythm for layout ownership; don't add a second gutter inside a padded host. */
 object JvySpacing {
     val Related = 8.dp

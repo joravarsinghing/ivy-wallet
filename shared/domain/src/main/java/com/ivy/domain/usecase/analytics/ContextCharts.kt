@@ -31,17 +31,19 @@ object ContextCharts {
             })), currency,
             lastIsTotal = true, note = if (opening == null || change == null || closing == null) "Some forecast values are unavailable." else null)
 
-    fun activity(id: String, rows: List<Pair<AnalyticsEntry, String>>): List<AnalyticsCard> =
+    fun activity(id: String, rows: List<Pair<AnalyticsEntry, String>>, windowFrom: LocalDate? = null,
+                 windowThrough: LocalDate? = null): List<AnalyticsCard> =
         rows.groupBy { it.second }.toSortedMap().map { (currency, matches) ->
             val entries = matches.map { it.first }
-            val from = entries.minOf { it.date }
-            val to = entries.maxOf { it.date }
+            val firstObserved = entries.minOf { it.date }
+            val from = windowFrom?.takeIf { it <= firstObserved } ?: firstObserved
+            val to = windowThrough?.takeIf { it >= entries.maxOf { entry -> entry.date } } ?: entries.maxOf { it.date }
             val daily = entries.groupBy { it.date }
             val intervals = AnalyticsEngine.buckets(from, to)
             fun series(income: Boolean) = intervals.map { (start, end) ->
                 val amount = daily.filterKeys { it >= start && it <= end }.values.flatten()
                     .filter { it.income == income }.fold(BigDecimal.ZERO) { sum, row -> sum + row.amount }
-                ChartValue("$start – $end", amount, date = start, end = end)
+                ChartValue("$start – $end", amount.takeIf { end >= firstObserved }, date = start, end = end)
             }
             AnalyticsCard("$id-$currency", "Activity trend", "Matching settled activity · $from – $to. Native $currency amounts; transfers and balance adjustments excluded. This is cash flow, not account balance.",
                 ChartKind.LINE, listOf(ChartSeries("Income", Ink.INCOME, series(true)), ChartSeries("Spent", Ink.SPENDING, series(false))), currency)

@@ -59,6 +59,38 @@ Use theme roles, not raw hex values in features. Purple is the brand/action acce
 
 Always pair a container with its matching `on…` role. Text contrast must be at least 4.5:1 and meaningful control outlines at least 3:1. Theme tests enforce shared palette pairs. Preserve user-assigned account/category colors; they are identifiers, not replacements for readable text. Account glyphs adjust only their rendered tint toward white/black when needed for 3:1 visibility; the saved color is unchanged. Labels and icons must explain meaning without relying on color alone. Home charts retain their documented income/expense/balance series meanings.
 
+Home's income/expense tiles are a deliberate brand exception to neutral cards:
+`JvySummaryColors` pairs vivid green #14CC9E with #09241E and silver #E4E1EB
+with #201D29. Both keep AA text contrast in light/dark/AMOLED. Do not turn these
+tiles into bare outlined boxes. Accounts' wallet total uses primaryContainer
+and onPrimaryContainer; user-assigned identifiers retain their own colors.
+
+Home date controls use one compact chooser, one horizontally scrollable row of
+short, fully visible quick-choice labels, and an effective-date caption. The
+row scrolls rather than growing into a tall wall of outlined buttons. Controls
+remain outside optional cards. Customize provides accessible Move up/down
+actions, visibility and Restore defaults; persist order separately from ledger
+data. Each movable current/future card retains its own time context. Every
+optional card may be hidden without losing the date controls.
+
+Contextual chart cards precede the lists they summarize, after page controls.
+Keep ranked previews to three rows and disclose the rest via View values. All
+time-series graphs use `JvyTrendPlot`, the same shaded, right-axis, no-dot native
+renderer as Home. Other chart families retain their meaningful geometry. Empty
+and isolated-observation states retain the card and explain the missing trend;
+never synthesize observations to force a line. Account cash-flow charts honor
+the transfer preference using native sending/receiving amounts; wallet-wide
+charts still exclude internal transfers. Day totals use the account's native
+currency and the same transfer legs, preserving the existing adjustment policy.
+
+Exchange rates disclose their provider, provider date, last successful refresh,
+stale/unknown/error states and an explicit Refresh action. Do not label daily
+reference quotes as live or guarantee bank execution prices. Never update a
+freshness timestamp on failure or replace manual overrides during refresh.
+Terms and privacy are bundled, scrollable documents, not generic repository
+links. Required source/license notices stay reachable from Terms; contributor
+and decorative attribution pages are removed.
+
 Legacy account/category identifiers share `identifierForeground` through both
 `findContrastTextColor` adapters. Compare actual luminance ratios, not an arbitrary
 “dark colour” threshold: bright green also needs a dark foreground. Retain Ivy's

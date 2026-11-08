@@ -10,10 +10,11 @@ class HomeDashboardModelTest {
     fun defaultsExposeAllSupportedCardsInStableOrder() {
         assertEquals(
             listOf(
-                HomeDashboardCardId.SAFE_TO_SPEND,
-                HomeDashboardCardId.MONEY_COMING_UP,
                 HomeDashboardCardId.MONEY_TRENDS,
                 HomeDashboardCardId.SPENDING_BREAKDOWN,
+                HomeDashboardCardId.RECENT_ACTIVITY,
+                HomeDashboardCardId.SAFE_TO_SPEND,
+                HomeDashboardCardId.MONEY_COMING_UP,
                 HomeDashboardCardId.SAVED_REPORTS,
             ),
             defaultHomeDashboardCards.map { it.id },
@@ -35,5 +36,20 @@ class HomeDashboardModelTest {
         val restored = toggleHomeDashboardCard(hidden, HomeDashboardCardId.MONEY_TRENDS)
         assertTrue(HomeDashboardCardId.MONEY_TRENDS in restored)
         assertEquals(defaultVisibleHomeDashboardCards, restored)
+    }
+
+    @Test fun `ordering deduplicates unknown preferences and appends new cards`() {
+        val order = normalizedHomeCardOrder(listOf("safe_to_spend", "unknown", "safe_to_spend"))
+        assertEquals(HomeDashboardCardId.SAFE_TO_SPEND, order.first())
+        assertEquals(HomeDashboardCardId.entries.toSet(), order.toSet())
+        assertEquals(order.size, order.distinct().size)
+        val moved = moveHomeCard(order, HomeDashboardCardId.MONEY_TRENDS, -1)
+        assertEquals(HomeDashboardCardId.MONEY_TRENDS, moved.first())
+        assertEquals(moved, moveHomeCard(moved, moved.first(), -1))
+    }
+    @Test fun `every optional card may be hidden without removing shared controls`() {
+        var visible = defaultVisibleHomeDashboardCards
+        HomeDashboardCardId.entries.forEach { visible = toggleHomeDashboardCard(visible, it) }
+        assertTrue(visible.isEmpty())
     }
 }

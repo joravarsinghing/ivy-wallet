@@ -73,12 +73,6 @@ fun BudgetScreenContent(state: BudgetScreenState, modifier: Modifier = Modifier,
                         }
                     }
                     item(span = { GridItemSpan(maxLineSpan) }) { BudgetInsightCard(state.insight, state.baseCurrency, overlappingLimits = state.appBudgetMax > 0 && state.categoryBudgetsTotal > 0) }
-                    items(state.budgets, key = { it.budget.id }) { item ->
-                        BudgetItem(item, state.baseCurrency) {
-                            onEvent(BudgetScreenEvent.OnBudgetModalData(BudgetModalData(item.budget, state.baseCurrency,
-                                state.categories, state.accounts, autoFocusKeyboard = false)))
-                        }
-                    }
                     item(key = "budget-usage-chart", contentType = "chart", span = { GridItemSpan(maxLineSpan) }) {
                         val chart = remember(state.budgets) { ContextCharts.positions("budget-usage", "Which budgets need attention?",
                             "Percent of each limit used in the period above. Overlapping budgets are compared separately, never added. Above 100% is over budget; refunds can reduce usage. A zero limit has no percentage.",
@@ -87,6 +81,13 @@ fun BudgetScreenContent(state: BudgetScreenState, modifier: Modifier = Modifier,
                             ink = com.ivy.base.analytics.Ink.SPENDING) }
                         JvyContextCharts(chart, horizontalPadding = 0.dp)
                     }
+                    items(state.budgets, key = { it.budget.id }) { item ->
+                        BudgetItem(item, state.baseCurrency) {
+                            onEvent(BudgetScreenEvent.OnBudgetModalData(BudgetModalData(item.budget, state.baseCurrency,
+                                state.categories, state.accounts, autoFocusKeyboard = false)))
+                        }
+                    }
+
                 }
             }
             if (state.budgets.isNotEmpty()) JvyPrimaryAction(stringResource(R.string.add_budget), add)

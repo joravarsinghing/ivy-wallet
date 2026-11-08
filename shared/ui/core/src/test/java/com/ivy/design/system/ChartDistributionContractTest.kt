@@ -17,7 +17,7 @@ class ChartDistributionContractTest {
         "SettingsScreen" to "Preferences", "ImportScreen" to "Import preview and confirmation",
         "SecurityScreen" to "Protected credentials, no financial visualization",
         "ExchangeRatesScreen" to "Quote management; no stored comparable rate history",
-        "FeaturesScreen" to "Feature information", "AttributionsScreen" to "Licensing", "ContributorsScreen" to "Credits",
+        "FeaturesScreen" to "Feature information",
         "ReleasesScreen" to "Release notes", "DisclaimerScreen" to "Legal information", "PollScreen" to "Legacy compatibility route"
     )
     @Test fun `every registered destination has a reviewed contextual chart decision`() {
@@ -37,17 +37,17 @@ class ChartDistributionContractTest {
             assertFalse(File(root, "feature/$module/build.gradle.kts").readText().contains("projects.feature.reports"))
         }
         assertTrue(File(root, "feature/loans/src/main/java/com/ivy/loans/loandetails/LoanDetailsScreen.kt").readText().contains("LoanDetailsCharts(state)"))
-        assertTrue(File(root, "feature/planned-payments/src/main/java/com/ivy/planned/list/PlannedPaymentsScreen.kt").readText().contains("JvyAnalyticsCard(chart)"))
+        assertTrue(File(root, "feature/planned-payments/src/main/java/com/ivy/planned/list/PlannedPaymentsScreen.kt").readText().contains("JvyAnalyticsCard(chart, compact = true)"))
         assertTrue(File(root, "feature/balance/src/main/java/com/ivy/balance/BalanceScreen.kt").readText().contains("JvyAnalyticsCard(chart)"))
     }
-    @Test fun `management charts follow operational cards rather than replacing the first useful actions`() {
+    @Test fun `compact visual summaries precede the lists they explain`() {
         listOf(Triple("accounts/AccountsContent.kt", "items(state.accountsData.chunked(columns)", "account-balance-chart"),
             Triple("budgets/BudgetScreen.kt", "items(state.budgets,", "budget-usage-chart"),
             Triple("goals/GoalsScreen.kt", "items(goals.size,", "goal-funding-chart"),
             Triple("loans/loan/LoansScreen.kt", "items(loans,", "loan-overview-chart")).forEach { (path, list, chart) ->
             val module = path.substringBefore('/')
             val text = File(root, "feature/$module/src/main/java/com/ivy/$path").readText()
-            assertTrue(path, text.indexOf(list) in 0 until text.indexOf(chart))
+            assertTrue(path, text.indexOf(chart) in 0 until text.indexOf(list))
         }
     }
 }

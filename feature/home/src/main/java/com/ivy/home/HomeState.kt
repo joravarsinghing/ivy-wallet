@@ -42,6 +42,7 @@ data class HomeState(
     val spendingBreakdown: HomeSpendingBreakdownState = HomeSpendingBreakdownState(),
     val visibleDashboardCards: Set<HomeDashboardCardId> = defaultVisibleHomeDashboardCards,
     val dashboardEditorVisible: Boolean = false,
+    val dashboardOrder: List<HomeDashboardCardId> = defaultHomeDashboardCards.map { it.id },
     val savedAnalytics: ImmutableList<SavedAnalyticsEntity> = persistentListOf(),
     val periodSelection: HomePeriodSelection = HomePeriodSelection.CurrentCycle,
     val appliedPeriodSelection: HomePeriodSelection = HomePeriodSelection.CurrentCycle,

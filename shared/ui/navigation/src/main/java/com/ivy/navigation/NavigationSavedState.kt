@@ -58,7 +58,6 @@ internal object NavigationSavedState {
         ReportScreen -> listOf("reports"); BudgetScreen -> listOf("budgets"); GoalsScreen -> listOf("goals")
         SecurityScreen -> listOf("security"); NetWorthScreen -> listOf("wealth"); LoansScreen -> listOf("loans")
         SearchScreen -> listOf("search"); ExchangeRatesScreen -> listOf("rates"); FeaturesScreen -> listOf("features")
-        AttributionsScreen -> listOf("attributions"); ContributorsScreen -> listOf("contributors")
         ReleasesScreen -> listOf("releases"); DisclaimerScreen -> listOf("disclaimer"); PollScreen -> listOf("retired-poll")
         is CSVScreen -> listOf("csv", screen.launchedFromOnboarding.toString())
         is ImportScreen -> listOf("import", screen.launchedFromOnboarding.toString())
@@ -94,7 +93,7 @@ internal object NavigationSavedState {
             "planned" -> PlannedPaymentsScreen; "categories" -> CategoriesScreen; "settings" -> SettingsScreen
             "reports" -> ReportScreen; "budgets" -> BudgetScreen; "goals" -> GoalsScreen; "security" -> SecurityScreen
             "wealth" -> NetWorthScreen; "loans" -> LoansScreen; "search" -> SearchScreen; "rates" -> ExchangeRatesScreen
-            "features" -> FeaturesScreen; "attributions" -> AttributionsScreen; "contributors" -> ContributorsScreen
+            "features" -> FeaturesScreen; "attributions" -> SettingsScreen; "contributors" -> SettingsScreen
             "releases" -> ReleasesScreen; "disclaimer" -> DisclaimerScreen; "retired-poll" -> PollScreen
             "csv" -> CSVScreen(bool(1)); "import" -> ImportScreen(bool(1)); "loan" -> LoanDetailsScreen(requireNotNull(id(1)))
             "transaction" -> EditTransactionScreen(id(1), type(2), id(3), id(4))

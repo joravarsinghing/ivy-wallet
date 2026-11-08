@@ -4,6 +4,22 @@ Approved direction: owner-signed GitHub APK; English-first; no automatic crash
 diagnostics; guard implicit-currency records instead of migrating their schema.
 Premium means reliable, accessible and understandable, not a paid tier.
 
+Latest owner-requested APK: **0.7.0 / 232**, signed release built in **12m 12s**.
+Signature continuity with 0.6.0, package/version, non-debuggable flag, alignment,
+checksum, privacy manifest flags and temporary-key cleanup verified. See
+[candidate evidence](../releases/0.7.0-candidate.md). This supersedes historical
+no-APK statements in the implementation records. Local source/version commit
+only; no push, tag or publication. Physical-device and owner acceptance remain
+pending, not implied by artifact verification.
+
+Latest owner correction: [UI coherence review](../design/UI-COHERENCE-REVIEW.md).
+This supersedes earlier chart-after-list placement and fixed Home grouping.
+Compact visuals lead their relevant lists; Home ordering is user-configurable,
+with explicit current/future captions retained. Account transfer visuals/day
+totals honor their setting; wallet-wide transfer exclusion is unchanged. Rate
+freshness and offline legal documents are included. Validation and owner/device
+acceptance are tracked separately in that review; no new APK is requested.
+
 Owner-requested APK handoff: **0.6.0 / 231**. The official minor-release build
 completed in 10m 43s. Signature, owner-certificate continuity, package/version,
 non-debuggable manifest, alignment, checksum and temporary-key cleanup verified.

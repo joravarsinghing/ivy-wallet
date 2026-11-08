@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import com.ivy.domain.usecase.analytics.ContextCharts
 import com.ivy.design.system.chart.JvyAnalyticsCard
 import androidx.compose.ui.Modifier
@@ -63,6 +66,7 @@ internal fun BoxWithConstraintsScope.UI(
         nav.navigateTo(EditPlannedScreen(type = TransactionType.EXPENSE, plannedPaymentRuleId = null))
     }
     val empty = state.oneTimePlannedPayment.isEmpty() && state.recurringPlannedPayment.isEmpty()
+    var showForecastDetails by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     JvySubsectionScaffold(stringResource(R.string.planned_payments_inline), { nav.back() }, footer = {
         if (!empty) JvyPrimaryAction(stringResource(R.string.add_payment), add)
     }) {
@@ -70,21 +74,23 @@ internal fun BoxWithConstraintsScope.UI(
         Header = {
           if (!empty) {
             Spacer(Modifier.height(12.dp))
-
-            CashFlowForecastCard(
-                forecast = state.forecast,
-                currency = state.currency,
-            )
+            val chart = remember(state.forecast, state.currency) { ContextCharts.bridge("planned-forecast", "How scheduled payments change your balance",
+                "Uses the existing forecast: current balance plus recurring and upcoming planned net change. This is a projection, not recorded history or guaranteed money.", state.currency,
+                ContextCharts.amount(state.forecast.currentBalance), ContextCharts.amount(state.forecast.nextPeriodNet), ContextCharts.amount(state.forecast.projectedBalance)) }
+            JvyAnalyticsCard(chart, compact = true)
+            com.ivy.design.system.JvyTextButton({ showForecastDetails = !showForecastDetails }, Modifier.padding(horizontal = 24.dp)) {
+                androidx.compose.material3.Text(if (showForecastDetails) "Hide forecast details" else "Forecast details")
+            }
+            if (showForecastDetails) {
+                CashFlowForecastCard(
+                    forecast = state.forecast,
+                    currency = state.currency,
+                )
+            }
 
             Spacer(Modifier.height(16.dp))
           }
         },
-        Footer = if (empty) null else ({
-            val chart = remember(state.forecast, state.currency) { ContextCharts.bridge("planned-forecast", "How scheduled payments change your balance",
-                "Uses the existing forecast: current balance plus recurring and upcoming planned net change. This is a projection, not recorded history or guaranteed money.", state.currency,
-                ContextCharts.amount(state.forecast.currentBalance), ContextCharts.amount(state.forecast.nextPeriodNet), ContextCharts.amount(state.forecast.projectedBalance)) }
-            JvyAnalyticsCard(chart)
-        }),
         currency = state.currency,
         categories = state.categories,
         accounts = state.accounts,

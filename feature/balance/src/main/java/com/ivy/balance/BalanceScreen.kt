@@ -96,6 +96,14 @@ private fun BoxWithConstraintsScope.UI(
             }
         )
 
+        val chart = remember(state.currentBalance, state.plannedPaymentsAmount, state.balanceAfterPlannedPayments, state.baseCurrencyCode, state.period) {
+            ContextCharts.bridge("balance-projection", "Current to projected balance",
+                "The selected period's existing planned-payment calculation. A projection, not a historical balance. No new assumptions or ledger entries are added.", state.baseCurrencyCode,
+                ContextCharts.amount(state.currentBalance), ContextCharts.amount(state.balanceAfterPlannedPayments - state.currentBalance),
+                ContextCharts.amount(state.balanceAfterPlannedPayments))
+        }
+        JvyAnalyticsCard(chart)
+
         Spacer(Modifier.height(32.dp))
 
         CurrentBalance(
@@ -118,13 +126,7 @@ private fun BoxWithConstraintsScope.UI(
             plannedPaymentsAmount = state.plannedPaymentsAmount,
             balanceAfterPlannedPayments = state.balanceAfterPlannedPayments
         )
-        val chart = remember(state.currentBalance, state.plannedPaymentsAmount, state.balanceAfterPlannedPayments, state.baseCurrencyCode, state.period) {
-            ContextCharts.bridge("balance-projection", "Current to projected balance",
-                "The selected period's existing planned-payment calculation. A projection, not a historical balance. No new assumptions or ledger entries are added.", state.baseCurrencyCode,
-                ContextCharts.amount(state.currentBalance), ContextCharts.amount(state.balanceAfterPlannedPayments - state.currentBalance),
-                ContextCharts.amount(state.balanceAfterPlannedPayments))
-        }
-        JvyAnalyticsCard(chart)
+
 
     }
 

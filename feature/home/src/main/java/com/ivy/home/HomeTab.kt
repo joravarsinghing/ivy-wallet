@@ -125,6 +125,7 @@ fun BoxWithConstraintsScope.HomeUi(
             balance = uiState.balance,
             protectedBuffer = uiState.buffer.amount,
             visibleDashboardCards = uiState.visibleDashboardCards,
+            dashboardOrder = uiState.dashboardOrder,
             spendingBreakdown = uiState.spendingBreakdown,
             moneyComingUp = uiState.moneyComingUp,
             trend = uiState.trend,
@@ -214,6 +215,8 @@ fun BoxWithConstraintsScope.HomeUi(
             onCardToggle = { onEvent(HomeEvent.ToggleDashboardCard(it)) },
             onClose = { onEvent(HomeEvent.CloseDashboardEditor) },
             onRestoreDefaults = { onEvent(HomeEvent.RestoreDashboardDefaults) },
+            cards = uiState.dashboardOrder.map(::HomeDashboardCardDefinition),
+            onMove = { card, offset -> onEvent(HomeEvent.MoveDashboardCard(card, offset)) },
         )
     }
 }
@@ -270,6 +273,7 @@ fun HomeLazyColumn(
     periodCapped: Boolean = false,
     onHomePeriodSelected: (HomePeriodSelection) -> Unit = {},
     onOpenPeriodChooser: () -> Unit = {},
+    dashboardOrder: List<HomeDashboardCardId> = defaultHomeDashboardCards.map { it.id },
 ) {
     LazyColumn(
         modifier = modifier
@@ -296,7 +300,9 @@ fun HomeLazyColumn(
             HomeDashboardToolbar(onOpenEditor = onOpenDashboardEditor)
         }
 
-        if (HomeDashboardCardId.MONEY_TRENDS in visibleDashboardCards) item(key = "trend", contentType = "chart") {
+        dashboardOrder.filter { it in visibleDashboardCards }.forEach { dashboardCard ->
+        when (dashboardCard) {
+        HomeDashboardCardId.MONEY_TRENDS -> item(key = "trend", contentType = "chart") {
             Spacer(Modifier.height(16.dp))
 
             HomeTrendCard(
@@ -310,7 +316,7 @@ fun HomeLazyColumn(
             )
         }
 
-        if (HomeDashboardCardId.SPENDING_BREAKDOWN in visibleDashboardCards) item(key = "spending", contentType = "breakdown") {
+        HomeDashboardCardId.SPENDING_BREAKDOWN -> item(key = "spending", contentType = "breakdown") {
             Spacer(Modifier.height(16.dp))
             HomeSpendingBreakdownCard(
                 state = spendingBreakdown,
@@ -320,14 +326,7 @@ fun HomeLazyColumn(
             )
         }
 
-        item(key = "journey", contentType = "journey") {
-            CustomerJourney(
-                customerJourneyCards = customerJourneyCards,
-                onDismiss = onDismiss
-            )
-        }
-
-        item(key = "activity", contentType = "activity") {
+        HomeDashboardCardId.RECENT_ACTIVITY -> item(key = "activity", contentType = "activity") {
             Spacer(Modifier.height(16.dp))
             HomeCompactActivity(
                 baseData = baseData,
@@ -342,27 +341,29 @@ fun HomeLazyColumn(
                 onSkipAllTransactions = onSkipAllTransactions,
             )
         }
-        if (HomeDashboardCardId.SAFE_TO_SPEND in visibleDashboardCards || HomeDashboardCardId.MONEY_COMING_UP in visibleDashboardCards ||
-            upcoming.trns.isNotEmpty() || overdue.trns.isNotEmpty()) item(key = "outlook", contentType = "outlook") {
-            Spacer(Modifier.height(24.dp))
+        HomeDashboardCardId.SAFE_TO_SPEND -> item(key = "safe-to-spend", contentType = "outlook") {
+            Spacer(Modifier.height(16.dp))
             androidx.compose.material3.Text(stringResource(R.string.jvy_home_today_upcoming),
                 Modifier.padding(horizontal = 24.dp), style = com.ivy.design.system.JvyTypography.SectionTitle)
-            if (HomeDashboardCardId.SAFE_TO_SPEND in visibleDashboardCards) {
                 Spacer(Modifier.height(16.dp))
                 SafeToSpendCard(balance, protectedBuffer, baseData.baseCurrency)
-            }
-            if (HomeDashboardCardId.MONEY_COMING_UP in visibleDashboardCards) {
+        }
+        HomeDashboardCardId.MONEY_COMING_UP -> item(key = "money-coming-up", contentType = "outlook") {
                 Spacer(Modifier.height(16.dp))
                 MoneyComingUpCard(moneyComingUp, baseData.baseCurrency, hideBalance)
-            }
-            HomeCompactActivity(baseData, upcoming, overdue, emptyList(), hideBalance, onPayOrGet,
-                onSkipTransaction, onSkipAllTransactions, showRecent = false)
         }
-        if (HomeDashboardCardId.SAVED_REPORTS in visibleDashboardCards && savedAnalytics.isNotEmpty())
+        HomeDashboardCardId.SAVED_REPORTS -> if (savedAnalytics.isNotEmpty())
             item(key = "saved_reports", contentType = "reports") {
                 Spacer(Modifier.height(16.dp))
                 HomeSavedReportsCard(savedAnalytics, onOpenSavedReports)
             }
+        }
+        }
+        item(key = "journey", contentType = "journey") { CustomerJourney(customerJourneyCards = customerJourneyCards, onDismiss = onDismiss) }
+        if (upcoming.trns.isNotEmpty() || overdue.trns.isNotEmpty()) item(key = "planned-actions", contentType = "outlook") {
+            HomeCompactActivity(baseData, upcoming, overdue, emptyList(), hideBalance, onPayOrGet,
+                onSkipTransaction, onSkipAllTransactions, showRecent = false)
+        }
     }
 }
 

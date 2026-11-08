@@ -91,11 +91,11 @@ fun BoxWithConstraintsScope.AccountsContent(
                 }
             }
             if (!state.hideTotalBalance) item(key = "totals", contentType = "totals") {
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)) {
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("Wallet balance", style = MaterialTheme.typography.titleSmall)
                         Text(com.ivy.design.system.financialText(accountMoney(state.totalBalanceWithoutExcluded.toBigDecimalOrNull(), state.baseCurrency, state.hideBalances)), style = JvyTypography.Amount)
-                        Text("Accounts included in your wallet total. This is not your net worth.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Accounts included in your wallet total. This is not your net worth.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         Text("Including excluded accounts", style = MaterialTheme.typography.labelLarge)
                         Text(com.ivy.design.system.financialText(accountMoney(state.totalBalanceWithExcluded.toBigDecimalOrNull(), state.baseCurrency, state.hideBalances)), style = JvyTypography.AmountSmall)
@@ -110,15 +110,6 @@ fun BoxWithConstraintsScope.AccountsContent(
                     }
                 }
             }
-            items(state.accountsData.chunked(columns), key = { it.first().account.id.value.toString() }, contentType = { "account-row" }) { row ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    row.forEach { data ->
-                        AccountCardContent(data, state.baseCurrency, state.compactAccountsModeEnabled, state.hideBalances,
-                            { openAccount(data.account.id.value) }, Modifier.weight(1f))
-                    }
-                    if (columns == 2 && row.size == 1) Spacer(Modifier.weight(1f))
-                }
-            }
             if (state.accountsData.isNotEmpty()) item(key = "account-balance-chart", contentType = "chart") {
                 val charts = remember(state.accountsData) { ContextCharts.positions("account-balances", "Where your everyday money is",
                     "Current native account balances, not net worth. Excluded accounts are labelled; different currencies are never added together.",
@@ -128,6 +119,16 @@ fun BoxWithConstraintsScope.AccountsContent(
                     }) }
                 JvyContextCharts(charts, horizontalPadding = 0.dp, hidden = state.hideBalances)
             }
+            items(state.accountsData.chunked(columns), key = { it.first().account.id.value.toString() }, contentType = { "account-row" }) { row ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    row.forEach { data ->
+                        AccountCardContent(data, state.baseCurrency, state.compactAccountsModeEnabled, state.hideBalances,
+                            { openAccount(data.account.id.value) }, Modifier.weight(1f))
+                    }
+                    if (columns == 2 && row.size == 1) Spacer(Modifier.weight(1f))
+                }
+            }
+
         }
     ReorderModalSingleType(visible = state.reorderVisible, initialItems = state.accountsData,
         dismiss = { onEvent(AccountsEvent.OnReorderModalVisible(false)) },

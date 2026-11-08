@@ -1,6 +1,10 @@
 package com.ivy.legacy.ui.component
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
+import com.ivy.design.system.JvyShapes
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -140,18 +144,18 @@ private fun HeaderCard(
         }
 
         if (addButtonText != null) {
+            OutlinedButton(onClick = onAddClick, modifier = Modifier.align(Alignment.Start).heightIn(min = 48.dp),
+                shape = JvyShapes.Control, border = BorderStroke(1.dp, contrastColor),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = contrastColor),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
             Text(
-                modifier = Modifier
-                    .align(Alignment.End)
-                    .heightIn(min = 48.dp)
-                    .clickable(role = androidx.compose.ui.semantics.Role.Button) { onAddClick() }
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
                 text = addButtonText,
                 style = UI.typo.c.style(
                     color = contrastColor,
                     fontWeight = FontWeight.Bold,
                 ),
             )
+            }
         }
     }
 }

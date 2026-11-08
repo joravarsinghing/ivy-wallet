@@ -30,18 +30,19 @@ import kotlin.math.abs
 
 @Composable
 fun JvyAnalyticsCard(card: AnalyticsCard, modifier: Modifier = Modifier, horizontalPadding: androidx.compose.ui.unit.Dp = 24.dp,
-                     hidden: Boolean = false, onRecords: ((ChartValue) -> Unit)? = null) {
+                     hidden: Boolean = false, compact: Boolean = false, onRecords: ((ChartValue) -> Unit)? = null) {
     val conceal = hidden || LocalFinancialVisibility.current.hidden
     var expanded by rememberSaveable(card.id) { mutableStateOf(false) }
     var limit by rememberSaveable(card.id) { mutableIntStateOf(20) }
+    var showContext by rememberSaveable(card.id) { mutableStateOf(false) }
     Box(modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
         Surface(Modifier.fillMaxWidth().padding(horizontal = horizontalPadding, vertical = 8.dp),
             shape = JvyShapes.Card, color = MaterialTheme.colorScheme.surfaceVariant) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(card.title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.semantics { heading() })
-                Text(card.explanation, modifier = Modifier.widthIn(max = 640.dp), style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                card.note?.let { Text(it, style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                if (!compact || showContext) Text(card.explanation, modifier = Modifier.widthIn(max = 640.dp), style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (card.series.any { s -> s.values.any { it.value != null } }) card.note?.let { Text(it, style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 if (conceal) {
                     Text(FinancialVisibility.REDACTED, style = JvyTypography.AmountSmall, color = MaterialTheme.colorScheme.onSurface)
                 } else {
@@ -50,23 +51,27 @@ fun JvyAnalyticsCard(card: AnalyticsCard, modifier: Modifier = Modifier, horizon
                         ChartSeries("Negative step", Ink.SPENDING, emptyList()),
                     ) else card.series)
                     if (card.series.none { s -> s.values.any { it.value != null } }) {
-                        Text("Not enough reviewed history to draw this chart.", style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Box(Modifier.fillMaxWidth().heightIn(min = 176.dp), contentAlignment = Alignment.CenterStart) {
+                            Text(card.note ?: "No chartable observations yet. Your activity will appear here.", style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     } else if (card.kind == ChartKind.LINE && card.series.all { series ->
                         series.values.zipWithNext().none { (a, b) -> a.value != null && b.value != null }
                     }) {
-                        Text("Not enough consecutive observations to draw a trend. Exact amounts are shown below.",
+                        Column(Modifier.fillMaxWidth().heightIn(min = 176.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Not enough consecutive observations for a trend. Latest exact amounts follow.",
                             style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        card.series.forEach { series -> series.values.filter { it.value != null }.take(3).forEach { point ->
+                        card.series.forEach { series -> series.values.filter { it.value != null }.takeLast(1).forEach { point ->
                             Text("${series.name} · ${point.label}", style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurface)
                             Text(displayValue(point.value!!, card.unit), style = JvyTypography.AmountSmall, color = MaterialTheme.colorScheme.onSurface)
                         } }
+                        }
                     } else {
-                        AnalyticsPlot(card)
+                        AnalyticsPlot(card, compact)
                         val dated = card.series.firstOrNull()?.values.orEmpty().filter { it.date != null }
                         if (dated.isNotEmpty()) Text("${dated.first().date} – ${dated.last().end}",
                             style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    JvyTextButton({ expanded = !expanded }) { Text(if (expanded) "Hide values" else "View values") }
+                    if (card.series.any { it.values.isNotEmpty() }) JvyTextButton({ expanded = !expanded }) { Text(if (expanded) "Hide values" else "View values") }
                     if (expanded) {
                         // Bounded disclosure; do not compose an entire all-history result eagerly.
                         val values = remember(card) { card.series.flatMap { series -> series.values.map { series.name to it } } }
@@ -83,6 +88,7 @@ fun JvyAnalyticsCard(card: AnalyticsCard, modifier: Modifier = Modifier, horizon
                         if (values.size > limit) JvyTextButton({ limit += 20 }) { Text("More values") }
                     }
                 }
+                if (compact) JvyTextButton({ showContext = !showContext }) { Text(if (showContext) "Hide explanation" else "About this chart") }
             }
         }
     }
@@ -119,7 +125,20 @@ private fun Ink.color(palette: JvyChartPalette) = when (this) {
 }
 
 @Composable
-private fun AnalyticsPlot(card: AnalyticsCard) {
+@OptIn(ExperimentalLayoutApi::class)
+private fun AnalyticsPlot(card: AnalyticsCard, compact: Boolean) {
+    if (card.kind == ChartKind.LINE) {
+        val band = remember(card) { jvyLineBand(card) }
+        val values = card.series.firstOrNull()?.values.orEmpty()
+        val dates = values.mapNotNull { it.end }
+        val format = java.time.format.DateTimeFormatter.ofPattern(if (dates.firstOrNull()?.year != dates.lastOrNull()?.year) "d MMM yy" else "d MMM")
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(card.unit, Modifier.align(Alignment.End), style = JvyTypography.Label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            JvyTrendPlot(band, dates.firstOrNull()?.format(format) ?: values.firstOrNull()?.label.orEmpty(),
+                (dates.lastOrNull()?.format(format) ?: values.lastOrNull()?.label)?.takeIf { values.size > 1 })
+        }
+        return
+    }
     val palette = JvyChartColors.palette()
     val ink = card.series.map { it.ink.color(palette) }
     val axis = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .25f)
@@ -142,10 +161,17 @@ private fun AnalyticsPlot(card: AnalyticsCard) {
         if (card.kind == ChartKind.BARS && card.series.size == 1) {
             // Horizontal bars preserve long labels and reflow at 200% text. Exact values are native text.
             card.series.forEachIndexed { index, series ->
-                series.values.take(10).forEach { value ->
+                series.values.take(if (compact) 3 else 10).forEach { value ->
+                    if (compact) {
+                        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(value.label, Modifier.weight(1f), style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurface)
+                            Text(value.value?.let { displayValue(it, card.unit) } ?: "Not available", style = JvyTypography.AmountSmall, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    } else {
                     Text("${series.name} · ${value.label}", style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurface)
                     Text(value.value?.let { displayValue(it, card.unit) } ?: "Not available", style = JvyTypography.AmountSmall,
                         color = MaterialTheme.colorScheme.onSurface)
+                    }
                     val start = fraction(BigDecimal.ZERO)
                     val end = value.value?.let(::fraction)
                     Spacer(Modifier.fillMaxWidth().height(8.dp).drawWithCache {
@@ -156,12 +182,12 @@ private fun AnalyticsPlot(card: AnalyticsCard) {
                     })
                 }
             }
-            if (card.series.any { it.values.size > 10 }) Text("First ten bars; all categories remain in View values.", style = JvyTypography.Supporting,
+            if (card.series.any { it.values.size > if (compact) 3 else 10 }) Text("More entries in View values.", style = JvyTypography.Supporting,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             return@Column
         }
         val summary = "${card.title}. ${card.kind.name.lowercase()} chart. Exact observations available in View values."
-        Spacer(Modifier.fillMaxWidth().height(176.dp).semantics { contentDescription = summary }.drawWithCache {
+        Spacer(Modifier.fillMaxWidth().height(if (compact) 128.dp else 176.dp).semantics { contentDescription = summary }.drawWithCache {
             val stroke = Stroke(width = 2.dp.toPx())
             val dashed = Stroke(width = 2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())))
             val paths = normalized.mapIndexed { seriesIndex, values ->
@@ -264,9 +290,11 @@ private fun AnalyticsPlot(card: AnalyticsCard) {
                 }
             }
         })
-        if (card.kind == ChartKind.WATERFALL) Text("Steps run left to right in the order shown in View values. Positive steps add; negative steps subtract.",
+        if (card.kind == ChartKind.WATERFALL && compact) Text(card.series.firstOrNull()?.values.orEmpty().joinToString(" → ") { it.label },
             style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (card.kind == ChartKind.WATERFALL) card.series.firstOrNull()?.values.orEmpty().take(8).forEachIndexed { index, point ->
+        if (card.kind == ChartKind.WATERFALL && !compact) Text("Steps run left to right in the order shown in View values. Positive steps add; negative steps subtract.",
+            style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (card.kind == ChartKind.WATERFALL && !compact) card.series.firstOrNull()?.values.orEmpty().take(8).forEachIndexed { index, point ->
             Text("${index + 1}. ${point.label} · ${point.value?.let { displayValue(it, card.unit) } ?: "Not available"}",
                 style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurface)
         }

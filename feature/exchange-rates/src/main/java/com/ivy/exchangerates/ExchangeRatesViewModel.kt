@@ -34,9 +34,12 @@ class ExchangeRatesViewModel @Inject constructor(
     private val exchangeRatesRepo: ExchangeRatesRepository,
     private val dispatchers: DispatchersProvider,
     private val toaster: Toaster,
+    private val dataStore: com.ivy.data.datastore.IvyDataStore,
 ) : ComposeViewModel<RatesState, RatesEvent>() {
     private var searchQuery by mutableStateOf("")
     private var baseCurrency by mutableStateOf<AssetCode?>(null)
+    private var refreshing by mutableStateOf(false)
+    private var refreshError by mutableStateOf<String?>(null)
 
     private fun toUi(exchangeRate: ExchangeRate): RateUi = RateUi(
         from = exchangeRate.baseCurrency.code,
@@ -49,17 +52,22 @@ class ExchangeRatesViewModel @Inject constructor(
         LaunchedEffect(Unit) {
             baseCurrency = currencyRepo.getBaseCurrency().also {
                 viewModelScope.launch {
-                    syncExchangeRatesUseCase.sync(it)
+                    refresh()
                 }
             }
         }
 
         val rates = getRates()
+        val metadata by dataStore.data.collectAsState(initial = androidx.datastore.preferences.core.emptyPreferences())
+        val known = metadata[com.ivy.domain.usecase.exchange.ExchangeRateFreshness.base] == baseCurrency?.code
 
         return RatesState(
             baseCurrency = baseCurrency?.code ?: "",
             manual = rates.filter { it.manualOverride }.map(::toUi).toImmutableList(),
-            automatic = rates.filter { !it.manualOverride }.map(::toUi).toImmutableList()
+            automatic = rates.filter { !it.manualOverride }.map(::toUi).toImmutableList(),
+            refreshing = refreshing, error = refreshError,
+            providerDate = metadata[com.ivy.domain.usecase.exchange.ExchangeRateFreshness.providerDate].takeIf { known },
+            checkedAt = metadata[com.ivy.domain.usecase.exchange.ExchangeRateFreshness.checkedAt].takeIf { known },
         )
     }
 
@@ -81,6 +89,7 @@ class ExchangeRatesViewModel @Inject constructor(
     override fun onEvent(event: RatesEvent) {
         viewModelScope.launch {
             when (event) {
+                RatesEvent.Refresh -> refresh()
                 is RatesEvent.RemoveOverride -> handleRemoveOverride(event)
                 is RatesEvent.Search -> handleSearch(event)
                 is RatesEvent.UpdateRate -> handleUpdateRate(event)
@@ -101,6 +110,22 @@ class ExchangeRatesViewModel @Inject constructor(
                 baseCurrency?.let { syncExchangeRatesUseCase.sync(it) }
             }.onLeft { toaster.show(it) }
         }
+    }
+
+    private suspend fun refresh() {
+        val base = baseCurrency ?: return
+        if (refreshing) return
+        refreshing = true
+        refreshError = null
+        try {
+            syncExchangeRatesUseCase.sync(base).onLeft {
+                refreshError = "Could not refresh. Previously saved rates are still available. Check your connection and try again."
+            }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            refreshError = "Could not refresh. Previously saved rates are still available. Try again."
+        } finally { refreshing = false }
     }
 
     private fun handleSearch(event: RatesEvent.Search) {

@@ -31,7 +31,7 @@ This information is used to calculate balances, reports, forecasts, goals, and o
 
 Wallet data is stored locally in the app on your Android device. Jvy Wallet does not upload your ledger to a Jvy Wallet server.
 
-The app can use the network for optional technical or supporting functions, such as crash diagnostics, exchange-rate functionality where enabled, and opening links that you deliberately select. Network access is not required to enter or review the core ledger while offline.
+The app can use the network for optional technical or supporting functions, such as exchange-rate lookup and opening links that you deliberately select. The rate provider receives a technical request for its public EUR-based rate table, not your wallet records. Daily reference rates are stored locally; their provider date and successful refresh time are shown in Exchange rates. Network access is not required to enter or review the core ledger while offline.
 
 Jvy Wallet does not use location to create an advertising profile or to calculate your balances. Some Android permissions may be present for inherited platform functionality; the core wallet does not require location access.
 

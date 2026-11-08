@@ -47,7 +47,8 @@ to the task being performed:
 - Onboarding, CSV mapping, import validation/preview and backup/export tasks
   have functional progress/count feedback where appropriate, not invented
   personal-money trends before data exists or before import confirmation.
-- Features, Attributions, Contributors, Releases and Disclaimer are informational
+- Features, Releases and Disclaimer are informational; the later owner correction
+  removes Contributors/Attributions routes and retains notices in bundled Terms.
   or legal pages. Poll remains a compatibility route, not financial analysis.
 - Empty financial views retain their useful empty state. No fake zeros or
   decorative axes are added merely to satisfy a chart count.
@@ -85,11 +86,12 @@ zero extra horizontal padding to the shared card. Different currencies are
 selectable, never stacked into a combined monetary total. Hidden mode removes
 geometry, scales, ratios and exact values, not only footer money strings.
 
-Management comparisons follow the actual account, budget, goal and loan cards;
-the planned-payment waterfall follows the schedule. The first task controls and
-records must not disappear below an analytics hero. This order is guarded in
-the source contract. Activity and wealth analysis keep their visuals near the
-relevant summary. A single observation or isolated observations show their exact
+Owner correction: compact management comparisons now precede the account,
+budget, goal and loan lists; the planned-payment waterfall precedes the schedule.
+Page navigation and filters remain first. Contextual ranked bars preview three
+entries with full values available on demand, rather than a long analytics hero.
+This order is guarded in the source contract. Activity and wealth visuals stay
+near their summary. A single observation or isolated observations show their exact
 amounts and a no-trend explanation, not an empty axis frame, invented line or dot.
 
 Historical activity, current positions, reservation progress and projected

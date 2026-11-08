@@ -29,4 +29,26 @@ class ContextualActivityChartTest {
         assertTrue(card.series.isEmpty())
         assertNotNull(card.note)
     }
+    @Test fun `empty activity remains an explicit card rather than disappearing`() {
+        val card = activityChartSnapshot("account", emptyList(), listOf(account), zone, now, account.id).single()
+        assertEquals("Activity trend", card.title)
+        assertTrue(card.note!!.contains("No activity"))
+    }
+    @Test fun `transfer preference uses native receiving and sending legs without inventing FX`() {
+        val receiving = account.copy(id = java.util.UUID.randomUUID(), currency = "USD")
+        val transfer = Transaction(account.id, TransactionType.TRANSFER, BigDecimal("367.25"),
+            toAccountId = receiving.id, toAmount = BigDecimal("100.00"), dateTime = now)
+        val accounts = listOf(account, receiving)
+        val incoming = activityChartSnapshot("account", listOf(transfer), accounts, zone, now, receiving.id, true).single()
+        assertEquals("USD", incoming.unit)
+        assertEquals(0, incoming.series.first().values.single().value!!.compareTo(BigDecimal(100)))
+        assertEquals(0, incoming.series.last().values.single().value!!.signum())
+        val outgoing = activityChartSnapshot("account", listOf(transfer), accounts, zone, now, account.id, true).single()
+        assertEquals(0, outgoing.series.last().values.single().value!!.compareTo(BigDecimal("367.25")))
+        assertTrue(activityChartSnapshot("account", listOf(transfer), accounts, zone, now, receiving.id, false).single().series.isEmpty())
+        assertTrue(activityChartSnapshot("wallet", listOf(transfer), accounts, zone, now).single().series.isEmpty())
+        val own = transfer.copy(toAccountId = account.id, toAmount = transfer.amount)
+        val legs = com.ivy.wallet.domain.pure.transaction.accountCashFlow(own, account.id, true)
+        assertEquals(0, (legs.first - legs.second).signum())
+    }
 }

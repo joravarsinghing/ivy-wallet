@@ -281,7 +281,7 @@ private fun LazyListScope.historySection(
                         date = it.date,
                         spacerTop = dateDividerMarginTop
                             ?: if (it == history.firstOrNull()) 24.dp else 32.dp,
-                        baseCurrency = baseData.baseCurrency,
+                        baseCurrency = it.currency ?: baseData.baseCurrency,
                         income = it.income,
                         expenses = it.expenses
                     )

@@ -396,7 +396,9 @@ class TransactionsViewModel @Inject constructor(
                 accTrnsAct then {
                     trnsWithDateDivsAct(
                         LegacyTrnsWithDateDivsAct.Input(
-                            baseCurrency = baseCurrency.value,
+                            baseCurrency = currency.value,
+                            accountId = accountId,
+                            includeTransfers = includeTransfersInCalc,
                             transactions = with(transactionMapper) {
                                 it.map {
                                     val tags =

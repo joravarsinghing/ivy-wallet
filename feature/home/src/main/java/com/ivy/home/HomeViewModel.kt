@@ -84,6 +84,7 @@ import javax.inject.Inject
 private val HOME_TREND_METRICS_KEY = stringSetPreferencesKey("home_trend_metrics")
 private val HOME_DASHBOARD_CARDS_KEY = stringSetPreferencesKey("home_dashboard_cards")
 private val HOME_PERIOD_KEY = stringPreferencesKey("home_period_v1")
+private val HOME_DASHBOARD_ORDER_KEY = stringPreferencesKey("home_dashboard_order_v1")
 
 @Stable
 @HiltViewModel
@@ -172,6 +173,7 @@ class HomeViewModel @Inject constructor(
     private var spendingBreakdown by mutableStateOf(HomeSpendingBreakdownState())
     private var visibleDashboardCards by mutableStateOf(defaultVisibleHomeDashboardCards)
     private var dashboardEditorVisible by mutableStateOf(false)
+    private var dashboardOrder by mutableStateOf(defaultHomeDashboardCards.map { it.id })
     private var savedAnalytics by mutableStateOf<ImmutableList<com.ivy.data.db.entity.SavedAnalyticsEntity>>(persistentListOf())
 
     @Composable
@@ -201,6 +203,7 @@ class HomeViewModel @Inject constructor(
             spendingBreakdown = spendingBreakdown,
             visibleDashboardCards = visibleDashboardCards,
             dashboardEditorVisible = dashboardEditorVisible,
+            dashboardOrder = dashboardOrder,
             savedAnalytics = savedAnalytics,
             periodSelection = periodSelection,
             appliedPeriodSelection = appliedPeriodSelection,
@@ -313,6 +316,10 @@ class HomeViewModel @Inject constructor(
                 HomeEvent.CloseDashboardEditor -> dashboardEditorVisible = false
                 is HomeEvent.ToggleDashboardCard -> toggleDashboardCard(event.card)
                 HomeEvent.RestoreDashboardDefaults -> restoreDashboardDefaults()
+                is HomeEvent.MoveDashboardCard -> {
+                    dashboardOrder = moveHomeCard(dashboardOrder, event.card, event.offset)
+                    dataStore.edit { it[HOME_DASHBOARD_ORDER_KEY] = dashboardOrder.joinToString(",") { card -> card.stableId } }
+                }
                 HomeEvent.OpenSavedReports -> nav.navigateTo(ReportScreen)
             }
         }
@@ -489,19 +496,25 @@ class HomeViewModel @Inject constructor(
     }
 
     private suspend fun loadDashboardPreferences() {
-        val stored = dataStore.data.first()[HOME_DASHBOARD_CARDS_KEY]
+        val preferences = dataStore.data.first()
+        dashboardOrder = normalizedHomeCardOrder(preferences[HOME_DASHBOARD_ORDER_KEY].orEmpty().split(','))
+        val stored = preferences[HOME_DASHBOARD_CARDS_KEY]
             ?.mapNotNull { value ->
                 HomeDashboardCardId.entries.firstOrNull { it.stableId == value }
             }
             ?.toSet()
-        visibleDashboardCards = stored?.takeIf { it.isNotEmpty() }
-            ?: defaultVisibleHomeDashboardCards
+        visibleDashboardCards = stored ?: defaultVisibleHomeDashboardCards
+        if (preferences[HOME_DASHBOARD_ORDER_KEY] == null) {
+            visibleDashboardCards = visibleDashboardCards + HomeDashboardCardId.RECENT_ACTIVITY
+            dataStore.edit {
+                it[HOME_DASHBOARD_ORDER_KEY] = dashboardOrder.joinToString(",") { card -> card.stableId }
+                it[HOME_DASHBOARD_CARDS_KEY] = visibleDashboardCards.map { card -> card.stableId }.toSet()
+            }
+        }
     }
 
     private suspend fun toggleDashboardCard(card: HomeDashboardCardId) {
         val updated = toggleHomeDashboardCard(visibleDashboardCards, card)
-            .takeIf { it.isNotEmpty() }
-            ?: visibleDashboardCards
         visibleDashboardCards = updated
         dataStore.edit { preferences ->
             preferences[HOME_DASHBOARD_CARDS_KEY] = updated.map { it.stableId }.toSet()
@@ -510,7 +523,9 @@ class HomeViewModel @Inject constructor(
 
     private suspend fun restoreDashboardDefaults() {
         visibleDashboardCards = defaultVisibleHomeDashboardCards
+        dashboardOrder = defaultHomeDashboardCards.map { it.id }
         dataStore.edit { preferences ->
+            preferences[HOME_DASHBOARD_ORDER_KEY] = dashboardOrder.joinToString(",") { it.stableId }
             preferences[HOME_DASHBOARD_CARDS_KEY] =
                 defaultVisibleHomeDashboardCards.map { it.stableId }.toSet()
         }

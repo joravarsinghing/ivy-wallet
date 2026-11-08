@@ -301,6 +301,12 @@ private fun BoxWithConstraintsScope.UI(
         val timeProvider = LocalTimeProvider.current
         val timeConverter = LocalTimeConverter.current
         val timeFormatter = LocalTimeFormatter.current
+        val chartToday = LocalTimeProvider.current.localDateNow()
+        val chartPeriod = period.toRange(ivyWalletCtx().startDayOfMonth, timeConverter, LocalTimeProvider.current)
+        val chartFrom = if (account != null && !initWithTransactions) with(timeConverter) { chartPeriod.from?.toLocalDate() } else null
+        val chartThrough = if (account != null && !initWithTransactions) with(timeConverter) {
+            chartPeriod.to?.toLocalDate()?.let { minOf(it, chartToday) }
+        } else null
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -391,7 +397,9 @@ private fun BoxWithConstraintsScope.UI(
             )
 
             item(key = "scoped-activity-chart", contentType = "chart") {
-                com.ivy.legacy.ui.chart.ContextualActivityChart("transaction-activity", history, accounts, baseCurrency)
+                com.ivy.legacy.ui.chart.ContextualActivityChart("transaction-activity", history, accounts, baseCurrency,
+                    accountId = account?.id, includeTransfers = treatTransfersAsIncomeExpense,
+                    windowFrom = chartFrom, windowThrough = chartThrough)
             }
             transactions(
                 baseData = AppBaseData(

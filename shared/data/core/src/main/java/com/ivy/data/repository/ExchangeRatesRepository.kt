@@ -2,6 +2,7 @@ package com.ivy.data.repository
 
 import arrow.core.Either
 import arrow.core.raise.either
+import arrow.core.raise.ensure
 import com.ivy.base.threading.DispatchersProvider
 import com.ivy.data.db.dao.read.ExchangeRatesDao
 import com.ivy.data.db.dao.write.WriteExchangeRatesDao
@@ -22,6 +23,18 @@ class ExchangeRatesRepository @Inject constructor(
     private val remoteExchangeRatesDataSource: RemoteExchangeRatesDataSource,
     private val dispatchers: DispatchersProvider,
 ) {
+    data class DatedRates(val date: java.time.LocalDate, val rates: List<ExchangeRate>)
+
+    suspend fun fetchDatedEurRates(): Either<String, DatedRates> = either {
+        withContext(dispatchers.io) {
+            val response = remoteExchangeRatesDataSource.fetchEurExchangeRates().bind()
+            val date = runCatching { java.time.LocalDate.parse(response.date) }.getOrNull()
+            ensure(date != null && date <= java.time.LocalDate.now(java.time.ZoneOffset.UTC)) { "Invalid provider date." }
+            val rates = with(mapper) { response.toDomain().bind() }
+            ensure(rates.isNotEmpty()) { "The provider returned no usable rates." }
+            DatedRates(date!!, rates)
+        }
+    }
     suspend fun fetchEurExchangeRates(): Either<String, List<ExchangeRate>> = either {
         withContext(dispatchers.io) {
             val response = remoteExchangeRatesDataSource.fetchEurExchangeRates().bind()

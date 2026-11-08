@@ -46,7 +46,7 @@ class NavigationSavedStateTest {
     @Test fun `all simple destinations retain identity and type`() {
         listOf(MainScreen, OnboardingScreen, BalanceScreen, PlannedPaymentsScreen, CategoriesScreen, SettingsScreen,
             ReportScreen, BudgetScreen, GoalsScreen, SecurityScreen, NetWorthScreen, LoansScreen, SearchScreen,
-            ExchangeRatesScreen, FeaturesScreen, AttributionsScreen, ContributorsScreen, ReleasesScreen,
+            ExchangeRatesScreen, FeaturesScreen, ReleasesScreen,
             DisclaimerScreen, PollScreen, CSVScreen(true), CSVScreen(false), ImportScreen(true), ImportScreen(false),
             LoanDetailsScreen(UUID.randomUUID())).forEach { assertEquals(it, roundTrip(it)) }
     }

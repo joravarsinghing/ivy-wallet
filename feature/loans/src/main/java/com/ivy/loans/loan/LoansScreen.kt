@@ -161,8 +161,8 @@ fun LoanPlanningContent(state: LoanScreenState, modifier: Modifier = Modifier, o
                     "Keep track of money you borrowed or lent, and record repayments in one place.",
                     Icons.Outlined.ReceiptLong, actionLabel = stringResource(R.string.add_loan), onAction = add)
             }
-            items(loans, key = { it.loan.id }) { item -> LoanItem(item) { onLoanClick(item) } }
             if (loans.isNotEmpty()) item(key = "loan-overview-chart", contentType = "chart") { LoanOverviewChart(loans) }
+            items(loans, key = { it.loan.id }, contentType = { "loan" }) { item -> LoanItem(item) { onLoanClick(item) } }
         }
         if (loans.isNotEmpty()) JvyPrimaryAction(stringResource(R.string.add_loan), add)
     }

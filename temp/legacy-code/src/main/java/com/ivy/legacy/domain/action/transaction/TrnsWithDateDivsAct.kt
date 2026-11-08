@@ -47,7 +47,17 @@ class LegacyTrnsWithDateDivsAct @Inject constructor(
 ) : FPAction<LegacyTrnsWithDateDivsAct.Input, List<TransactionHistoryItem>>() {
 
     override suspend fun Input.compose(): suspend () -> List<TransactionHistoryItem> = suspend {
-        LegacyTrnDateDividers.transactionsWithDateDividers(
+        // Native account totals share the chart's transfer preference and receiving amounts.
+        if (accountId != null) {
+            transactions.groupBy { with(timeConverter) { it.dateTime?.toLocalDate() } }
+                .filterKeys { it != null }.toList().sortedByDescending { it.first }
+                .flatMap { (date, rows) ->
+                    val legs = rows.map { com.ivy.wallet.domain.pure.transaction.accountCashFlow(it, accountId, includeTransfers, excludeAdjustments = false) }
+                    listOf<TransactionHistoryItem>(com.ivy.wallet.domain.data.TransactionHistoryDateDivider(
+                        date!!, legs.fold(java.math.BigDecimal.ZERO) { sum, it -> sum + it.first }.toDouble(),
+                        legs.fold(java.math.BigDecimal.ZERO) { sum, it -> sum + it.second }.toDouble(), baseCurrency)) + rows
+                }
+        } else LegacyTrnDateDividers.transactionsWithDateDividers(
             transactions = transactions,
             baseCurrencyCode = baseCurrency,
 
@@ -59,6 +69,8 @@ class LegacyTrnsWithDateDivsAct @Inject constructor(
 
     data class Input(
         val baseCurrency: String,
-        val transactions: List<Transaction>
+        val transactions: List<Transaction>,
+        val accountId: java.util.UUID? = null,
+        val includeTransfers: Boolean = false,
     )
 }

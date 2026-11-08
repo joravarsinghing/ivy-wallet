@@ -72,6 +72,7 @@ fun PlannedPaymentsLazyColumn(
             Header()
         }
 
+        if (Footer != null) item(key = "planned-projection-chart", contentType = "chart") { Footer() }
         plannedPaymentItems(
             nav = nav,
             currency = currency,
@@ -92,7 +93,6 @@ fun PlannedPaymentsLazyColumn(
             setRecurringExpanded = setRecurringExpanded,
             onAdd = onAdd,
         )
-        if (Footer != null) item(key = "planned-projection-chart", contentType = "chart") { Footer() }
     }
 }
 

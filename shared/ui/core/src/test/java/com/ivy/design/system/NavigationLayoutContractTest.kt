@@ -32,8 +32,6 @@ class NavigationLayoutContractTest {
         "LoanDetailsScreen" to "feature/loans/src/main/java/com/ivy/loans/loandetails/LoanDetailsScreen.kt",
         "ExchangeRatesScreen" to "feature/exchange-rates/src/main/java/com/ivy/exchangerates/ExchangeRatesScreen.kt",
         "FeaturesScreen" to "feature/features/src/main/java/com/ivy/features/FeaturesScreen.kt",
-        "AttributionsScreen" to "feature/attributions/src/main/java/com/ivy/attributions/AttributionsScreen.kt",
-        "ContributorsScreen" to "feature/contributors/src/main/java/com/ivy/contributors/ContributorsScreen.kt",
         "ReleasesScreen" to "feature/releases/src/main/java/com/ivy/releases/ReleasesScreen.kt",
         "DisclaimerScreen" to "feature/disclaimer/src/main/java/com/ivy/disclaimer/DisclaimerScreen.kt",
         "PollScreen" to "feature/poll/impl/src/main/java/com/ivy/poll/impl/ui/PollScreen.kt",
@@ -102,7 +100,7 @@ class NavigationLayoutContractTest {
     @Test fun `Home owns one timeline outside optional dashboard cards`() {
         val home = source("feature/home/src/main/java/com/ivy/home/HomeTab.kt")
         val controls = home.indexOf("HomeTimelineControls(")
-        val optionalChart = home.indexOf("if (HomeDashboardCardId.MONEY_TRENDS")
+        val optionalChart = home.indexOf("dashboardOrder.filter")
         assertTrue(controls >= 0 && controls < optionalChart)
         assertTrue(home.contains("HomePeriodSummary("))
         assertTrue(home.contains("updateGlobalPeriod = false"))

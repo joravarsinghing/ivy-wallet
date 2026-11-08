@@ -44,14 +44,14 @@ fun BoxWithConstraintsScope.ExchangeRatesScreen() {
     val viewModel: ExchangeRatesViewModel = viewModel()
     val state = viewModel.uiState()
 
-    UI(
+    ExchangeRatesContent(
         state = state,
         onEvent = viewModel::onEvent,
     )
 }
 
 @Composable
-private fun BoxWithConstraintsScope.UI(
+internal fun BoxWithConstraintsScope.ExchangeRatesContent(
     state: RatesState,
     onEvent: (RatesEvent) -> Unit,
 ) {
@@ -80,8 +80,28 @@ private fun BoxWithConstraintsScope.UI(
         SearchField(onSearch = { onEvent(RatesEvent.Search(it)) })
         SpacerVer(height = 4.dp)
         LazyColumn(Modifier.weight(1f)) {
+            item(key = "freshness", contentType = "status") {
+                androidx.compose.material3.Surface(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
+                    shape = com.ivy.design.system.JvyShapes.Card, color = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant) {
+                    androidx.compose.foundation.layout.Column(Modifier.padding(16.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                        Text("Exchange-rate lookup", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+                        Text(com.ivy.domain.usecase.exchange.ExchangeRateFreshness.SOURCE, style = com.ivy.design.system.JvyTypography.Supporting)
+                        Text(rateFreshnessLabel(state.providerDate), style = com.ivy.design.system.JvyTypography.Supporting)
+                        val checked = state.checkedAt?.let { runCatching {
+                            java.time.Instant.parse(it).atZone(java.time.ZoneId.systemDefault())
+                                .format(java.time.format.DateTimeFormatter.ofLocalizedDateTime(java.time.format.FormatStyle.MEDIUM, java.time.format.FormatStyle.SHORT))
+                        }.getOrNull() }
+                        Text(checked?.let { "Last successful refresh: $it" } ?: "No verified refresh recorded for ${state.baseCurrency}.", style = com.ivy.design.system.JvyTypography.Supporting)
+                        Text("Daily reference rates, not live bank quotes. Fees and spreads may differ. Manual overrides are kept when refreshing.", style = com.ivy.design.system.JvyTypography.Supporting)
+                        state.error?.let { Text(it, color = androidx.compose.material3.MaterialTheme.colorScheme.error, style = com.ivy.design.system.JvyTypography.Supporting) }
+                        com.ivy.design.system.JvyOutlinedButton({ onEvent(RatesEvent.Refresh) }, enabled = !state.refreshing) {
+                            Text(if (state.refreshing) "Refreshing…" else "Refresh rates")
+                        }
+                    }
+                }
+            }
             ratesSection(text = "Manual")
-            items(items = state.manual) { rate ->
+            items(items = state.manual, key = { "manual-${it.from}-${it.to}" }, contentType = { "rate" }) { rate ->
                 SpacerVer(height = 4.dp)
                 RateItem(
                     rate = rate,
@@ -90,7 +110,7 @@ private fun BoxWithConstraintsScope.UI(
                 )
             }
             ratesSection(text = "Automatic")
-            items(items = state.automatic) { rate ->
+            items(items = state.automatic, key = { "automatic-${it.from}-${it.to}" }, contentType = { "rate" }) { rate ->
                 SpacerVer(height = 4.dp)
                 RateItem(
                     rate = rate,
@@ -189,7 +209,7 @@ private fun SearchField(
 @Composable
 private fun Preview(theme: Theme = Theme.LIGHT) {
     IvyWalletPreview(theme) {
-        UI(
+        ExchangeRatesContent(
             state = RatesState(
                 baseCurrency = "BGN",
                 manual = persistentListOf(

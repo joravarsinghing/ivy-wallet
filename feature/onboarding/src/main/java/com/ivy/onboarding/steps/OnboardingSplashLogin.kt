@@ -65,12 +65,8 @@ fun BoxWithConstraintsScope.OnboardingSplashLogin(
                     Text(stringResource(R.string.by_signing_in, stringResource(R.string.terms_conditions),
                         stringResource(R.string.privacy_policy)),
                         style = JvyTypography.Supporting, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    JvyTextButton({ openUrl(uriHandler, Constants.URL_TC) }) {
-                        Text(stringResource(R.string.terms_conditions))
-                    }
-                    JvyTextButton({ openUrl(uriHandler, Constants.URL_PRIVACY_POLICY) }) {
-                        Text(stringResource(R.string.privacy_policy))
-                    }
+                    com.ivy.design.system.JvyLegalLinks()
+
                 }
                 JvyButton(onSkip, Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
                     enabled = onboardingState != OnboardingState.SPLASH) {

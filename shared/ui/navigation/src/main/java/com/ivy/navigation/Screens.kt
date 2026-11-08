@@ -153,9 +153,7 @@ data object ExchangeRatesScreen : Screen {
 
 data object FeaturesScreen : Screen
 
-data object AttributionsScreen : Screen
 
-data object ContributorsScreen : Screen
 
 data object ReleasesScreen : Screen
 

@@ -77,8 +77,9 @@ spacing changes do not approve untouched pages or hardware interactions.
 | Manual CSV import | real importer regressions for separate transfer values/assets, strict parsing, currency conflicts, rollback orchestration and retry; actual VM single-exit regression | Mapping/encoding/delimiters, validate/confirm/failure without losing original file, real storage interruption, lifecycle/keyboard and source-currency reconciliation |
 | AI conversion guide/preview | adaptive AI import | Copy public schema, validation counts, explicit confirm, unsupported fields, no automatic upload |
 | Features / help | source | Accurate supported-feature copy, links, no old paid-survey promotion |
-| Contributors | legacy render | Scroll/links, bounded content, large text |
-| Attributions / licences | legacy render | Required upstream licences retained, links and readability |
+| Contributors | removed by owner request | Feature module and route removed; restored visits fall back to Settings |
+| Attributions | removed by owner request | Decorative credits page removed; inherited notices and full GPL remain under bundled Terms |
+| Terms / Privacy / licence dialog | current implementation | Offline documents, bounded scrolling and pinned Close/Done; physical accessibility and legal-copy approval pending |
 | Releases | source | Safe external links, no implication of Play Store release |
 | Disclaimer / legal | legacy render | Consent semantics, scrolling/actions at 2× text, no hidden required control |
 | Retired poll route | source | Closed notice and Back only; no survey writes or automatic network request |

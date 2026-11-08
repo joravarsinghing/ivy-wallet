@@ -33,6 +33,7 @@ enum class HomeDashboardCardId(
         label = "Saved reports",
         description = "Keep your favorite analytics close on Home.",
     ),
+    RECENT_ACTIVITY("recent_activity", "Recent activity", "Transactions in your selected Home period."),
 }
 
 @Immutable
@@ -44,7 +45,19 @@ data class HomeDashboardCardDefinition(
 
 /** The initial Home order is intentionally the same as the current Home composition. */
 val defaultHomeDashboardCards: List<HomeDashboardCardDefinition> =
-    HomeDashboardCardId.entries.map(::HomeDashboardCardDefinition)
+    listOf(HomeDashboardCardId.MONEY_TRENDS, HomeDashboardCardId.SPENDING_BREAKDOWN,
+        HomeDashboardCardId.RECENT_ACTIVITY, HomeDashboardCardId.SAFE_TO_SPEND,
+        HomeDashboardCardId.MONEY_COMING_UP, HomeDashboardCardId.SAVED_REPORTS).map(::HomeDashboardCardDefinition)
+
+fun normalizedHomeCardOrder(stored: List<String>): List<HomeDashboardCardId> =
+    (stored.mapNotNull { value -> HomeDashboardCardId.entries.firstOrNull { it.stableId == value } } +
+        defaultHomeDashboardCards.map { it.id }).distinct()
+
+fun moveHomeCard(order: List<HomeDashboardCardId>, card: HomeDashboardCardId, offset: Int): List<HomeDashboardCardId> {
+    val from = order.indexOf(card)
+    if (from < 0 || from + offset !in order.indices) return order
+    return order.toMutableList().apply { add(from + offset, removeAt(from)) }
+}
 
 /** All supported cards are visible for a new user. */
 val defaultVisibleHomeDashboardCards: Set<HomeDashboardCardId> =

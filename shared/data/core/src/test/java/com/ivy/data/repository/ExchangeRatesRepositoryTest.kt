@@ -20,6 +20,12 @@ import org.junit.Before
 import org.junit.Test
 
 class ExchangeRatesRepositoryTest {
+    @Test fun `dated fetch rejects unknown or future provider dates before conversion`() = runTest {
+        listOf("", "not-a-date", java.time.LocalDate.now(java.time.ZoneOffset.UTC).plusDays(1).toString()).forEach { date ->
+            coEvery { remoteExchangeRatesDataSource.fetchEurExchangeRates() } returns Either.Right(ExchangeRatesResponse(date, mapOf("eur" to 1.0)))
+            repository.fetchDatedEurRates().shouldBeLeft()
+        }
+    }
     private val mapper = mockk<ExchangeRateMapper>()
     private val exchangeRatesDao = mockk<ExchangeRatesDao>()
     private val writeExchangeRatesDao = mockk<WriteExchangeRatesDao>()

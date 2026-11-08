@@ -5,7 +5,7 @@ object Constants {
     const val URL_JVY_WEBSITE = "https://joravarsinghing.github.io/portfolio/"
     const val URL_JVY_LINKEDIN = "https://www.linkedin.com/in/joravarsingh/"
 
-    const val URL_TC = URL_JVY_WALLET_REPO
+    const val URL_TC = "$URL_JVY_WALLET_REPO/blob/joravar/wave-0-control-plane/docs/legal/TERMS_OF_USE.md"
     const val URL_PRIVACY_POLICY =
         "$URL_JVY_WALLET_REPO/blob/joravar/wave-0-control-plane/docs/legal/PRIVACY_POLICY.md"
 

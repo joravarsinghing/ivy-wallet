@@ -54,56 +54,11 @@ fun ColumnScope.IvyTitleTextField(
     keyboardActions: KeyboardActions? = null,
     onValueChanged: (TextFieldValue) -> Unit
 ) {
-    val isEmpty = value.text.isBlank()
-
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.CenterStart
-    ) {
-        if (isEmpty && hint.isNotNullOrBlank()) {
-            Text(
-                modifier = Modifier,
-                text = hint!!,
-                style = UI.typo.h2.style(
-                    color = UI.colors.gray,
-                    fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Start
-                ),
-            )
-        }
-
-        val view = LocalView.current
-        BasicTextField(
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("input_field"),
-            value = value,
-            onValueChange = onValueChanged,
-            textStyle = UI.typo.h2.style(
-                color = textColor,
-                fontWeight = FontWeight.Black,
-                textAlign = TextAlign.Start
-            ),
-            singleLine = false,
-            cursorBrush = SolidColor(UI.colors.pureInverse),
-            visualTransformation = visualTransformation,
-            keyboardOptions = keyboardOptions,
-            keyboardActions = keyboardActions ?: KeyboardActions(
-                onDone = {
-                    hideKeyboard(view)
-                }
-            )
-        )
-    }
-
-    Spacer(Modifier.height(8.dp))
-
-    Spacer(
-        modifier = dividerModifier
-            .fillMaxWidth()
-            .height(2.dp)
-            .background(UI.colors.medium, UI.shapes.rFull),
-    )
+    IvyNameTextField(modifier = modifier, underlineModifier = dividerModifier,
+        value = value, textColor = textColor, hint = hint,
+        visualTransformation = visualTransformation, keyboardOptions = keyboardOptions,
+        keyboardActions = keyboardActions, inputTestTag = "input_field",
+        onValueChanged = onValueChanged)
 }
 
 @Preview

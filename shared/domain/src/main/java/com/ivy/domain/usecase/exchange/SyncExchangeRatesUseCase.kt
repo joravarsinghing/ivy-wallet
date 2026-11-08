@@ -9,12 +9,24 @@ import com.ivy.data.model.primitive.PositiveDouble
 import com.ivy.data.repository.ExchangeRatesRepository
 import timber.log.Timber
 import javax.inject.Inject
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import com.ivy.data.datastore.IvyDataStore
+
+object ExchangeRateFreshness {
+    val base = stringPreferencesKey("exchange_rates_last_base")
+    val providerDate = stringPreferencesKey("exchange_rates_provider_date")
+    val checkedAt = stringPreferencesKey("exchange_rates_checked_at")
+    const val SOURCE = "Fawaz Ahmed Currency API · daily reference rates"
+}
 
 class SyncExchangeRatesUseCase @Inject constructor(
     private val repository: ExchangeRatesRepository,
+    private val dataStore: IvyDataStore,
 ) {
     suspend fun sync(baseCurrency: AssetCode): Either<String, Unit> = either {
-        val eurRates = repository.fetchEurExchangeRates().bind()
+        val snapshot = repository.fetchDatedEurRates().bind()
+        val eurRates = snapshot.rates
             .associateBy(ExchangeRate::currency)
             .mapValues { it.value.rate }
 
@@ -50,6 +62,12 @@ class SyncExchangeRatesUseCase @Inject constructor(
             newRate.takeIf { !hasManualOverride }
         }
         repository.saveManyRates(newRatesToSave)
+        // Only mark fresh after validated rates have been stored; manual overrides remain untouched.
+        dataStore.edit {
+            it[ExchangeRateFreshness.base] = baseCurrency.code
+            it[ExchangeRateFreshness.providerDate] = snapshot.date.toString()
+            it[ExchangeRateFreshness.checkedAt] = java.time.Instant.now().toString()
+        }
     }
 
     private fun ExchangeRate.identifier(): AssetCodeId = AssetCodeId(

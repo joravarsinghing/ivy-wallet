@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "scope": "project",
+  "skillDirectory": ".agents/skills",
+  "sources": [
+    {
+      "name": "android-skills",
+      "repository": "https://github.com/android/skills",
+      "revision": "4ebabf2b0fd6c04b7150023c8b612f80592a6226",
+      "upstreamVersion": "1.0.17",
+      "skillCount": 33,
+      "license": "Apache-2.0",
+      "installation": "Copied each complete skill directory listed in .codex-plugin/plugin.json; included LICENSE.txt in every skill."
+    },
+    {
+      "name": "ui-ux-pro-max",
+      "repository": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+      "revision": "d14efff8ed1faa4187f004f79926f428c8074ec7",
+      "upstreamCliSourceVersion": "2.5.0",
+      "skillCount": 7,
+      "license": "MIT",
+      "installation": "Ran upstream cli/src/utils/template.ts generatePlatformFiles(projectRoot, codex) with Node 24; preserved bundled scripts/data/companions and the upstream license. No npm package or global CLI installed."
+    }
+  ]
+}

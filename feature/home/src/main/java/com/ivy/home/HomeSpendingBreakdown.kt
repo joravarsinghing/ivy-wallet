@@ -1,0 +1,192 @@
+package com.ivy.home
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.ivy.design.api.LocalTimeConverter
+import com.ivy.ui.R
+import com.ivy.base.model.TransactionType
+import com.ivy.design.l0_system.UI
+import com.ivy.design.l0_system.style
+import com.ivy.navigation.PieChartStatisticScreen
+import com.ivy.navigation.navigation
+import com.ivy.wallet.ui.theme.toComposeColor
+import java.math.BigDecimal
+import java.util.Locale
+
+data class HomeSpendingBreakdownRow(
+    val categoryId: String?,
+    val label: String,
+    val color: Int,
+    val amount: BigDecimal,
+    val percentage: BigDecimal,
+)
+
+data class HomeSpendingBreakdownState(
+    val total: BigDecimal = BigDecimal.ZERO,
+    val rows: List<HomeSpendingBreakdownRow> = emptyList(),
+) {
+    val hasSpending: Boolean get() = total.signum() > 0 && rows.isNotEmpty()
+}
+
+fun buildHomeSpendingBreakdown(
+    rows: List<HomeSpendingBreakdownRow>,
+    maxCategories: Int = 3,
+): HomeSpendingBreakdownState {
+    val positive = rows.filter { it.amount.signum() > 0 }.sortedByDescending { it.amount }
+    val total = positive.fold(BigDecimal.ZERO) { sum, row -> sum + row.amount }
+    if (total.signum() == 0) return HomeSpendingBreakdownState()
+
+    val visible = positive.take(maxCategories).map { it.copy(percentage = percentOf(it.amount, total)) }
+    val otherAmount = positive.drop(maxCategories).fold(BigDecimal.ZERO) { sum, row -> sum + row.amount }
+    val finalRows = if (otherAmount.signum() > 0) {
+        visible + HomeSpendingBreakdownRow(
+            categoryId = null,
+            label = "Other",
+            color = 0xFF777777.toInt(),
+            amount = otherAmount,
+            percentage = percentOf(otherAmount, total),
+        )
+    } else visible
+    return HomeSpendingBreakdownState(total = total, rows = finalRows)
+}
+
+private fun percentOf(amount: BigDecimal, total: BigDecimal): BigDecimal =
+    amount.multiply(BigDecimal(100)).divide(total, 4, java.math.RoundingMode.HALF_UP)
+
+@Composable
+fun HomeSpendingBreakdownCard(
+    state: HomeSpendingBreakdownState,
+    currency: String,
+    hideBalance: Boolean,
+    modifier: Modifier = Modifier,
+    dateWindow: HomeDateWindow? = null,
+) {
+    val nav = navigation()
+    val converter = LocalTimeConverter.current
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .clip(com.ivy.design.system.JvyShapes.Card)
+            .background(androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(enabled = dateWindow != null, onClick = {
+                dateWindow?.let { nav.navigateTo(PieChartStatisticScreen(type = TransactionType.EXPENSE,
+                    filterExcluded = true, dateRange = it.navigationRange(converter), cashFlowOnly = true)) }
+            })
+            .semantics {
+                role = Role.Button
+                contentDescription = "View full expense breakdown chart"
+            }
+            .padding(16.dp),
+    ) {
+        HomeCardHeading(heading = {
+            Text(
+                text = "Where your money went",
+                style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+            )
+        }, action = {
+            Text(
+                text = "View chart",
+                style = androidx.compose.material3.MaterialTheme.typography.labelLarge,
+                color = if (dateWindow == null) androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+                    else androidx.compose.material3.MaterialTheme.colorScheme.primary,
+            )
+        })
+        Spacer(Modifier.height(3.dp))
+        Text(
+            text = dateWindow?.let { stringResource(R.string.home_chart_range_caption, it.displayLabel()) }
+                ?: stringResource(R.string.home_chart_range_loading),
+            style = com.ivy.design.system.JvyTypography.Supporting, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(18.dp))
+
+        if (!state.hasSpending) {
+            Text(
+                text = stringResource(R.string.home_spending_range_empty),
+                style = com.ivy.design.system.JvyTypography.Supporting, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            state.rows.forEachIndexed { index, row ->
+                SpendingBreakdownRow(row, currency, hideBalance)
+                if (index != state.rows.lastIndex) Spacer(Modifier.height(14.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun SpendingBreakdownRow(
+    row: HomeSpendingBreakdownRow,
+    currency: String,
+    hideBalance: Boolean,
+) {
+    val color = row.color.toComposeColor()
+    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(9.dp).background(color, CircleShape))
+            Spacer(Modifier.size(8.dp))
+            Text(
+                text = row.label,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = com.ivy.design.system.JvyTypography.Supporting, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = if (hideBalance) "••••" else com.ivy.design.system.financialText("${groupedHomeAmount(row.amount)} $currency"),
+                style = com.ivy.design.system.JvyTypography.AmountSmall, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        if (!hideBalance && !com.ivy.design.system.LocalFinancialVisibility.current.hidden) Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .weight(1f)
+                    .height(7.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(UI.colors.pure),
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxWidth(spendingBarFraction(row.percentage))
+                        .height(7.dp)
+                        .background(color, RoundedCornerShape(10.dp)),
+                )
+            }
+            Spacer(Modifier.size(10.dp))
+            Text(
+                text = "${row.percentage.setScale(0, java.math.RoundingMode.HALF_UP)}%",
+                style = com.ivy.design.system.JvyTypography.Supporting, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+private fun groupedHomeAmount(amount: BigDecimal): String =
+    String.format(Locale.US, "%,.2f", amount.toDouble())
+
+internal fun spendingBarFraction(percentage: BigDecimal): Float =
+    percentage.divide(BigDecimal("100")).toFloat().coerceIn(0f, 1f)

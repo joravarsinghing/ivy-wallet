@@ -7,11 +7,11 @@ import com.ivy.wallet.domain.deprecated.logic.model.EditLoanRecordData
 
 sealed interface LoanRecordModalEvent : LoanDetailsScreenEvent {
     data class OnClickLoanRecord(val displayLoanRecord: DisplayLoanRecord) : LoanRecordModalEvent
-    data class OnCreateLoanRecord(val loanRecordData: CreateLoanRecordData) :
+    data class OnCreateLoanRecord(val loanRecordData: CreateLoanRecordData, val onResult: (Result<Unit>) -> Unit) :
         LoanRecordModalEvent
 
-    data class OnDeleteLoanRecord(val loanRecord: LoanRecord) : LoanRecordModalEvent
-    data class OnEditLoanRecord(val loanRecordData: EditLoanRecordData) : LoanRecordModalEvent
+    data class OnDeleteLoanRecord(val loanRecord: LoanRecord, val onResult: (Result<Unit>) -> Unit) : LoanRecordModalEvent
+    data class OnEditLoanRecord(val loanRecordData: EditLoanRecordData, val onResult: (Result<Unit>) -> Unit) : LoanRecordModalEvent
     data object OnDismissLoanRecord : LoanRecordModalEvent
 
     data object OnChangeDate : LoanRecordModalEvent

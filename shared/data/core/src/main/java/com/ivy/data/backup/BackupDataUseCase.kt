@@ -19,6 +19,7 @@ import com.ivy.data.db.dao.read.SettingsDao
 import com.ivy.data.db.dao.read.TagAssociationDao
 import com.ivy.data.db.dao.read.TagDao
 import com.ivy.data.db.dao.read.TransactionDao
+import com.ivy.data.db.dao.read.SavedAnalyticsDao
 import com.ivy.data.db.dao.write.WriteBudgetDao
 import com.ivy.data.db.dao.write.WriteCategoryDao
 import com.ivy.data.db.dao.write.WriteLoanDao
@@ -28,6 +29,7 @@ import com.ivy.data.db.dao.write.WriteSettingsDao
 import com.ivy.data.db.dao.write.WriteTagAssociationDao
 import com.ivy.data.db.dao.write.WriteTagDao
 import com.ivy.data.db.dao.write.WriteTransactionDao
+import com.ivy.data.db.dao.write.WriteSavedAnalyticsDao
 import com.ivy.data.file.FileSystem
 import com.ivy.data.repository.AccountRepository
 import com.ivy.data.repository.mapper.AccountMapper
@@ -69,18 +71,31 @@ class BackupDataUseCase @Inject constructor(
     private val dispatchersProvider: DispatchersProvider,
     private val fileSystem: FileSystem,
     private val dataObserver: DataObserver,
+    private val backupTransactionRunner: BackupTransactionRunner,
     private val tagsReader: TagDao,
     private val tagAssociationReader: TagAssociationDao,
     private val tagsWriter: WriteTagDao,
-    private val tagAssociationWriter: WriteTagAssociationDao
+    private val tagAssociationWriter: WriteTagAssociationDao,
+    private val savedAnalyticsReader: SavedAnalyticsDao,
+    private val savedAnalyticsWriter: WriteSavedAnalyticsDao,
+    private val wealthRepository: com.ivy.data.repository.WealthRepository,
+    private val goalsReader: com.ivy.data.db.dao.read.GoalDao,
+    private val goalAllocationsReader: com.ivy.data.db.dao.read.GoalAllocationDao,
+    private val categoryRulesReader: com.ivy.data.db.dao.read.CategoryRuleDao,
+    private val goalsWriter: com.ivy.data.db.dao.write.WriteGoalDao,
+    private val goalAllocationsWriter: com.ivy.data.db.dao.write.WriteGoalAllocationDao,
+    private val categoryRulesWriter: com.ivy.data.db.dao.write.WriteCategoryRuleDao,
 ) {
     suspend fun exportToFile(
         zipFileUri: Uri
     ) {
         val jsonString = generateJsonBackup()
         val file = createJsonDataFile(jsonString)
-        zip(context = context, zipFileUri, listOf(file))
-        clearCacheDir()
+        try {
+            zip(context = context, zipFileUri, listOf(file))
+        } finally {
+            file.delete()
+        }
     }
 
     private fun createJsonDataFile(jsonString: String): File {
@@ -95,6 +110,11 @@ class BackupDataUseCase @Inject constructor(
     }
 
     suspend fun generateJsonBackup(): String {
+        // Read linked collections from one consistent Room snapshot.
+        return backupTransactionRunner.run { generateJsonBackupInTransaction() }
+    }
+
+    private suspend fun generateJsonBackupInTransaction(): String {
         return withContext(dispatchersProvider.io) {
             val accounts = async { accountDao.findAll() }
             val budgets = async { budgetDao.findAll() }
@@ -105,9 +125,13 @@ class BackupDataUseCase @Inject constructor(
                 async { plannedPaymentRuleDao.findAll() }
             val settings = async { settingsDao.findAll() }
             val transactions = async { transactionDao.findAll() }
-            val sharedPrefs = async { getSharedPrefsData() }
+            val sharedPrefsData = async { getSharedPrefsData() }
             val tags = async { tagsReader.findAll() }
             val tagAssociations = async { tagAssociationReader.findAll() }
+            val savedAnalytics = async { savedAnalyticsReader.findAll() }
+            val netWorthAssetAccountIds = async { sharedPrefs.getStringList(SharedPrefs.NET_WORTH_ASSET_ACCOUNT_IDS) }
+            val netWorthLiabilityAccountIds = async { sharedPrefs.getStringList(SharedPrefs.NET_WORTH_LIABILITY_ACCOUNT_IDS) }
+            val netWorthHistory = async { sharedPrefs.getNetWorthHistory() }
 
             val completeData = IvyWalletCompleteData(
                 accounts = accounts.await(),
@@ -118,9 +142,18 @@ class BackupDataUseCase @Inject constructor(
                 plannedPaymentRules = plannedPaymentRules.await(),
                 settings = settings.await(),
                 transactions = transactions.await(),
-                sharedPrefs = sharedPrefs.await(),
+                sharedPrefs = sharedPrefsData.await(),
                 tags = tags.await(),
-                tagAssociations = tagAssociations.await()
+                tagAssociations = tagAssociations.await(),
+                savedAnalytics = savedAnalytics.await(),
+                netWorthAssetAccountIds = netWorthAssetAccountIds.await(),
+                netWorthLiabilityAccountIds = netWorthLiabilityAccountIds.await(),
+                netWorthHistory = netWorthHistory.await(),
+                netWorthSettingsVersion = 1,
+                wealth = wealthRepository.read(),
+                goals = goalsReader.findAll(),
+                goalAllocations = goalAllocationsReader.findAll(),
+                categoryRules = categoryRulesReader.findAll(),
             )
 
             json.encodeToString(completeData)
@@ -132,11 +165,11 @@ class BackupDataUseCase @Inject constructor(
         hashmap[SharedPrefs.SHOW_NOTIFICATIONS] =
             sharedPrefs.getBoolean(SharedPrefs.SHOW_NOTIFICATIONS, true).toString()
 
-        hashmap[SharedPrefs.APP_LOCK_ENABLED] =
-            sharedPrefs.getBoolean(SharedPrefs.APP_LOCK_ENABLED, false).toString()
-
         hashmap[SharedPrefs.HIDE_CURRENT_BALANCE] =
             sharedPrefs.getBoolean(SharedPrefs.HIDE_CURRENT_BALANCE, false).toString()
+
+        hashmap[SharedPrefs.HIDE_INCOME] =
+            sharedPrefs.getBoolean(SharedPrefs.HIDE_INCOME, false).toString()
 
         hashmap[SharedPrefs.TRANSFERS_AS_INCOME_EXPENSE] =
             sharedPrefs.getBoolean(SharedPrefs.TRANSFERS_AS_INCOME_EXPENSE, false).toString()
@@ -148,75 +181,130 @@ class BackupDataUseCase @Inject constructor(
         backupFileUri: Uri,
         onProgress: suspend (progressPercent: Double) -> Unit
     ): ImportResult = withContext(dispatchersProvider.io) {
+        var imported = false
         return@withContext try {
-            val jsonString = try {
-                extractAndReadBackupZip(backupFileUri, onProgress)
-            } catch (e: Exception) {
-                fileSystem.read(backupFileUri, Charsets.UTF_16).getOrNull()
-            } ?: ""
+            val jsonString = readBackupPayload(backupFileUri, onProgress)
+                ?: error("The selected file is not a readable Ivy Wallet backup.")
 
-            importJson(jsonString, onProgress, clearCacheDir = true)
+            importJson(jsonString, onProgress).also {
+                imported = it.errorMessage == null
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
-            Timber.e("Import error: $e")
+            Timber.e("Backup import failed; details are available in the in-app result.")
             ImportResult(
                 rowsFound = 0,
                 transactionsImported = 0,
                 accountsImported = 0,
                 categoriesImported = 0,
-                failedRows = persistentListOf()
+                failedRows = persistentListOf(),
+                errorMessage = e.userFacingImportMessage()
             )
         } finally {
-            dataObserver.post(DataWriteEvent.AllDataChange)
+            if (imported) {
+                dataObserver.post(DataWriteEvent.AllDataChange)
+            }
         }
+    }
+
+    private suspend fun readBackupPayload(
+        backupFileUri: Uri,
+        onProgress: suspend (progressPercent: Double) -> Unit,
+    ): String? {
+        val zipped = try {
+            extractAndReadBackupZip(backupFileUri, onProgress)
+        } catch (error: com.ivy.base.legacy.UnsafeArchiveException) {
+            throw error // Never retry an unsafe archive as plain text.
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
+        } catch (_: Exception) { null }
+        if (!zipped.isNullOrBlank()) return zipped
+
+        return fileSystem.readAutoBounded(backupFileUri).fold({ throw it.e }, { it.takeIf(String::isNotBlank) })
     }
 
     private suspend fun extractAndReadBackupZip(
         backupFileUri: Uri,
         onProgress: suspend (progressPercent: Double) -> Unit
     ): String? {
-        val folderName = "backup" + System.currentTimeMillis()
-        val cacheFolderPath = File(context.cacheDir, folderName)
+        val cacheFolderPath = java.nio.file.Files.createTempDirectory(context.cacheDir.toPath(), "backup-").toFile()
 
-        unzip(context, backupFileUri, cacheFolderPath)
+        return try {
+            unzip(context, backupFileUri, cacheFolderPath)
 
-        val filesArray = cacheFolderPath.listFiles()
+            onProgress(0.05)
 
-        onProgress(0.05)
+            val filesList = cacheFolderPath.walkTopDown()
+                .filter { it.isFile && hasJsonExtension(it) }
+                .toList()
 
-        if (filesArray == null || filesArray.isEmpty()) {
-            error("Couldn't unzip")
+            onProgress(0.1)
+
+            val jsonFile = filesList.singleOrNull()
+                ?: error("The backup archive must contain exactly one JSON data file.")
+
+            fileSystem.readAutoBounded(jsonFile.toUri()).fold({ throw it.e }, { it })
+        } finally {
+            cacheFolderPath.deleteRecursively()
         }
-
-        val filesList = filesArray.toList().filter {
-            hasJsonExtension(it)
-        }
-
-        onProgress(0.1)
-
-        if (filesList.size != 1) {
-            error("Didn't unzip exactly one file.")
-        }
-
-        return fileSystem.read(filesList[0].toUri(), Charsets.UTF_16).getOrNull()
     }
 
     suspend fun importJson(
         jsonString: String,
         onProgress: suspend (Double) -> Unit = {},
         clearCacheDir: Boolean = false,
+        aiProfile: Boolean = false,
     ): ImportResult {
+        require(jsonString.isNotBlank()) { "The backup file is empty." }
+        if (aiProfile) AiImportContract.prepare(jsonString).data.wealth?.let {
+            wealthRepository.validate(it)
+            wealthRepository.validateReferences(it)
+        }
+        // Validate original snapshot checksums before adapting source IDs to existing accounts.
+        val originalData = json.decodeFromString<IvyWalletCompleteData>(jsonString)
+        originalData.wealth?.let(wealthRepository::validate)
         val modifiedJsonString = accommodateExistingAccountsAndCategories(jsonString)
-        val ivyWalletCompleteData = modifiedJsonString?.let {
+        val decodedData = modifiedJsonString?.let {
             json.decodeFromString<IvyWalletCompleteData>(it)
         } ?: error("Failed to parse backup JSON.")
+        val ivyWalletCompleteData = decodedData.copy(wealth = decodedData.wealth?.let { wealth ->
+            wealth.copy(snapshots = wealth.snapshots.map { snapshot ->
+                val hash = java.security.MessageDigest.getInstance("SHA-256").digest(snapshot.inputs.toByteArray()).joinToString("") { byte -> "%02x".format(byte) }
+                snapshot.copy(inputFingerprint = hash)
+            })
+        })
+
+        require(ivyWalletCompleteData.hasImportableData()) {
+            "The backup contains no accounts, transactions, or settings to import."
+        }
+        ivyWalletCompleteData.wealth?.let(wealthRepository::validate)
 
         onProgress(0.4)
-        insertDataToDb(completeData = ivyWalletCompleteData, onProgress = onProgress)
-        onProgress(1.0)
-
-        if (clearCacheDir) {
-            clearCacheDir()
+        backupTransactionRunner.run {
+            validatePlanningData(ivyWalletCompleteData)
+            if (aiProfile) rejectAiConflicts(ivyWalletCompleteData)
+            // Check before inserting rows or deleting old settings. Failure rolls back
+            // the complete merge, including imports with archived implicit-unit records.
+            require(ivyWalletCompleteData.settings.map { it.currency.uppercase(java.util.Locale.ROOT) }.distinct().size <= 1) {
+                "The backup has conflicting wallet currencies. Nothing was imported."
+            }
+            ivyWalletCompleteData.settings.firstOrNull()?.let { settingsWriter.validateCurrencyChange(it.currency) }
+            // An imported base currency must not reinterpret old implicit-currency accounts.
+            val implicitAccounts = accountDao.findAll().filter { it.currency.isNullOrBlank() && !it.isDeleted }
+            accountRepository.saveMany(with(accountMapper) {
+                // Resolve through the same mapper as the ledger, including the locale fallback
+                // on old installations which have accounts but no saved settings row.
+                implicitAccounts.mapNotNull { it.toDomain().getOrNull() }
+            })
+            insertDataToDb(completeData = ivyWalletCompleteData, onProgress = onProgress)
+            ivyWalletCompleteData.wealth?.let { wealthRepository.merge(it) }
         }
+        if (!aiProfile) {
+            applySharedPrefs(ivyWalletCompleteData.sharedPrefs)
+            applyNetWorthSettings(ivyWalletCompleteData)
+        }
+        onProgress(1.0)
 
         return ImportResult(
             rowsFound = ivyWalletCompleteData.transactions.size,
@@ -227,15 +315,87 @@ class BackupDataUseCase @Inject constructor(
         )
     }
 
+    /** Preview is read-only. Retain the exact validated payload, not a URI that can change later. */
+    suspend fun prepareAiImport(payload: String): AiImportPreview = withContext(dispatchersProvider.io) {
+        AiImportContract.prepare(payload).also { preview -> preview.data.wealth?.let {
+            try {
+                wealthRepository.validate(it)
+                wealthRepository.validateReferences(it)
+            } catch (_: Exception) {
+                throw IllegalArgumentException("Net-worth records failed validation. Check dates, values, ownership and source links against the guide.")
+            }
+        } }
+    }
+
+    suspend fun importAiPreview(preview: AiImportPreview): ImportResult = withContext(dispatchersProvider.io) {
+        val result = importJson(preview.payload, aiProfile = true)
+        dataObserver.post(DataWriteEvent.AllDataChange)
+        result
+    }
+
+    private suspend fun rejectAiConflicts(data: IvyWalletCompleteData) {
+        fun <T, K> check(existing: List<T>, incoming: List<T>, id: (T) -> K) {
+            val byId = existing.associateBy(id)
+            require(incoming.all { row -> byId[id(row)]?.let { it == row } ?: true }) {
+                "An imported ID already belongs to a different record. Nothing was imported. Ask your AI to preserve source IDs or use distinct IDs for a different source."
+            }
+        }
+        // Include tombstones so an AI file cannot silently resurrect a deleted transaction.
+        // Chunk IDs to stay below SQLite's bind-parameter limit on older supported phones.
+        val existingTransactions = data.transactions.chunked(900).flatMap { rows ->
+            transactionDao.findByIds(rows.map { it.id })
+        }
+        check(existingTransactions, data.transactions) { it.id }
+        // The account mapper normalizes this obsolete sync flag on every save.
+        check(accountDao.findAll().map { it.copy(isSynced = false) }, data.accounts) { it.id }
+        check(categoryDao.findAll(), data.categories) { it.id }
+        check(budgetDao.findAll(), data.budgets) { it.id }
+        check(plannedPaymentRuleDao.findAll(), data.plannedPaymentRules) { it.id }
+        check(loanDao.findAll(), data.loans) { it.id }
+        check(loanRecordDao.findAll(), data.loanRecords) { it.id }
+        check(goalsReader.findAll(), data.goals) { it.id }
+        check(goalAllocationsReader.findAll(), data.goalAllocations) { it.goalId to it.accountId }
+        check(tagsReader.findAll(), data.tags) { it.id }
+        check(tagAssociationReader.findAll(), data.tagAssociations) { it.tagId to it.associatedId }
+    }
+
+    private fun IvyWalletCompleteData.hasImportableData(): Boolean =
+        accounts.isNotEmpty() ||
+            transactions.isNotEmpty() ||
+            categories.isNotEmpty() ||
+            settings.isNotEmpty() ||
+            budgets.isNotEmpty() ||
+            loans.isNotEmpty() ||
+            plannedPaymentRules.isNotEmpty()
+            || savedAnalytics.isNotEmpty()
+            || goals.isNotEmpty() || goalAllocations.isNotEmpty() || categoryRules.isNotEmpty()
+            || wealth?.items?.isNotEmpty() == true
+
+    private fun validatePlanningData(data: IvyWalletCompleteData) {
+        // Keep historical/orphaned metadata too: older builds allowed deleting referenced
+        // accounts/categories without cleaning these tables. Do not make their backups
+        // impossible to restore, or invent replacement ledger records for missing parents.
+        require(data.goals.all { it.targetAmount.isFinite() && it.targetAmount > 0 }) {
+            "A backup goal has an invalid target amount."
+        }
+        require(data.goalAllocations.all {
+            it.reservedAmount.isFinite() && it.reservedAmount >= 0
+        }) { "A backup reservation has an invalid amount." }
+    }
+
     private suspend fun accommodateExistingAccountsAndCategories(jsonString: String?): String? {
         if (jsonString == null) return null
 
-        val ivyWalletCompleteData = json.decodeFromString<IvyWalletCompleteData>(jsonString)
+        val decoded = json.decodeFromString<IvyWalletCompleteData>(jsonString)
+        val incomingBase = decoded.settings.firstOrNull()?.currency ?: settingsDao.findFirstOrNull()?.currency
+        val ivyWalletCompleteData = decoded.copy(accounts = decoded.accounts.map { account ->
+            account.copy(currency = restoreCurrency(account.currency, incomingBase))
+        })
         val replacementPairs = getReplacementPairs(ivyWalletCompleteData)
 
-        var modifiedString = jsonString
+        var modifiedString = json.encodeToString(ivyWalletCompleteData)
         replacementPairs.forEach {
-            modifiedString = modifiedString!!.replace(it.first.toString(), it.second.toString())
+            modifiedString = modifiedString.replace(it.first.toString(), it.second.toString())
         }
 
         return modifiedString
@@ -264,6 +424,15 @@ class BackupDataUseCase @Inject constructor(
             budgets.await()
             categories.await()
 
+            // Restore metadata only after its account/category parents exist. Empty fields
+            // in older backups must not erase planning data already on this installation.
+            goalsWriter.saveMany(completeData.goals)
+            // Incoming goals carry their complete allocation set. Without clearing only
+            // those goals, removed reservations would survive an otherwise successful restore.
+            completeData.goals.forEach { goalAllocationsWriter.deleteByGoalId(it.id) }
+            goalAllocationsWriter.saveMany(completeData.goalAllocations)
+            categoryRulesWriter.saveMany(completeData.categoryRules)
+
             onProgress(0.7)
 
             val loans = async { loanWriter.saveMany(completeData.loans) }
@@ -277,45 +446,89 @@ class BackupDataUseCase @Inject constructor(
 
             val tags = async { tagsWriter.save(completeData.tags) }
             val tagAssociations = async { tagAssociationWriter.save(completeData.tagAssociations) }
+            val savedAnalytics = async {
+                savedAnalyticsWriter.saveMany(completeData.savedAnalytics)
+            }
 
             val plannedPayments =
                 async { plannedPaymentRuleWriter.saveMany(completeData.plannedPaymentRules) }
             val settings = async {
-                settingsWriter.deleteAll()
-                settingsWriter.saveMany(completeData.settings)
+                if (completeData.settings.isNotEmpty()) {
+                    settingsWriter.deleteAll()
+                    settingsWriter.saveMany(completeData.settings)
+                }
             }
-
-            sharedPrefs.putBoolean(
-                SharedPrefs.SHOW_NOTIFICATIONS,
-                (completeData.sharedPrefs[SharedPrefs.SHOW_NOTIFICATIONS] ?: "true").toBoolean()
-            )
-
-            sharedPrefs.putBoolean(
-                SharedPrefs.APP_LOCK_ENABLED,
-                (completeData.sharedPrefs[SharedPrefs.APP_LOCK_ENABLED] ?: "false").toBoolean()
-            )
-
-            sharedPrefs.putBoolean(
-                SharedPrefs.HIDE_CURRENT_BALANCE,
-                (completeData.sharedPrefs[SharedPrefs.HIDE_CURRENT_BALANCE] ?: "false").toBoolean()
-            )
-
-            sharedPrefs.putBoolean(
-                SharedPrefs.TRANSFERS_AS_INCOME_EXPENSE,
-                (
-                        completeData.sharedPrefs[SharedPrefs.TRANSFERS_AS_INCOME_EXPENSE]
-                            ?: "false"
-                        ).toBoolean()
-            )
 
             plannedPayments.await()
             settings.await()
             tags.await()
             tagAssociations.await()
+            savedAnalytics.await()
 
             onProgress(0.9)
         }
     }
+
+    private fun applySharedPrefs(values: HashMap<String, String>) {
+        sharedPrefs.putBoolean(
+            SharedPrefs.SHOW_NOTIFICATIONS,
+            (values[SharedPrefs.SHOW_NOTIFICATIONS] ?: "true").toBoolean()
+        )
+        // Authentication belongs to this installation. Imported preferences cannot disable it.
+        sharedPrefs.putBoolean(
+            SharedPrefs.HIDE_CURRENT_BALANCE,
+            (values[SharedPrefs.HIDE_CURRENT_BALANCE] ?: "false").toBoolean()
+        )
+        sharedPrefs.putBoolean(
+            SharedPrefs.HIDE_INCOME,
+            (values[SharedPrefs.HIDE_INCOME] ?: "false").toBoolean()
+        )
+        sharedPrefs.putBoolean(
+            SharedPrefs.TRANSFERS_AS_INCOME_EXPENSE,
+            (values[SharedPrefs.TRANSFERS_AS_INCOME_EXPENSE] ?: "false").toBoolean()
+        )
+    }
+
+    private fun applyNetWorthSettings(data: IvyWalletCompleteData) {
+        // New fields are optional so backups made by older Ivy Wallet versions remain valid.
+        if (data.netWorthSettingsVersion >= 1) {
+            sharedPrefs.putString(
+                SharedPrefs.NET_WORTH_ASSET_ACCOUNT_IDS,
+                data.netWorthAssetAccountIds.joinToString(",")
+            )
+            sharedPrefs.putString(
+                SharedPrefs.NET_WORTH_LIABILITY_ACCOUNT_IDS,
+                data.netWorthLiabilityAccountIds.joinToString(",")
+            )
+            sharedPrefs.putString(
+                SharedPrefs.NET_WORTH_HISTORY,
+                data.netWorthHistory.joinToString(";") { snapshot ->
+                    "${snapshot.period}|${snapshot.assets}|${snapshot.liabilities}"
+                }
+            )
+        }
+    }
+
+    private fun SharedPrefs.getStringList(key: String): List<String> =
+        getString(key, null)
+            ?.split(",")
+            ?.map(String::trim)
+            ?.filter(String::isNotBlank)
+            ?: emptyList()
+
+    private fun SharedPrefs.getNetWorthHistory(): List<NetWorthBackupSnapshot> =
+        getString(SharedPrefs.NET_WORTH_HISTORY, null)
+            ?.split(";")
+            ?.mapNotNull { value ->
+                val parts = value.split("|")
+                if (parts.size != 3) return@mapNotNull null
+                NetWorthBackupSnapshot(
+                    period = parts[0],
+                    assets = parts[1].toDoubleOrNull() ?: return@mapNotNull null,
+                    liabilities = parts[2].toDoubleOrNull() ?: return@mapNotNull null,
+                )
+            }
+            ?: emptyList()
 
     /** This is used to replace account & category Ids in backup data with existing Ids
      *  This removes the problem of duplicate Accounts & Categories
@@ -336,36 +549,18 @@ class BackupDataUseCase @Inject constructor(
                 return@withContext emptyList()
             }
 
-            val sumAccountList = existingAccountsList + backupAccountsList
-            val sumCategoriesList = existingCategoryList + backupCategoryList
-
-            val accountsReplace = async {
-                sumAccountList.groupBy { it.name }.filter { it.value.size == 2 }.map {
-                    val accountsZero = it.value[0]
-                    val accountsFirst = it.value[1]
-
-                    if (backupAccountsList.contains(accountsZero)) {
-                        Pair(accountsZero.id, accountsFirst.id)
-                    } else {
-                        Pair(accountsFirst.id, accountsZero.id)
-                    }
-                }
+            val accountsReplace = accountRestoreReplacements(existingAccountsList, backupAccountsList,
+                settingsDao.findFirstOrNull()?.currency, completeData.settings.firstOrNull()?.currency)
+            val existingCategories = existingCategoryList.groupBy { it.name }
+            val incomingCategories = backupCategoryList.groupBy { it.name }
+            val existingIds = existingCategoryList.map { it.id }.toSet()
+            val incomingIds = backupCategoryList.map { it.id }.toSet()
+            val categoriesReplace = backupCategoryList.filter { it.id !in existingIds }.mapNotNull { category ->
+                existingCategories[category.name]?.singleOrNull()?.takeIf {
+                    it.id !in incomingIds && incomingCategories[category.name]?.size == 1
+                }?.let { category.id to it.id }
             }
-
-            val categoriesReplace = async {
-                sumCategoriesList.groupBy { it.name }.filter { it.value.size == 2 }.map {
-                    val categoryZero = it.value[0]
-                    val categoryFirst = it.value[1]
-
-                    if (completeData.categories.contains(categoryZero)) {
-                        Pair(categoryZero.id, categoryFirst.id)
-                    } else {
-                        Pair(categoryFirst.id, categoryZero.id)
-                    }
-                }
-            }
-
-            accountsReplace.await() + categoriesReplace.await()
+            accountsReplace + categoriesReplace
         }
     }
 
@@ -379,7 +574,12 @@ class BackupDataUseCase @Inject constructor(
         return (name.substring(lastIndexOf).equals(".json", true))
     }
 
-    private fun clearCacheDir() {
-        context.cacheDir.deleteRecursively()
+
+    private fun Throwable.userFacingImportMessage(): String = when (this) {
+        is kotlinx.serialization.SerializationException ->
+            "This file is not a supported Ivy Wallet backup, or it is damaged."
+
+        else -> message?.takeIf { it.isNotBlank() }
+            ?: "The import could not be completed. Check the result before retrying."
     }
 }

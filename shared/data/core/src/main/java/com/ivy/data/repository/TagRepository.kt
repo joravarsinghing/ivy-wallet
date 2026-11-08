@@ -27,6 +27,7 @@ class TagRepository @Inject constructor(
     private val writeTagAssociationDao: WriteTagAssociationDao,
     private val dispatchersProvider: DispatchersProvider,
     memoFactory: RepositoryMemoFactory,
+    private val atomic: AtomicWriteRepository,
 ) {
     private val memo = memoFactory.createMemo(
         getDataWriteSaveEvent = DataWriteEvent::SaveTags,
@@ -151,18 +152,18 @@ class TagRepository @Inject constructor(
         writeTagDao.save(with(mapper) { it.toEntity() })
     }
 
-    suspend fun deleteById(id: TagId): Unit = memo.deleteById(
+    suspend fun deleteById(id: TagId): Unit = atomic.run { memo.deleteById(
         id = id,
         deleteByIdOperation = {
             writeTagAssociationDao.deleteAssociationsByTagId(it.value)
             writeTagDao.deleteById(it.value)
         }
-    )
+    ) }
 
-    suspend fun deleteAll(): Unit = memo.deleteAll {
+    suspend fun deleteAll(): Unit = atomic.run { memo.deleteAll {
         writeTagAssociationDao.deleteAll()
         writeTagDao.deleteAll()
-    }
+    } }
 
     private fun List<TagId>.toRawValues(): List<UUID> = this.map { it.value }
 

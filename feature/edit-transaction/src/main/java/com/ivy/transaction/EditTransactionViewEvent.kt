@@ -29,13 +29,18 @@ data class EditTransactionViewState(
     val account: Account?,
     val toAccount: Account?,
     val category: Category?,
+    val suggestedCategory: Category?,
     val amount: Double,
+    val showRememberCategoryRule: Boolean,
+    val rememberCategoryRule: Boolean,
     val hasChanges: Boolean,
     val displayLoanHelper: EditTransactionDisplayLoan,
     val backgroundProcessingStarted: Boolean,
     val customExchangeRateState: CustomExchangeRateState,
     val tags: ImmutableList<Tag>,
-    val transactionAssociatedTags: ImmutableList<TagId>
+    val transactionAssociatedTags: ImmutableList<TagId>,
+    val saveError: String? = null,
+    val saving: Boolean = false,
 )
 
 sealed interface EditTransactionViewEvent {
@@ -43,6 +48,7 @@ sealed interface EditTransactionViewEvent {
     data class OnTitleChanged(val newTitle: String?) : EditTransactionViewEvent
     data class OnDescriptionChanged(val newDescription: String?) : EditTransactionViewEvent
     data class OnCategoryChanged(val newCategory: Category?) : EditTransactionViewEvent
+    data class SetRememberCategoryRule(val enabled: Boolean) : EditTransactionViewEvent
     data class OnAccountChanged(val newAccount: Account) : EditTransactionViewEvent
     data class OnToAccountChanged(val newAccount: Account) : EditTransactionViewEvent
     data class OnDueDateChanged(val newDueDate: LocalDateTime?) : EditTransactionViewEvent
@@ -54,19 +60,19 @@ sealed interface EditTransactionViewEvent {
     data object OnPayPlannedPayment : EditTransactionViewEvent
     data object Delete : EditTransactionViewEvent
     data object Duplicate : EditTransactionViewEvent
-    data class CreateCategory(val data: CreateCategoryData) : EditTransactionViewEvent
-    data class EditCategory(val updatedCategory: Category) : EditTransactionViewEvent
-    data class CreateAccount(val data: CreateAccountData) : EditTransactionViewEvent
+    data class CreateCategory(val data: CreateCategoryData, val onResult: (Result<Unit>) -> Unit = {}) : EditTransactionViewEvent
+    data class EditCategory(val updatedCategory: Category, val onResult: (Result<Unit>) -> Unit = {}) : EditTransactionViewEvent
+    data class CreateAccount(val data: CreateAccountData, val onResult: (Result<Unit>) -> Unit) : EditTransactionViewEvent
     data class Save(val closeScreen: Boolean) : EditTransactionViewEvent
     data class SetHasChanges(val hasChangesValue: Boolean) : EditTransactionViewEvent
     data class UpdateExchangeRate(val exRate: Double?) : EditTransactionViewEvent
 
     sealed interface TagEvent : EditTransactionViewEvent {
-        data class SaveTag(val name: String) : TagEvent
-        data class OnTagSelect(val selectedTag: Tag) : TagEvent
-        data class OnTagDeSelect(val selectedTag: Tag) : TagEvent
-        data class OnTagDelete(val selectedTag: Tag) : TagEvent
+        data class SaveTag(val id: TagId, val name: String, val onResult: (Result<Unit>) -> Unit) : TagEvent
+        data class OnTagSelect(val selectedTag: Tag, val onResult: (Result<Unit>) -> Unit) : TagEvent
+        data class OnTagDeSelect(val selectedTag: Tag, val onResult: (Result<Unit>) -> Unit) : TagEvent
+        data class OnTagDelete(val selectedTag: Tag, val onResult: (Result<Unit>) -> Unit) : TagEvent
         data class OnTagSearch(val query: String) : TagEvent
-        data class OnTagEdit(val oldTag: Tag, val newTag: Tag) : TagEvent
+        data class OnTagEdit(val oldTag: Tag, val newTag: Tag, val onResult: (Result<Unit>) -> Unit) : TagEvent
     }
 }

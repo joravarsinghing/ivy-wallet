@@ -1,6 +1,13 @@
 package com.ivy.legacy.legacy.ui.theme.components
 
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
+import com.ivy.design.system.JvyOutlinedButton
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
@@ -19,38 +26,21 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DateTimeRow(
     dateTime: LocalDateTime,
     onEditDate: () -> Unit,
     onEditTime: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     val timeFormatter = LocalTimeFormatter.current
 
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Spacer(Modifier.width(24.dp))
-
-        IvyOutlinedButton(
-            text = dateTime.formatNicely(),
-            iconStart = R.drawable.ic_date,
-            onClick = onEditDate
-        )
-
-        Spacer(Modifier.weight(1f))
-
-        IvyOutlinedButton(
-            text = with(timeFormatter) {
-                dateTime.toLocalTime().format()
-            },
-            iconStart = R.drawable.ic_date,
-            onClick = onEditTime
-        )
-
-        Spacer(Modifier.width(24.dp))
+    FlowRow(modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        JvyOutlinedButton(onEditDate, enabled = enabled) { Text(dateTime.formatNicely()) }
+        JvyOutlinedButton(onEditTime, enabled = enabled) { Text(with(timeFormatter) { dateTime.toLocalTime().format() }) }
     }
 }
 

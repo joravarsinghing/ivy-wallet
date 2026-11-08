@@ -150,7 +150,7 @@ class WalletBalanceWidgetReceiver : GlanceAppWidgetReceiver() {
                 sharedPrefs.getBoolean(
                     SharedPrefs.APP_LOCK_ENABLED,
                     false
-                )
+                ) || sharedPrefs.getBoolean(SharedPrefs.HIDE_CURRENT_BALANCE, false)
             }
             val currency = settings.baseCurrency
             val balance = walletBalanceAct(CalcWalletBalanceAct.Input(baseCurrency = currency))
@@ -179,12 +179,12 @@ class WalletBalanceWidgetReceiver : GlanceAppWidgetReceiver() {
                         pref.toMutablePreferences().apply {
                             this[booleanPreferencesKey(PrefsKey.APP_LOCKED)] = appLocked
                             this[doublePreferencesKey(PrefsKey.BALANCE)] =
-                                balance.toDouble()
+                                if (appLocked) 0.0 else balance.toDouble()
                             this[stringPreferencesKey(PrefsKey.CURRENCY)] = currency
                             this[doublePreferencesKey(PrefsKey.INCOME)] =
-                                incomeExpense.income.toDouble()
+                                if (appLocked) 0.0 else incomeExpense.income.toDouble()
                             this[doublePreferencesKey(PrefsKey.EXPENSE)] =
-                                incomeExpense.expense.toDouble()
+                                if (appLocked) 0.0 else incomeExpense.expense.toDouble()
                         }
                     }
                     glanceAppWidget.update(context, it)

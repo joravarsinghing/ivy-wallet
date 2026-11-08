@@ -29,20 +29,20 @@ sealed interface EditPlannedScreenEvent {
 
     data class OnSave(val closeScreen: Boolean = true) : EditPlannedScreenEvent
     data object OnDelete : EditPlannedScreenEvent
-    data class OnEditCategory(val updatedCategory: Category) : EditPlannedScreenEvent
-    data class OnCreateCategory(val data: CreateCategoryData) : EditPlannedScreenEvent
-    data class OnCreateAccount(val data: CreateAccountData) : EditPlannedScreenEvent
+    data class OnEditCategory(val updatedCategory: Category, val onResult: (Result<Unit>) -> Unit = {}) : EditPlannedScreenEvent
+    data class OnCreateCategory(val data: CreateCategoryData, val onResult: (Result<Unit>) -> Unit = {}) : EditPlannedScreenEvent
+    data class OnCreateAccount(val data: CreateAccountData, val onResult: (Result<Unit>) -> Unit) : EditPlannedScreenEvent
     data class OnCategoryModalVisible(val visible: Boolean) : EditPlannedScreenEvent
     data class OnDescriptionModalVisible(val visible: Boolean) : EditPlannedScreenEvent
     data class OnDeleteTransactionModalVisible(val visible: Boolean) : EditPlannedScreenEvent
     data class OnAmountModalVisible(val visible: Boolean) : EditPlannedScreenEvent
     data class OnTransactionTypeModalVisible(val visible: Boolean) : EditPlannedScreenEvent
-    data class OnCategoryModalDataChanged(val categoryModalData: CategoryModalData?) :
+    data class OnCategoryModalDataChanged(val categoryModalData: CategoryModalData?, val expectedId: java.util.UUID? = null) :
         EditPlannedScreenEvent
 
     data class OnRecurringRuleModalDataChanged(val recurringRuleModalData: RecurringRuleModalData?) :
         EditPlannedScreenEvent
 
-    data class OnAccountModalDataChanged(val accountModalData: AccountModalData?) :
+    data class OnAccountModalDataChanged(val accountModalData: AccountModalData?, val expectedId: java.util.UUID? = null) :
         EditPlannedScreenEvent
 }

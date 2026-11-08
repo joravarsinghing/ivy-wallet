@@ -219,7 +219,7 @@ data class Gradient(
 
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
 fun findContrastTextColor(backgroundColor: Color): Color {
-    return if (isDarkColor(backgroundColor.toArgb())) White else Black
+    return identifierForeground(backgroundColor, light = White, dark = Black)
 }
 
 @Deprecated("Old design system. Use `:ivy-design` and Material3")

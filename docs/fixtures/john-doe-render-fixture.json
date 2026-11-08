@@ -1,0 +1,186 @@
+{
+  "schema": "jvy-wallet-render-fixture/v1",
+  "purpose": "Deterministic, privacy-safe John Doe data for screenshots, Paparazzi renders, UI demos, and manual QA.",
+  "generatedAt": "2026-10-16T12:00:00Z",
+  "profile": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "email": "john.doe@example.test",
+    "authProviderType": "LOCAL",
+    "firstName": "John",
+    "lastName": "Doe",
+    "profilePicture": null,
+    "color": -12303292,
+    "testUser": true
+  },
+  "settings": [{
+    "id": "00000000-0000-4000-8000-000000000002",
+    "theme": "DARK",
+    "currency": "AED",
+    "bufferAmount": 5000.0,
+    "name": "John Doe",
+    "isSynced": false,
+    "isDeleted": false
+  }],
+  "sharedPrefs": {
+    "show_notifications": "true",
+    "app_lock_enabled": "false",
+    "hide_current_balance": "false",
+    "transfers_as_income_expense": "false"
+  },
+  "accounts": [
+    { "id": "10000000-0000-4000-8000-000000000001", "name": "Cash", "currency": "AED", "color": -15414114, "icon": "cash", "orderNum": 0.0, "includeInBalance": true, "isSynced": false, "isDeleted": false },
+    { "id": "10000000-0000-4000-8000-000000000002", "name": "Bank - ADCB", "currency": "AED", "color": -10396690, "icon": "bank", "orderNum": 1.0, "includeInBalance": true, "isSynced": false, "isDeleted": false },
+    { "id": "10000000-0000-4000-8000-000000000003", "name": "Bank - Liv", "currency": "AED", "color": -7057240, "icon": "bank", "orderNum": 2.0, "includeInBalance": true, "isSynced": false, "isDeleted": false },
+    { "id": "10000000-0000-4000-8000-000000000004", "name": "Emergency Fund", "currency": "AED", "color": -12627531, "icon": "shield", "orderNum": 3.0, "includeInBalance": true, "isSynced": false, "isDeleted": false },
+    { "id": "10000000-0000-4000-8000-000000000005", "name": "Travel Card", "currency": "USD", "color": -459786, "icon": "card", "orderNum": 4.0, "includeInBalance": true, "isSynced": false, "isDeleted": false },
+    { "id": "10000000-0000-4000-8000-000000000006", "name": "Long-term Investments", "currency": "AED", "color": -11746305, "icon": "leaf", "orderNum": 5.0, "includeInBalance": false, "isSynced": false, "isDeleted": false }
+  ],
+  "categories": [
+    { "id": "20000000-0000-4000-8000-000000000001", "name": "Salary", "color": -15414114, "icon": "income", "orderNum": 0.0, "isSynced": false, "isDeleted": false },
+    { "id": "20000000-0000-4000-8000-000000000002", "name": "Freelance", "color": -5573920, "icon": "work", "orderNum": 1.0, "isSynced": false, "isDeleted": false },
+    { "id": "20000000-0000-4000-8000-000000000003", "name": "Food & Drinks", "color": -15414114, "icon": "fooddrink", "orderNum": 2.0, "isSynced": false, "isDeleted": false },
+    { "id": "20000000-0000-4000-8000-000000000004", "name": "Groceries", "color": -5573920, "icon": "groceries", "orderNum": 3.0, "isSynced": false, "isDeleted": false },
+    { "id": "20000000-0000-4000-8000-000000000005", "name": "Transport", "color": -2151, "icon": "transport", "orderNum": 4.0, "isSynced": false, "isDeleted": false },
+    { "id": "20000000-0000-4000-8000-000000000006", "name": "Bills & Fees", "color": -49056, "icon": "bills", "orderNum": 5.0, "isSynced": false, "isDeleted": false },
+    { "id": "20000000-0000-4000-8000-000000000007", "name": "Shopping", "color": -9744897, "icon": "shopping", "orderNum": 6.0, "isSynced": false, "isDeleted": false },
+    { "id": "20000000-0000-4000-8000-000000000008", "name": "Health", "color": -2765569, "icon": "health", "orderNum": 7.0, "isSynced": false, "isDeleted": false },
+    { "id": "20000000-0000-4000-8000-000000000009", "name": "Entertainment", "color": -876752, "icon": "game", "orderNum": 8.0, "isSynced": false, "isDeleted": false },
+    { "id": "20000000-0000-4000-8000-000000000010", "name": "Travel", "color": -13099, "icon": "travel", "orderNum": 9.0, "isSynced": false, "isDeleted": false },
+    { "id": "20000000-0000-4000-8000-000000000011", "name": "Other", "color": -8355712, "icon": "other", "orderNum": 10.0, "isSynced": false, "isDeleted": false }
+  ],
+  "budgets": [
+    { "id": "30000000-0000-4000-8000-000000000001", "name": "Monthly essentials", "amount": 6000.0, "categoryIdsSerialized": "20000000-0000-4000-8000-000000000004,20000000-0000-4000-8000-000000000005,20000000-0000-4000-8000-000000000006,20000000-0000-4000-8000-000000000008", "accountIdsSerialized": "10000000-0000-4000-8000-000000000002,10000000-0000-4000-8000-000000000003", "orderId": 0.0, "isSynced": false, "isDeleted": false },
+    { "id": "30000000-0000-4000-8000-000000000002", "name": "Eating out", "amount": 800.0, "categoryIdsSerialized": "20000000-0000-4000-8000-000000000003", "accountIdsSerialized": "", "orderId": 1.0, "isSynced": false, "isDeleted": false },
+    { "id": "30000000-0000-4000-8000-000000000003", "name": "Fun and shopping", "amount": 1800.0, "categoryIdsSerialized": "20000000-0000-4000-8000-000000000007,20000000-0000-4000-8000-000000000009", "accountIdsSerialized": "10000000-0000-4000-8000-000000000003", "orderId": 2.0, "isSynced": false, "isDeleted": false }
+  ],
+  "goals": [
+    { "id": "40000000-0000-4000-8000-000000000001", "name": "Emergency Fund", "kind": "EMERGENCY_FUND", "targetAmount": 30000.0, "deadline": "2027-06-30T23:59:59Z", "isActive": true, "createdAt": "2026-09-01T08:00:00Z", "updatedAt": "2026-10-15T18:00:00Z" },
+    { "id": "40000000-0000-4000-8000-000000000002", "name": "MacBook Air", "kind": "PURCHASE", "targetAmount": 6000.0, "deadline": "2027-04-01T23:59:59Z", "isActive": true, "createdAt": "2026-09-05T08:00:00Z", "updatedAt": "2026-10-10T18:00:00Z" },
+    { "id": "40000000-0000-4000-8000-000000000003", "name": "Japan Trip", "kind": "SINKING_FUND", "targetAmount": 8000.0, "deadline": "2027-12-15T23:59:59Z", "isActive": true, "createdAt": "2026-09-15T08:00:00Z", "updatedAt": "2026-10-05T18:00:00Z" },
+    { "id": "40000000-0000-4000-8000-000000000004", "name": "New Phone", "kind": "PURCHASE", "targetAmount": 2500.0, "deadline": "2026-09-30T23:59:59Z", "isActive": false, "createdAt": "2026-06-01T08:00:00Z", "updatedAt": "2026-09-20T18:00:00Z" }
+  ],
+  "goalAllocations": [
+    { "goalId": "40000000-0000-4000-8000-000000000001", "accountId": "10000000-0000-4000-8000-000000000002", "reservedAmount": 5000.0, "createdAt": "2026-09-01T08:00:00Z", "updatedAt": "2026-10-15T18:00:00Z" },
+    { "goalId": "40000000-0000-4000-8000-000000000001", "accountId": "10000000-0000-4000-8000-000000000003", "reservedAmount": 8000.0, "createdAt": "2026-09-01T08:00:00Z", "updatedAt": "2026-10-15T18:00:00Z" },
+    { "goalId": "40000000-0000-4000-8000-000000000001", "accountId": "10000000-0000-4000-8000-000000000004", "reservedAmount": 10000.0, "createdAt": "2026-09-01T08:00:00Z", "updatedAt": "2026-10-15T18:00:00Z" },
+    { "goalId": "40000000-0000-4000-8000-000000000002", "accountId": "10000000-0000-4000-8000-000000000002", "reservedAmount": 1200.0, "createdAt": "2026-09-05T08:00:00Z", "updatedAt": "2026-10-10T18:00:00Z" },
+    { "goalId": "40000000-0000-4000-8000-000000000002", "accountId": "10000000-0000-4000-8000-000000000003", "reservedAmount": 2800.0, "createdAt": "2026-09-05T08:00:00Z", "updatedAt": "2026-10-10T18:00:00Z" },
+    { "goalId": "40000000-0000-4000-8000-000000000003", "accountId": "10000000-0000-4000-8000-000000000003", "reservedAmount": 1200.0, "createdAt": "2026-09-15T08:00:00Z", "updatedAt": "2026-10-05T18:00:00Z" },
+    { "goalId": "40000000-0000-4000-8000-000000000003", "accountId": "10000000-0000-4000-8000-000000000005", "reservedAmount": 200.0, "createdAt": "2026-09-15T08:00:00Z", "updatedAt": "2026-10-05T18:00:00Z" },
+    { "goalId": "40000000-0000-4000-8000-000000000004", "accountId": "10000000-0000-4000-8000-000000000003", "reservedAmount": 2500.0, "createdAt": "2026-06-01T08:00:00Z", "updatedAt": "2026-09-20T18:00:00Z" }
+  ],
+  "exchangeRates": [
+    { "baseCurrency": "AED", "currency": "USD", "rate": 0.272294, "manualOverride": true },
+    { "baseCurrency": "USD", "currency": "AED", "rate": 3.6725, "manualOverride": true }
+  ],
+  "plannedPaymentRules": [
+    { "id": "50000000-0000-4000-8000-000000000001", "startDate": "2026-10-25T08:00:00Z", "intervalN": 1, "intervalType": "MONTH", "oneTime": false, "type": "INCOME", "accountId": "10000000-0000-4000-8000-000000000002", "amount": 15000.0, "categoryId": "20000000-0000-4000-8000-000000000001", "title": "Salary", "description": "Monthly salary", "isSynced": false, "isDeleted": false },
+    { "id": "50000000-0000-4000-8000-000000000002", "startDate": "2026-11-01T08:00:00Z", "intervalN": 1, "intervalType": "MONTH", "oneTime": false, "type": "EXPENSE", "accountId": "10000000-0000-4000-8000-000000000002", "amount": 4500.0, "categoryId": "20000000-0000-4000-8000-000000000006", "title": "Apartment rent", "description": "Monthly rent", "isSynced": false, "isDeleted": false },
+    { "id": "50000000-0000-4000-8000-000000000003", "startDate": "2026-10-25T08:00:00Z", "intervalN": 1, "intervalType": "MONTH", "oneTime": false, "type": "EXPENSE", "accountId": "10000000-0000-4000-8000-000000000002", "amount": 349.0, "categoryId": "20000000-0000-4000-8000-000000000006", "title": "Home internet", "description": "Home internet subscription", "isSynced": false, "isDeleted": false },
+    { "id": "50000000-0000-4000-8000-000000000004", "startDate": "2026-11-05T08:00:00Z", "intervalN": 1, "intervalType": "MONTH", "oneTime": false, "type": "EXPENSE", "accountId": "10000000-0000-4000-8000-000000000002", "amount": 220.0, "categoryId": "20000000-0000-4000-8000-000000000008", "title": "Gym membership", "description": "Monthly gym membership", "isSynced": false, "isDeleted": false },
+    { "id": "50000000-0000-4000-8000-000000000005", "startDate": "2027-04-01T08:00:00Z", "intervalN": null, "intervalType": null, "oneTime": true, "type": "EXPENSE", "accountId": "10000000-0000-4000-8000-000000000003", "amount": 6000.0, "categoryId": "20000000-0000-4000-8000-000000000007", "title": "MacBook Air", "description": "Goal purchase", "isSynced": false, "isDeleted": false }
+  ],
+  "loans": [
+    { "id": "60000000-0000-4000-8000-000000000001", "name": "Alex personal loan", "amount": 3000.0, "type": "LEND", "color": -5573920, "icon": "loan", "orderNum": 0.0, "accountId": "10000000-0000-4000-8000-000000000003", "note": "Alex will repay in three instalments.", "dateTime": "2026-09-07T12:00:00Z", "isSynced": false, "isDeleted": false },
+    { "id": "60000000-0000-4000-8000-000000000002", "name": "Student loan", "amount": 15000.0, "type": "BORROW", "color": -14261632, "icon": "loan", "orderNum": 1.0, "accountId": "10000000-0000-4000-8000-000000000002", "note": "Remaining education loan balance.", "dateTime": "2026-09-01T12:00:00Z", "isSynced": false, "isDeleted": false }
+  ],
+  "loanRecords": [
+    { "id": "61000000-0000-4000-8000-000000000001", "loanId": "60000000-0000-4000-8000-000000000001", "amount": 3000.0, "note": "Initial amount lent", "dateTime": "2026-09-07T12:00:00Z", "interest": false, "accountId": "10000000-0000-4000-8000-000000000003", "convertedAmount": 3000.0, "loanRecordType": "INCREASE", "isSynced": false, "isDeleted": false },
+    { "id": "61000000-0000-4000-8000-000000000002", "loanId": "60000000-0000-4000-8000-000000000002", "amount": 500.0, "note": "October repayment", "dateTime": "2026-10-08T12:00:00Z", "interest": false, "accountId": "10000000-0000-4000-8000-000000000002", "convertedAmount": 500.0, "loanRecordType": "DECREASE", "isSynced": false, "isDeleted": false }
+  ],
+  "tags": [
+    { "id": "70000000-0000-4000-8000-000000000001", "name": "Recurring", "description": "Repeats or is expected every month.", "color": -5573920, "icon": "repeat", "orderNum": 0.0, "dateTime": "2026-09-01T08:00:00Z", "isDeleted": false, "lastSyncedTime": "2026-09-01T08:00:00Z" },
+    { "id": "70000000-0000-4000-8000-000000000002", "name": "Work", "description": "Work-related income or expenses.", "color": -15414114, "icon": "work", "orderNum": 1.0, "dateTime": "2026-09-01T08:00:00Z", "isDeleted": false, "lastSyncedTime": "2026-09-01T08:00:00Z" },
+    { "id": "70000000-0000-4000-8000-000000000003", "name": "Review", "description": "Needs a second look before publishing a screenshot.", "color": -49056, "icon": "flag", "orderNum": 2.0, "dateTime": "2026-09-01T08:00:00Z", "isDeleted": false, "lastSyncedTime": "2026-09-01T08:00:00Z" }
+  ],
+  "tagAssociations": [
+    { "tagId": "70000000-0000-4000-8000-000000000001", "associatedId": "80000000-0000-4000-8000-000000000007", "lastSyncedTime": "2026-09-01T08:00:00Z", "isDeleted": false },
+    { "tagId": "70000000-0000-4000-8000-000000000002", "associatedId": "80000000-0000-4000-8000-000000000012", "lastSyncedTime": "2026-09-01T08:00:00Z", "isDeleted": false },
+    { "tagId": "70000000-0000-4000-8000-000000000003", "associatedId": "80000000-0000-4000-8000-000000000034", "lastSyncedTime": "2026-10-16T12:00:00Z", "isDeleted": false }
+  ],
+  "categoryRules": [
+    { "id": "rule-carrefour", "categoryId": "20000000-0000-4000-8000-000000000004", "pattern": "carrefour", "field": "TITLE", "matchType": "CONTAINS_CASE_INSENSITIVE", "priority": 100, "isActive": true },
+    { "id": "rule-careem", "categoryId": "20000000-0000-4000-8000-000000000005", "pattern": "careem", "field": "TITLE", "matchType": "CONTAINS_CASE_INSENSITIVE", "priority": 90, "isActive": true },
+    { "id": "rule-netflix", "categoryId": "20000000-0000-4000-8000-000000000009", "pattern": "netflix", "field": "TITLE", "matchType": "CONTAINS_CASE_INSENSITIVE", "priority": 80, "isActive": true },
+    { "id": "rule-disabled", "categoryId": "20000000-0000-4000-8000-000000000011", "pattern": "old vendor", "field": "TITLE", "matchType": "CONTAINS_CASE_INSENSITIVE", "priority": 1, "isActive": false }
+  ],
+  "transactions": [
+    { "id": "80000000-0000-4000-8000-000000000001", "accountId": "10000000-0000-4000-8000-000000000001", "type": "INCOME", "amount": 800.0, "title": "Opening balance", "description": "Seed balance", "dateTime": "2026-09-01T08:00:00Z", "categoryId": null },
+    { "id": "80000000-0000-4000-8000-000000000002", "accountId": "10000000-0000-4000-8000-000000000002", "type": "INCOME", "amount": 7000.0, "title": "Opening balance", "description": "Seed balance", "dateTime": "2026-09-01T08:01:00Z", "categoryId": null },
+    { "id": "80000000-0000-4000-8000-000000000003", "accountId": "10000000-0000-4000-8000-000000000003", "type": "INCOME", "amount": 12000.0, "title": "Opening balance", "description": "Seed balance", "dateTime": "2026-09-01T08:02:00Z", "categoryId": null },
+    { "id": "80000000-0000-4000-8000-000000000004", "accountId": "10000000-0000-4000-8000-000000000004", "type": "INCOME", "amount": 10000.0, "title": "Opening balance", "description": "Seed balance", "dateTime": "2026-09-01T08:03:00Z", "categoryId": null },
+    { "id": "80000000-0000-4000-8000-000000000005", "accountId": "10000000-0000-4000-8000-000000000005", "type": "INCOME", "amount": 250.0, "title": "Opening balance", "description": "Seed balance", "dateTime": "2026-09-01T08:04:00Z", "categoryId": null },
+    { "id": "80000000-0000-4000-8000-000000000006", "accountId": "10000000-0000-4000-8000-000000000006", "type": "INCOME", "amount": 25000.0, "title": "Opening balance", "description": "Excluded investment balance", "dateTime": "2026-09-01T08:05:00Z", "categoryId": null },
+    { "id": "80000000-0000-4000-8000-000000000007", "accountId": "10000000-0000-4000-8000-000000000002", "type": "INCOME", "amount": 15000.0, "title": "Salary", "description": "September salary", "dateTime": "2026-09-01T09:00:00Z", "categoryId": "20000000-0000-4000-8000-000000000001" },
+    { "id": "80000000-0000-4000-8000-000000000008", "accountId": "10000000-0000-4000-8000-000000000002", "type": "EXPENSE", "amount": 4500.0, "title": "Apartment rent", "description": "September rent", "dateTime": "2026-09-02T08:00:00Z", "categoryId": "20000000-0000-4000-8000-000000000006" },
+    { "id": "80000000-0000-4000-8000-000000000009", "accountId": "10000000-0000-4000-8000-000000000002", "type": "EXPENSE", "amount": 420.0, "title": "Carrefour groceries", "description": "Weekly groceries", "dateTime": "2026-09-03T18:30:00Z", "categoryId": "20000000-0000-4000-8000-000000000004" },
+    { "id": "80000000-0000-4000-8000-000000000010", "accountId": "10000000-0000-4000-8000-000000000001", "type": "EXPENSE", "amount": 24.0, "title": "Coffee", "description": "Morning coffee", "dateTime": "2026-09-05T08:15:00Z", "categoryId": "20000000-0000-4000-8000-000000000003" },
+    { "id": "80000000-0000-4000-8000-000000000011", "accountId": "10000000-0000-4000-8000-000000000002", "type": "EXPENSE", "amount": 85.0, "title": "Careem metro", "description": "Commute", "dateTime": "2026-09-06T07:45:00Z", "categoryId": "20000000-0000-4000-8000-000000000005" },
+    { "id": "80000000-0000-4000-8000-000000000012", "accountId": "10000000-0000-4000-8000-000000000003", "type": "INCOME", "amount": 2200.0, "title": "Freelance design", "description": "Website design milestone", "dateTime": "2026-09-08T13:00:00Z", "categoryId": "20000000-0000-4000-8000-000000000002" },
+    { "id": "80000000-0000-4000-8000-000000000013", "accountId": "10000000-0000-4000-8000-000000000002", "type": "EXPENSE", "amount": 349.0, "title": "Home internet", "description": "Monthly internet bill", "dateTime": "2026-09-10T10:00:00Z", "categoryId": "20000000-0000-4000-8000-000000000006" },
+    { "id": "80000000-0000-4000-8000-000000000014", "accountId": "10000000-0000-4000-8000-000000000003", "type": "EXPENSE", "amount": 1200.0, "title": "Laptop deposit", "description": "First MacBook contribution", "dateTime": "2026-09-12T16:00:00Z", "categoryId": "20000000-0000-4000-8000-000000000007" },
+    { "id": "80000000-0000-4000-8000-000000000015", "accountId": "10000000-0000-4000-8000-000000000001", "type": "EXPENSE", "amount": 180.0, "title": "Dinner with friends", "description": "Friday dinner", "dateTime": "2026-09-14T20:30:00Z", "categoryId": "20000000-0000-4000-8000-000000000003" },
+    { "id": "80000000-0000-4000-8000-000000000016", "accountId": "10000000-0000-4000-8000-000000000002", "type": "EXPENSE", "amount": 220.0, "title": "Pharmacy", "description": "Prescription and vitamins", "dateTime": "2026-09-16T12:00:00Z", "categoryId": "20000000-0000-4000-8000-000000000008" },
+    { "id": "80000000-0000-4000-8000-000000000017", "accountId": "10000000-0000-4000-8000-000000000002", "type": "TRANSFER", "amount": 3000.0, "toAccountId": "10000000-0000-4000-8000-000000000003", "toAmount": 3000.0, "title": "Move to savings", "description": "Monthly savings transfer", "dateTime": "2026-09-18T09:00:00Z", "categoryId": null },
+    { "id": "80000000-0000-4000-8000-000000000018", "accountId": "10000000-0000-4000-8000-000000000001", "type": "EXPENSE", "amount": 150.0, "title": "Cinema", "description": "Movie night", "dateTime": "2026-09-20T19:00:00Z", "categoryId": "20000000-0000-4000-8000-000000000009" },
+    { "id": "80000000-0000-4000-8000-000000000019", "accountId": "10000000-0000-4000-8000-000000000002", "type": "EXPENSE", "amount": 365.0, "title": "Carrefour groceries", "description": "Weekly groceries", "dateTime": "2026-09-22T18:00:00Z", "categoryId": "20000000-0000-4000-8000-000000000004" },
+    { "id": "80000000-0000-4000-8000-000000000020", "accountId": "10000000-0000-4000-8000-000000000002", "type": "INCOME", "amount": 15000.0, "title": "Salary", "description": "September salary adjustment", "dateTime": "2026-09-25T09:00:00Z", "categoryId": "20000000-0000-4000-8000-000000000001" },
+    { "id": "80000000-0000-4000-8000-000000000021", "accountId": "10000000-0000-4000-8000-000000000002", "type": "EXPENSE", "amount": 410.0, "title": "DEWA utilities", "description": "Electricity and water", "dateTime": "2026-09-27T10:00:00Z", "categoryId": "20000000-0000-4000-8000-000000000006" },
+    { "id": "80000000-0000-4000-8000-000000000022", "accountId": "10000000-0000-4000-8000-000000000003", "type": "EXPENSE", "amount": 950.0, "title": "Weekend in Muscat", "description": "Travel booking", "dateTime": "2026-09-29T14:00:00Z", "categoryId": "20000000-0000-4000-8000-000000000010" },
+    { "id": "80000000-0000-4000-8000-000000000023", "accountId": "10000000-0000-4000-8000-000000000002", "type": "EXPENSE", "amount": 4500.0, "title": "Apartment rent", "description": "October rent", "dateTime": "2026-10-01T08:00:00Z", "categoryId": "20000000-0000-4000-8000-000000000006" },
+    { "id": "80000000-0000-4000-8000-000000000024", "accountId": "10000000-0000-4000-8000-000000000002", "type": "INCOME", "amount": 15000.0, "title": "Salary", "description": "October salary", "dateTime": "2026-10-02T09:00:00Z", "categoryId": "20000000-0000-4000-8000-000000000001" },
+    { "id": "80000000-0000-4000-8000-000000000025", "accountId": "10000000-0000-4000-8000-000000000002", "type": "EXPENSE", "amount": 510.0, "title": "Carrefour groceries", "description": "Monthly grocery run", "dateTime": "2026-10-03T18:30:00Z", "categoryId": "20000000-0000-4000-8000-000000000004" },
+    { "id": "80000000-0000-4000-8000-000000000026", "accountId": "10000000-0000-4000-8000-000000000001", "type": "EXPENSE", "amount": 26.0, "title": "Coffee", "description": "Morning coffee", "dateTime": "2026-10-04T08:15:00Z", "categoryId": "20000000-0000-4000-8000-000000000003" },
+    { "id": "80000000-0000-4000-8000-000000000027", "accountId": "10000000-0000-4000-8000-000000000002", "type": "EXPENSE", "amount": 110.0, "title": "Careem commute", "description": "Office commute", "dateTime": "2026-10-05T07:45:00Z", "categoryId": "20000000-0000-4000-8000-000000000005" },
+    { "id": "80000000-0000-4000-8000-000000000028", "accountId": "10000000-0000-4000-8000-000000000005", "type": "EXPENSE", "amount": 42.5, "title": "Travel card purchase", "description": "Airport transfer", "dateTime": "2026-10-06T11:00:00Z", "categoryId": "20000000-0000-4000-8000-000000000010" },
+    { "id": "80000000-0000-4000-8000-000000000029", "accountId": "10000000-0000-4000-8000-000000000002", "type": "EXPENSE", "amount": 180.0, "title": "Pharmacy", "description": "Prescription refill", "dateTime": "2026-10-07T12:00:00Z", "categoryId": "20000000-0000-4000-8000-000000000008" },
+    { "id": "80000000-0000-4000-8000-000000000030", "accountId": "10000000-0000-4000-8000-000000000003", "type": "EXPENSE", "amount": 650.0, "title": "Home office chair", "description": "Ergonomic desk upgrade", "dateTime": "2026-10-09T16:00:00Z", "categoryId": "20000000-0000-4000-8000-000000000007" },
+    { "id": "80000000-0000-4000-8000-000000000031", "accountId": "10000000-0000-4000-8000-000000000001", "type": "EXPENSE", "amount": 210.0, "title": "Dinner with friends", "description": "Weekend dinner", "dateTime": "2026-10-11T20:30:00Z", "categoryId": "20000000-0000-4000-8000-000000000003" },
+    { "id": "80000000-0000-4000-8000-000000000032", "accountId": "10000000-0000-4000-8000-000000000002", "type": "EXPENSE", "amount": 395.0, "title": "DEWA utilities", "description": "Electricity and water", "dateTime": "2026-10-13T10:00:00Z", "categoryId": "20000000-0000-4000-8000-000000000006" },
+    { "id": "80000000-0000-4000-8000-000000000033", "accountId": "10000000-0000-4000-8000-000000000002", "type": "TRANSFER", "amount": 1500.0, "toAccountId": "10000000-0000-4000-8000-000000000004", "toAmount": 1500.0, "title": "Emergency fund reserve", "description": "Reserve money for emergency fund", "dateTime": "2026-10-15T09:00:00Z", "categoryId": null },
+    { "id": "80000000-0000-4000-8000-000000000034", "accountId": "10000000-0000-4000-8000-000000000003", "type": "INCOME", "amount": 800.0, "title": "Freelance design", "description": "October design milestone", "dateTime": "2026-10-16T09:00:00Z", "categoryId": "20000000-0000-4000-8000-000000000002" }
+  ],
+  "derivedForRendering": {
+    "asOf": "2026-10-16T12:00:00+04:00",
+    "baseCurrency": "AED",
+    "includedBalance": 53128.54,
+    "excludedBalance": 25000.0,
+    "totalBalance": 78128.54,
+    "monthlyIncomeSeptember": 32200.0,
+    "monthlyExpensesSeptember": 8853.0,
+    "monthlySavingsSeptember": 23347.0,
+    "monthlyIncomeOctober": 15800.0,
+    "monthlyExpensesOctober": 6623.5,
+    "monthlySavingsOctober": 9176.5,
+    "reservedForGoalsAedEquivalent": 28934.5,
+    "availableAfterReservationsAedEquivalent": 24194.04,
+    "safeToSpendAed": 19194.04,
+    "goalProgress": {
+      "Emergency Fund": { "reserved": 23000.0, "remaining": 7000.0, "requiredMonthly": 875.0, "status": "Needs AED 875/month" },
+      "MacBook Air": { "reserved": 4000.0, "remaining": 2000.0, "requiredMonthly": 333.33, "status": "Needs AED 333.33/month" },
+      "Japan Trip": { "reserved": 1400.0, "remaining": 6600.0, "requiredMonthly": 550.0, "status": "Needs AED 550/month" },
+      "New Phone": { "reserved": 2500.0, "remaining": 0.0, "requiredMonthly": null, "status": "Complete" }
+    },
+    "accountBalances": {
+      "Cash": { "currency": "AED", "balance": 210.0, "reserved": 0.0, "available": 210.0 },
+      "Bank - ADCB": { "currency": "AED", "balance": 35456.0, "reserved": 6200.0, "available": 29256.0 },
+      "Bank - Liv": { "currency": "AED", "balance": 15200.0, "reserved": 12000.0, "available": 3200.0 },
+      "Emergency Fund": { "currency": "AED", "balance": 11500.0, "reserved": 10000.0, "available": 1500.0 },
+      "Travel Card": { "currency": "USD", "balance": 207.5, "reserved": 200.0, "available": 7.5 },
+      "Long-term Investments": { "currency": "AED", "balance": 25000.0, "reserved": 0.0, "available": 25000.0, "includedInBalance": false }
+    },
+    "topSpendingCategoriesOctober": [
+      { "category": "Bills & Fees", "amount": 4895.0, "percentage": 73.89 },
+      { "category": "Shopping", "amount": 650.0, "percentage": 9.81 },
+      { "category": "Groceries", "amount": 510.0, "percentage": 7.70 },
+      { "category": "Other", "amount": 568.5, "percentage": 8.59 }
+    ],
+    "trendAnchors": {
+      "7D": ["2026-10-10", "2026-10-11", "2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16"],
+      "30D": ["2026-09-17", "2026-09-24", "2026-10-01", "2026-10-08", "2026-10-15"],
+      "3M": ["2026-08", "2026-09", "2026-10"],
+      "6M": ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"],
+      "12M": ["2025-11", "2025-12", "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"]
+    }
+  }
+}

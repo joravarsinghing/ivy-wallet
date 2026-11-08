@@ -1,0 +1,23 @@
+{
+  "product": "Jvy Wallet",
+  "version": "0.7.0",
+  "versionCode": 232,
+  "tag": "v0.7.0",
+  "channel": "prerelease",
+  "applicationId": "com.ivy.wallet",
+  "minSdk": 28,
+  "targetSdk": 34,
+  "variant": "release",
+  "applicationSourceCommit": "7768a762436d6ab3f4597063142325a310fd5edc",
+  "artifact": "Jvy_wallet_v0.7.0.apk",
+  "bytes": 12698906,
+  "sha256": "c73edba15968c3872ef766b6c83da2dca6bfb0ec623ac2e8aa5a88405faef319",
+  "signingCertificateSha256": "dd82b70f91c5ac598f68f4e5ddce7e47eca8ab65b9d5c20a7638350503088b50",
+  "debuggable": false,
+  "focusedCasesPassed": 336,
+  "focusedSuitesPassed": 24,
+  "finalFollowUpCasesPassed": 86,
+  "deviceUpgradeTested": false,
+  "financialDatabaseMigration": false,
+  "backupSchemaMigration": false
+}

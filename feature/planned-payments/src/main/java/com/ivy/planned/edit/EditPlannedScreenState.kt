@@ -33,5 +33,7 @@ data class EditPlannedScreenState(
     val accountModalData: AccountModalData?,
     val recurringRuleModalData: RecurringRuleModalData?,
     val transactionTypeModalVisible: Boolean,
-    val amountModalVisible: Boolean
+    val amountModalVisible: Boolean,
+    val saving: Boolean = false,
+    val saveError: String? = null,
 )

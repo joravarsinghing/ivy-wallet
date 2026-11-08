@@ -9,6 +9,19 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,7 +31,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,6 +43,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
@@ -47,7 +62,6 @@ import androidx.compose.ui.unit.sp
 import com.ivy.legacy.datamodel.Account
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
-import com.ivy.frp.test.TestingContext
 import com.ivy.legacy.IvyWalletPreview
 import com.ivy.legacy.ivyWalletCtx
 import com.ivy.legacy.utils.addKeyboardListener
@@ -115,416 +129,63 @@ fun BoxWithConstraintsScope.EditBottomSheet(
     modifier: Modifier = Modifier, // Modifier comes after other parameters
     convertedAmount: Double? = null,
     convertedAmountCurrencyCode: String? = null,
+    Header: @Composable () -> Unit = {},
+    FormContent: @Composable ColumnScope.() -> Unit = {},
+    formScrollState: ScrollState = rememberScrollState(),
+    saveError: String? = null,
 ) {
-    val rootView = LocalView.current
-    var keyboardShown by remember { mutableStateOf(false) }
-
-    onScreenStart {
-        rootView.addKeyboardListener {
-            keyboardShown = it
-        }
+    val label = when (type) {
+        TransactionType.INCOME -> stringResource(R.string.add_money_to)
+        TransactionType.EXPENSE -> stringResource(R.string.pay_with)
+        TransactionType.TRANSFER -> stringResource(R.string.from)
     }
-
-    val keyboardShownInsetDp by animateDpAsState(
-        targetValue = densityScope {
-            if (keyboardShown) keyboardOnlyWindowInsets().bottom.toDp() else 0.dp
-        },
-        animationSpec = tween(DURATION_MODAL_ANIM)
-    )
-    val navBarPadding by animateDpAsState(
-        targetValue = densityScope {
-            if (keyboardShown) 0.dp else navigationBarInsets().bottom.toDp()
-        },
-        animationSpec = tween(DURATION_MODAL_ANIM)
-    )
-
-    var bottomBarHeight by remember { mutableIntStateOf(0) }
-
-    var internalExpanded by remember { mutableStateOf(true) }
-    val expanded = internalExpanded && !keyboardShown
-
-    val percentExpanded by animateFloatAsState(
-        targetValue = if (expanded) 1f else 0f,
-        animationSpec = springBounce()
-    )
-    val percentCollapsed = 1f - percentExpanded
-
-    val showConvertedAmountText by remember(convertedAmount) {
-        if (type == TransactionType.TRANSFER && convertedAmount != null && convertedAmountCurrencyCode != null) {
-            mutableStateOf(
-                "${
-                    convertedAmount.format(
-                        IvyCurrency.getDecimalPlaces(
-                            convertedAmountCurrencyCode
-                        )
-                    )
-                } $convertedAmountCurrencyCode"
-            )
-        } else {
-            mutableStateOf(null)
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .align(Alignment.BottomCenter)
-            .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(top = 24.dp)
-//            .drawColoredShadow(
-//                color = UI.colors.mediumInverse,
-//                alpha = if (UI.colors.isLight) 0.3f else 0.2f,
-//                borderRadius = 24.dp,
-//                shadowRadius = 24.dp
-//            )
-            .border(
-                width = 2.dp,
-                color = UI.colors.medium,
-                shape = UI.shapes.r2Top
-            )
-            .background(UI.colors.pure, UI.shapes.r2Top)
-            .verticalSwipeListener(
-                sensitivity = SWIPE_UP_EXPANDED_THRESHOLD,
-                state = rememberSwipeListenerState(),
-                onSwipeUp = {
-                    hideKeyboard(rootView)
-                    internalExpanded = true
-                },
-                onSwipeDown = {
-                    internalExpanded = false
+    Box(modifier.fillMaxSize().safeDrawingPadding().imePadding(), contentAlignment = Alignment.TopCenter) {
+        Column(Modifier.widthIn(max = 640.dp).fillMaxSize()) {
+            Header()
+            Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(formScrollState)) {
+                Text(label, Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                    style = com.ivy.design.system.JvyTypography.SectionTitle)
+                AccountsRow(accounts, selectedAccount, onSelectedAccountChanged,
+                    childrenTestTag = "from_account", onAddNewAccount = onAddNewAccount)
+                if (type == TransactionType.TRANSFER) {
+                    Text(stringResource(R.string.to), Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                        style = com.ivy.design.system.JvyTypography.SectionTitle)
+                    AccountsRow(accounts, toAccount, onToAccountChanged,
+                        childrenTestTag = "to_account", onAddNewAccount = onAddNewAccount)
                 }
-            )
-            .consumeClicks(rememberInteractionSource())
-    ) {
-        // Accounts label
-        val label = when (type) {
-            TransactionType.INCOME -> stringResource(R.string.add_money_to)
-            TransactionType.EXPENSE -> stringResource(R.string.pay_with)
-            TransactionType.TRANSFER -> stringResource(R.string.from)
-        }
-
-        SheetHeader(
-            percentExpanded = percentExpanded,
-            label = label,
-            type = type,
-            accounts = accounts,
-            selectedAccount = selectedAccount,
-            toAccount = toAccount,
-            onSelectedAccountChanged = onSelectedAccountChanged,
-            onToAccountChanged = onToAccountChanged,
-            onAddNewAccount = onAddNewAccount
-        )
-
-        val spacerAboveAmount = lerp(40, 16, percentCollapsed)
-        Spacer(Modifier.height(spacerAboveAmount.dp))
-
-        if (type == TransactionType.TRANSFER && percentExpanded < 1f) {
-            TransferRowMini(
-                percentCollapsed = percentCollapsed,
-                fromAccount = selectedAccount,
-                toAccount = toAccount,
-                onSetExpanded = {
-                    internalExpanded = true
+                com.ivy.design.system.JvyOutlinedButton({ setAmountModalShown(true) },
+                    Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) {
+                    Text(if (amount.isFinite()) com.ivy.ui.money.formatDecimalMoney(amount.toBigDecimal(), currency) else "Enter a valid amount.",
+                        style = com.ivy.design.system.JvyTypography.Amount)
                 }
-            )
+                if (type == TransactionType.TRANSFER && convertedAmount != null && convertedAmount.isFinite() && convertedAmountCurrencyCode != null) {
+                    Text(com.ivy.ui.money.formatDecimalMoney(convertedAmount.toBigDecimal(), convertedAmountCurrencyCode),
+                        Modifier.padding(horizontal = 24.dp), style = com.ivy.design.system.JvyTypography.Supporting)
+                }
+                FormContent()
+                Spacer(Modifier.height(24.dp))
+            }
+            androidx.compose.material3.HorizontalDivider()
+            saveError?.let { Text(it, Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                .semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite },
+                color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                style = com.ivy.design.system.JvyTypography.Supporting) }
+            Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.End) { ActionButton() }
         }
-
-        Amount(
-            type = type,
-            amount = amount,
-            currency = currency,
-            label = label,
-            account = selectedAccount,
-            showConvertedAmountText = showConvertedAmountText,
-            percentExpanded = percentExpanded,
-            onShowAmountModal = {
-                setAmountModalShown(true)
-            },
-            onAccountMiniClick = {
-                hideKeyboard(rootView)
-                internalExpanded = true
-            },
-        )
-
-        val lastSpacer = lerp(20f, 8f, percentCollapsed)
-        if (lastSpacer > 0) {
-            Spacer(Modifier.height(lastSpacer.dp))
-        }
-//
-        // system stuff + keyboard padding
-        Spacer(Modifier.height(densityScope { bottomBarHeight.toDp() }))
-        Spacer(Modifier.height(keyboardShownInsetDp))
     }
-
-    BottomBar(
-        keyboardShown = keyboardShown,
-        expanded = expanded,
-        internalExpanded = internalExpanded,
-        setInternalExpanded = {
-            internalExpanded = it
-        },
-        setBottomBarHeight = {
-            bottomBarHeight = it
-        },
-
-        keyboardShownInsetDp = keyboardShownInsetDp,
-        navBarPadding = navBarPadding,
-
-        ActionButton = ActionButton
-    )
-
-    val amountModalId = remember(initialTransactionId, amount) {
-        UUID.randomUUID()
-    }
-    AmountModal(
-        id = amountModalId,
-        visible = amountModalShown,
-        currency = currency,
+    val amountModalId = remember(initialTransactionId) { UUID.randomUUID() }
+    AmountModal(id = amountModalId, visible = amountModalShown, currency = currency,
         initialAmount = amount.takeIf { it > 0 },
         Header = {
-            Spacer(Modifier.height(24.dp))
-
-            Text(
-                modifier = Modifier.padding(start = 32.dp),
-                text = stringResource(R.string.account),
-                style = UI.typo.b1.style(
-                    color = UI.colors.pureInverse,
-                    fontWeight = FontWeight.ExtraBold
-                )
-            )
-
-            Spacer(Modifier.height(16.dp))
-
-            AccountsRow(
-                accounts = accounts,
-                selectedAccount = selectedAccount,
-                onSelectedAccountChanged = onSelectedAccountChanged,
-                onAddNewAccount = onAddNewAccount,
-                childrenTestTag = "amount_modal_account"
-            )
+            Text(stringResource(R.string.account), Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                style = com.ivy.design.system.JvyTypography.SectionTitle)
+            AccountsRow(accounts, selectedAccount, onSelectedAccountChanged,
+                childrenTestTag = "amount_modal_account", onAddNewAccount = onAddNewAccount)
         },
-        amountSpacerTop = 48.dp,
-        dismiss = {
-            setAmountModalShown(false)
-        }
-    ) {
-        onAmountChanged(it)
-    }
+        amountSpacerTop = 24.dp, dismiss = { setAmountModalShown(false) },
+        onAmountChanged = onAmountChanged)
 }
-
-@Composable
-private fun BottomBar(
-    keyboardShown: Boolean,
-    keyboardShownInsetDp: Dp,
-    setBottomBarHeight: (Int) -> Unit,
-    expanded: Boolean,
-    internalExpanded: Boolean,
-    setInternalExpanded: (Boolean) -> Unit,
-    navBarPadding: Dp,
-    ActionButton: @Composable () -> Unit
-) {
-    val ivyContext = ivyWalletCtx()
-
-    ActionsRow(
-        modifier = Modifier
-            .onSizeChanged {
-                setBottomBarHeight(it.height)
-            }
-            .layout { measurable, constraints ->
-                val placeable = measurable.measure(constraints)
-
-                val systemOffsetBottom = keyboardShownInsetDp.toPx()
-                val visibleHeight = placeable.height * 1f
-                val y = ivyContext.screenHeight - visibleHeight - systemOffsetBottom
-
-                layout(placeable.width, placeable.height) {
-                    placeable.place(
-                        0,
-                        y.roundToInt()
-                    )
-                }
-            }
-//            .gradientCutBackground()
-            .padding(bottom = 12.dp)
-            .padding(bottom = navBarPadding),
-        lineColor = UI.colors.medium
-    ) {
-        Spacer(Modifier.width(24.dp))
-
-        val expandRotation by animateFloatAsState(
-            targetValue = if (expanded) 0f else -180f,
-            animationSpec = springBounce()
-        )
-
-        val rootView = LocalView.current
-        CircleButton(
-            modifier = Modifier.rotate(expandRotation),
-            icon = R.drawable.ic_expand_more,
-        ) {
-            setInternalExpanded(!internalExpanded || keyboardShown)
-            hideKeyboard(rootView)
-        }
-
-        Spacer(Modifier.weight(1f))
-
-        ActionButton()
-
-        Spacer(Modifier.width(24.dp))
-    }
-}
-
-@Composable
-@Suppress("ParameterNaming", "MultipleEmitters")
-private fun TransferRowMini(
-    percentCollapsed: Float,
-    fromAccount: Account?,
-    toAccount: Account?,
-    onSetExpanded: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .layout { measurable, constraints ->
-                val placeable = measurable.measure(constraints)
-
-                val height = placeable.height * (percentCollapsed)
-
-                layout(placeable.width, height.roundToInt()) {
-                    placeable.placeRelative(
-                        x = 0,
-                        y = 0
-                    )
-                }
-            }
-            .alpha(percentCollapsed)
-            .clickableNoIndication(rememberInteractionSource()) {
-                onSetExpanded()
-            },
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Spacer(Modifier.width(24.dp))
-
-        val fromColor = fromAccount?.color?.toComposeColor() ?: Ivy
-        val fromContrastColor = findContrastTextColor(fromColor)
-        IvyButton(
-            text = fromAccount?.name ?: "Null",
-            iconStart = R.drawable.ic_accounts,
-            backgroundGradient = Gradient.solid(fromColor),
-            iconTint = fromContrastColor,
-            textStyle = UI.typo.b2.style(
-                color = fromContrastColor,
-                fontWeight = FontWeight.ExtraBold
-            ),
-            padding = 10.dp,
-        ) {
-            onSetExpanded()
-        }
-
-        IvyIcon(
-            icon = R.drawable.ic_arrow_right,
-            tint = UI.colors.pureInverse
-        )
-
-        val toColor = toAccount?.color?.toComposeColor() ?: Ivy
-        val toContrastColor = findContrastTextColor(toColor)
-        IvyButton(
-            text = toAccount?.name ?: "Null",
-            iconStart = R.drawable.ic_accounts,
-            backgroundGradient = Gradient.solid(toColor),
-            iconTint = toContrastColor,
-            textStyle = UI.typo.b2.style(
-                color = toContrastColor,
-                fontWeight = FontWeight.ExtraBold
-            ),
-            padding = 10.dp,
-        ) {
-            onSetExpanded()
-        }
-    }
-
-    val transferMiniBottomSpacer = 20 * percentCollapsed
-    if (transferMiniBottomSpacer > 0f) {
-        Spacer(modifier = Modifier.height(transferMiniBottomSpacer.dp))
-    }
-}
-
-@Composable
-@Suppress("ParameterNaming")
-private fun SheetHeader(
-    percentExpanded: Float,
-    label: String,
-    type: TransactionType,
-    accounts: List<Account>,
-    selectedAccount: Account?,
-    toAccount: Account?,
-    onSelectedAccountChanged: (Account) -> Unit,
-    onToAccountChanged: (Account) -> Unit,
-    onAddNewAccount: () -> Unit,
-) {
-    if (percentExpanded > 0.01f) {
-        Column(
-            modifier = Modifier
-                .layout { measurable, constraints ->
-                    val placeable = measurable.measure(constraints)
-
-//                    val x = lerp(0, ivyContext.screenWidth, (1f - percentExpanded))
-                    val height = placeable.height * percentExpanded
-
-                    layout(placeable.width, height.roundToInt()) {
-                        placeable.placeRelative(
-                            x = 0,
-                            y = -(height * (1f - percentExpanded)).roundToInt(),
-                        )
-                    }
-                }
-                .alpha(percentExpanded)
-        ) {
-            Spacer(Modifier.height(32.dp))
-
-            Text(
-                modifier = Modifier.padding(start = 32.dp),
-                text = label,
-                style = UI.typo.b1.style(
-                    color = UI.colors.pureInverse,
-                    fontWeight = FontWeight.ExtraBold
-                )
-            )
-
-            Spacer(Modifier.height(if (type == TransactionType.TRANSFER) 8.dp else 16.dp))
-
-            AccountsRow(
-                accounts = accounts,
-                selectedAccount = selectedAccount,
-                onSelectedAccountChanged = onSelectedAccountChanged,
-                onAddNewAccount = onAddNewAccount,
-                childrenTestTag = "from_account"
-            )
-
-            if (type == TransactionType.TRANSFER) {
-                Spacer(Modifier.height(24.dp))
-
-                Text(
-                    modifier = Modifier.padding(start = 32.dp),
-                    text = stringResource(R.string.to),
-                    style = UI.typo.b1.style(
-                        color = UI.colors.pureInverse,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                )
-
-                Spacer(Modifier.height(8.dp))
-
-                AccountsRow(
-                    accounts = accounts,
-                    selectedAccount = toAccount,
-                    onSelectedAccountChanged = onToAccountChanged,
-                    onAddNewAccount = onAddNewAccount,
-                    childrenTestTag = "to_account",
-                )
-            }
-        }
-    }
-}
-
 @Composable
 @Suppress("ParameterNaming")
 private fun AccountsRow(
@@ -535,52 +196,38 @@ private fun AccountsRow(
     childrenTestTag: String? = null,
     onAddNewAccount: () -> Unit,
 ) {
-    val lazyState = rememberLazyListState()
+    val selectedIndex = selectedAccountIndex(accounts, selectedAccount?.id)
+    val lazyState = rememberLazyListState(initialFirstVisibleItemIndex = selectedIndex ?: 0)
 
-    LaunchedEffect(accounts, selectedAccount) {
-        if (selectedAccount != null) {
-            val selectedIndex = accounts.indexOf(selectedAccount)
-            if (selectedIndex != -1) {
-                launch {
-                    if (TestingContext.inTest) return@launch // breaks UI tests
-
-                    lazyState.scrollToItem(
-                        index = selectedIndex, // +1 because Spacer width 24.dp
-                    )
-                }
-            }
-        }
+    LaunchedEffect(selectedAccount?.id, selectedIndex) {
+        // Padding is not a list item. The selected account's domain index is
+        // therefore also its lazy index, including after list refresh/reorder.
+        selectedIndex?.let { lazyState.scrollToItem(it) }
     }
 
     LazyRow(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        state = lazyState
+        state = lazyState,
+        contentPadding = PaddingValues(horizontal = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        item {
-            Spacer(Modifier.width(24.dp))
-        }
-
-        itemsIndexed(accounts) { _, account ->
+        items(accounts, key = { it.id.toString() }, contentType = { "account" }) { account ->
             Account(
                 account = account,
-                selected = selectedAccount == account,
+                selected = selectedAccount?.id == account.id,
                 testTag = childrenTestTag ?: "account"
             ) {
                 onSelectedAccountChanged(account)
             }
-            Spacer(Modifier.width(8.dp))
         }
 
-        item {
+        item(key = "add_account", contentType = "action") {
             AddAccount {
                 onAddNewAccount()
             }
         }
 
-        item {
-            Spacer(Modifier.width(24.dp))
-        }
     }
 }
 
@@ -595,19 +242,18 @@ private fun Account(
     val textColor =
         if (selected) findContrastTextColor(accountColor) else UI.colors.pureInverse
 
-    val medium = UI.colors.medium
-    val rFull = UI.shapes.rFull
+    val medium = androidx.compose.material3.MaterialTheme.colorScheme.outline
+    val rFull = com.ivy.design.system.JvyShapes.Control
 
     Row(
         modifier = Modifier
-            .clip(UI.shapes.rFull)
-            .thenIf(!selected) {
-                border(2.dp, medium, rFull)
-            }
+            .widthIn(max = 272.dp)
+            .clip(com.ivy.design.system.JvyShapes.Control)
+            .border(2.dp, if (selected) textColor else medium, rFull)
             .thenIf(selected) {
                 background(accountColor, rFull)
             }
-            .clickable(onClick = onClick)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
             .testTag(testTag)
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -623,8 +269,10 @@ private fun Account(
         Spacer(Modifier.width(4.dp))
 
         Text(
-            modifier = Modifier.padding(vertical = 10.dp),
+            modifier = Modifier.weight(1f, fill = false).padding(vertical = 10.dp),
             text = account.name,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
             style = UI.typo.b2.style(
                 color = textColor,
                 fontWeight = FontWeight.ExtraBold
@@ -641,8 +289,9 @@ private fun AddAccount(
 ) {
     Row(
         modifier = Modifier
-            .clip(UI.shapes.rFull)
-            .border(2.dp, UI.colors.medium, UI.shapes.rFull)
+            .clip(com.ivy.design.system.JvyShapes.Control)
+            .border(2.dp, androidx.compose.material3.MaterialTheme.colorScheme.outline,
+                com.ivy.design.system.JvyShapes.Control)
             .clickable(onClick = onClick)
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -668,129 +317,6 @@ private fun AddAccount(
         Spacer(Modifier.width(24.dp))
     }
 }
-
-@Composable
-private fun Amount(
-    type: TransactionType,
-    amount: Double,
-    currency: String,
-    percentExpanded: Float,
-    label: String,
-    account: Account?,
-    onShowAmountModal: () -> Unit,
-    showConvertedAmountText: String? = null,
-    onAccountMiniClick: () -> Unit
-
-) {
-    Row(
-        modifier = Modifier,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        val percentCollapsed = 1f - percentExpanded
-        val balanceFontSize = lerp(40, 30, percentCollapsed)
-        val currencyFontSize = lerp(30, 18, percentCollapsed)
-
-        Spacer(Modifier.width(32.dp))
-
-        if (percentExpanded > 0.01f) {
-            Spacer(
-                Modifier.weight(
-                    (1f * percentExpanded).coerceAtLeast(0.01f)
-                )
-            )
-        }
-
-        Column {
-            BalanceRow(
-                modifier = Modifier
-                    .clickableNoIndication(rememberInteractionSource()) {
-                        onShowAmountModal()
-                    }
-                    .testTag("edit_amount_balance_row"),
-                currency = currency,
-                balance = amount,
-
-                spacerCurrency = 8.dp,
-
-                balanceFontSize = balanceFontSize.sp,
-                currencyFontSize = currencyFontSize.sp,
-
-                currencyUpfront = false
-            )
-            if (showConvertedAmountText != null) {
-                Text(
-                    text = showConvertedAmountText,
-                    style = UI.typo.nB2.style(
-                        color = UI.colors.pureInverse,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                )
-            }
-        }
-
-        Spacer(Modifier.weight(1f))
-
-        if (percentExpanded < 1f && type != TransactionType.TRANSFER) {
-            LabelAccountMini(
-                percentExpanded = percentExpanded,
-                label = label,
-                account = account,
-                onClick = onAccountMiniClick
-            )
-        }
-
-        Spacer(Modifier.width(32.dp))
-    }
-}
-
-@Composable
-private fun LabelAccountMini(
-    percentExpanded: Float,
-    label: String,
-    account: Account?,
-    onClick: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .layout { measurable, constraints ->
-                val placeable = measurable.measure(constraints)
-
-                val width = placeable.width * (1f - percentExpanded)
-
-                layout(width.roundToInt(), placeable.height) {
-                    placeable.placeRelative(
-                        x = 0,
-                        y = 0
-                    )
-                }
-            }
-            .alpha(1f - percentExpanded)
-            .clickableNoIndication(
-                interactionSource = rememberInteractionSource(),
-                onClick = onClick
-            ),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = label,
-            style = UI.typo.nC.style(
-                color = UI.colors.mediumInverse,
-                fontWeight = FontWeight.Medium
-            )
-        )
-
-        Spacer(Modifier.height(2.dp))
-
-        Text(
-            text = account?.name?.toUpperCase(Locale.getDefault()) ?: "",
-            style = UI.typo.nB2.style(
-                color = UI.colors.pureInverse,
-                fontWeight = FontWeight.ExtraBold
-            )
-        )
-    }
-}
-
 @Preview
 @Composable
 private fun Preview() {

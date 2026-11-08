@@ -1,5 +1,8 @@
 package com.ivy.transactions
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableDoubleStateOf
@@ -31,6 +34,7 @@ import com.ivy.design.l0_system.RedLight
 import com.ivy.domain.features.Features
 import com.ivy.frp.then
 import com.ivy.legacy.IvyWalletCtx
+import com.ivy.legacy.data.model.Month
 import com.ivy.legacy.data.model.TimePeriod
 import com.ivy.legacy.data.model.toCloseTimeRange
 import com.ivy.legacy.datamodel.temp.toImmutableLegacyTags
@@ -52,7 +56,9 @@ import com.ivy.wallet.domain.action.account.CalcAccIncomeExpenseAct
 import com.ivy.wallet.domain.action.exchange.ExchangeAct
 import com.ivy.wallet.domain.action.settings.BaseCurrencyAct
 import com.ivy.wallet.domain.action.transaction.LegacyCalcTrnsIncomeExpenseAct
+import com.ivy.wallet.domain.action.transaction.HistoryTrnsAct
 import com.ivy.wallet.domain.action.transaction.LegacyTrnsWithDateDivsAct
+import com.ivy.wallet.domain.action.wallet.CalcWalletBalanceAct
 import com.ivy.wallet.domain.deprecated.logic.CategoryCreator
 import com.ivy.wallet.domain.deprecated.logic.PlannedPaymentsLogic
 import com.ivy.wallet.domain.deprecated.logic.WalletAccountLogic
@@ -64,6 +70,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import java.util.UUID
 import javax.inject.Inject
 import com.ivy.legacy.datamodel.Account as LegacyAccount
@@ -85,8 +92,10 @@ class TransactionsViewModel @Inject constructor(
     private val accountsAct: AccountsAct,
     private val accTrnsAct: AccTrnsAct,
     private val trnsWithDateDivsAct: LegacyTrnsWithDateDivsAct,
+    private val historyTrnsAct: HistoryTrnsAct,
     private val baseCurrencyAct: BaseCurrencyAct,
     private val calcAccBalanceAct: CalcAccBalanceAct,
+    private val calcWalletBalanceAct: CalcWalletBalanceAct,
     private val calcAccIncomeExpenseAct: CalcAccIncomeExpenseAct,
     private val calcTrnsIncomeExpenseAct: LegacyCalcTrnsIncomeExpenseAct,
     private val exchangeAct: ExchangeAct,
@@ -96,8 +105,11 @@ class TransactionsViewModel @Inject constructor(
     private val tagRepository: TagRepository,
     private val timeProvider: TimeProvider,
     private val timeConverter: TimeConverter,
-    private val features: Features
+    private val features: Features,
+    private val restoredTransactionDao: com.ivy.data.db.dao.read.TransactionDao,
 ) : ComposeViewModel<TransactionsState, TransactionsEvent>() {
+
+    val editorModals = com.ivy.legacy.ui.EditorModalHost()
 
     private val period = mutableStateOf(ivyContext.selectedPeriod)
     private val categories = mutableStateOf<ImmutableList<Category>>(persistentListOf())
@@ -309,10 +321,11 @@ class TransactionsViewModel @Inject constructor(
             is TransactionsEvent.EditAccount -> editAccount(
                 event.screen,
                 event.account,
-                event.newBalance
+                event.newBalance,
+                event.onResult
             )
 
-            is TransactionsEvent.EditCategory -> editCategory(event.updatedCategory)
+            is TransactionsEvent.EditCategory -> editCategory(event.updatedCategory, event.onResult)
             is TransactionsEvent.NextMonth -> nextMonth(event.screen)
             is TransactionsEvent.PayOrGet -> payOrGet(event.screen, event.transaction)
             is TransactionsEvent.PreviousMonth -> previousMonth(event.screen)
@@ -383,7 +396,9 @@ class TransactionsViewModel @Inject constructor(
                 accTrnsAct then {
                     trnsWithDateDivsAct(
                         LegacyTrnsWithDateDivsAct.Input(
-                            baseCurrency = baseCurrency.value,
+                            baseCurrency = currency.value,
+                            accountId = accountId,
+                            includeTransfers = includeTransfersInCalc,
                             transactions = with(transactionMapper) {
                                 it.map {
                                     val tags =
@@ -432,6 +447,40 @@ class TransactionsViewModel @Inject constructor(
                 }.toImmutableList()
             }
         }
+    }
+
+    private suspend fun initForAllTransactions() {
+        val range = period.value.toRange(ivyContext.startDayOfMonth, timeConverter, timeProvider)
+        val legacyTransactions = with(transactionMapper) {
+            historyTrnsAct(range.toCloseTimeRange()).map {
+                val tags = tagRepository.findByIds(it.tags).toImmutableLegacyTags()
+                it.toEntity().toLegacyDomain(tags = tags)
+            }
+        }
+        val stats = calcTrnsIncomeExpenseAct(
+            LegacyCalcTrnsIncomeExpenseAct.Input(
+                transactions = legacyTransactions,
+                accounts = accounts.value,
+                baseCurrency = baseCurrency.value
+            )
+        )
+        income.doubleValue = stats.income.toDouble()
+        expenses.doubleValue = stats.expense.toDouble()
+        balance.doubleValue = calcWalletBalanceAct(
+            CalcWalletBalanceAct.Input(baseCurrency = baseCurrency.value)
+        ).toDouble()
+        history.value = trnsWithDateDivsAct(
+            LegacyTrnsWithDateDivsAct.Input(
+                baseCurrency = baseCurrency.value,
+                transactions = legacyTransactions
+            )
+        ).toImmutableList()
+        upcoming.value = persistentListOf()
+        overdue.value = persistentListOf()
+        upcomingIncome.doubleValue = 0.0
+        upcomingExpenses.doubleValue = 0.0
+        overdueIncome.doubleValue = 0.0
+        overdueExpenses.doubleValue = 0.0
     }
 
     private suspend fun initForCategory(categoryId: UUID, accountFilterList: List<UUID>) {
@@ -697,32 +746,38 @@ class TransactionsViewModel @Inject constructor(
     }
 
     private fun nextMonth(screen: TransactionsScreen) {
-        val month = period.value.month
-        val year = period.value.year ?: dateNowUTC().year
-        if (month != null) {
-            start(
-                screen = screen,
-                timePeriod = month.incrementMonthPeriod(ivyContext, 1L, year),
-                reset = false
-            )
+        adjacentMonthPeriod(increment = 1L)?.let { nextPeriod ->
+            start(screen = screen, timePeriod = nextPeriod, reset = false)
         }
     }
 
     private fun previousMonth(screen: TransactionsScreen) {
-        val month = period.value.month
-        val year = period.value.year ?: dateNowUTC().year
-        if (month != null) {
-            start(
-                screen = screen,
-                timePeriod = month.incrementMonthPeriod(ivyContext, -1L, year),
-                reset = false
-            )
+        adjacentMonthPeriod(increment = -1L)?.let { previousPeriod ->
+            start(screen = screen, timePeriod = previousPeriod, reset = false)
         }
+    }
+
+    /**
+     * Transaction history owns its month cursor. Do not use Month.incrementMonthPeriod here:
+     * that legacy helper also mutates IvyWalletCtx.selectedPeriod, which is shared with Home.
+     */
+    private fun adjacentMonthPeriod(increment: Long): TimePeriod? {
+        val month = period.value.month ?: return null
+        val year = period.value.year ?: timeProvider.localDateNow().year
+        val adjacent = LocalDate.of(year, month.monthValue, 1).plusMonths(increment)
+        return TimePeriod(
+            month = Month.fromMonthValue(adjacent.monthValue),
+            year = adjacent.year,
+        )
     }
 
     private fun delete(screen: TransactionsScreen) {
         viewModelScope.launch {
             when {
+                screen.allTransactions -> {
+                    initForAllTransactions()
+                }
+
                 screen.accountId != null -> {
                     deleteAccount(screen.accountId!!)
                 }
@@ -760,10 +815,11 @@ class TransactionsViewModel @Inject constructor(
         choosePeriodModal.value = data
     }
 
-    private fun editCategory(updatedCategory: Category) {
+    private fun editCategory(updatedCategory: Category, onResult: (Result<Unit>) -> Unit) {
+        val entry = nav.currentEntryId
         viewModelScope.launch {
-            categoryCreator.editCategory(updatedCategory) {
-                category.value = it
+            categoryCreator.editCategory(updatedCategory, onResult) {
+                if (nav.currentEntryId == entry) category.value = it
             }
         }
     }
@@ -772,9 +828,12 @@ class TransactionsViewModel @Inject constructor(
         screen: TransactionsScreen,
         account: LegacyAccount,
         newBalance: Double,
+        onResult: (Result<Unit>) -> Unit,
     ) {
+        val entry = nav.currentEntryId
         viewModelScope.launch {
-            accountCreator.editAccount(account, newBalance) {
+            accountCreator.editAccount(account, newBalance, onResult) {
+                if (nav.currentEntryId != entry) return@editAccount
                 start(
                     screen = screen,
                     timePeriod = period.value,
@@ -839,6 +898,12 @@ class TransactionsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            modalRestorationReady = false
+            val screen = screen.restoredTransactionIds?.let { ids ->
+                screen.copy(transactions = ioThread {
+                    restoredTransactionDao.findByIds(ids).filterNot { it.isDeleted }.map { it.toLegacyDomain() }
+                })
+            } ?: screen
             period.value = timePeriod ?: ivyContext.selectedPeriod
 
             val baseCurrencyValue = baseCurrencyAct(Unit)
@@ -852,16 +917,20 @@ class TransactionsViewModel @Inject constructor(
                 sharedPrefs.getBoolean(SharedPrefs.TRANSFERS_AS_INCOME_EXPENSE, false)
 
             when {
+                screen.allTransactions -> {
+                    initForAllTransactions()
+                }
+
                 screen.accountId != null -> {
                     initForAccount(screen.accountId!!)
                 }
 
-                screen.categoryId != null && screen.transactions.isEmpty() -> {
+                screen.categoryId != null && screen.transactions.isEmpty() && screen.restoredTransactionIds == null -> {
                     initForCategory(screen.categoryId!!, screen.accountIdFilterList)
                 }
                 // unspecifiedCategory==false is explicitly checked to accommodate for a temp
                 // AccountTransfers Category during Reports Screen
-                screen.categoryId != null && screen.transactions.isNotEmpty() &&
+                screen.categoryId != null && (screen.transactions.isNotEmpty() || screen.restoredTransactionIds != null) &&
                         screen.unspecifiedCategory == false -> {
                     initForCategoryWithTransactions(
                         screen.categoryId!!,
@@ -870,7 +939,7 @@ class TransactionsViewModel @Inject constructor(
                     )
                 }
 
-                screen.unspecifiedCategory == true && screen.transactions.isNotEmpty() -> {
+                screen.unspecifiedCategory == true && (screen.transactions.isNotEmpty() || screen.restoredTransactionIds != null) -> {
                     initForAccountTransfersCategory(
                         screen.accountIdFilterList,
                         screen.transactions
@@ -883,6 +952,10 @@ class TransactionsViewModel @Inject constructor(
 
                 else -> error("no id provided")
             }
+            modalRestorationReady = true
         }
     }
+
+    var modalRestorationReady by androidx.compose.runtime.mutableStateOf(false)
+        private set
 }

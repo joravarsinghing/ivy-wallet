@@ -24,12 +24,11 @@ fun OnboardingToolbar(
     hasSkip: Boolean,
 
     onBack: () -> Unit,
-    onSkip: () -> Unit
+    title: String = "",
+    onSkip: () -> Unit,
 ) {
-    IvyToolbar(onBack = onBack) {
+    com.ivy.design.system.JvyScreenHeader(title, onBack) {
         if (hasSkip) {
-            Spacer(Modifier.weight(1f))
-
             Text(
                 modifier = Modifier
                     .clip(UI.shapes.rFull)
@@ -44,7 +43,6 @@ fun OnboardingToolbar(
                 )
             )
 
-            Spacer(Modifier.width(32.dp))
         }
     }
 }

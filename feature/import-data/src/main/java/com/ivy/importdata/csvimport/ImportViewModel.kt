@@ -18,6 +18,11 @@ import com.ivy.wallet.domain.deprecated.logic.csv.CSVMapper
 import com.ivy.wallet.domain.deprecated.logic.csv.CSVNormalizer
 import com.ivy.data.file.FileSystem
 import com.ivy.data.backup.ImportResult
+import com.ivy.data.backup.AiImportContract
+import com.ivy.data.backup.AiImportPreview
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
@@ -47,12 +52,31 @@ class ImportViewModel @Inject constructor(
     private val _importResult = MutableLiveData<ImportResult>()
     val importResult = _importResult.asLiveData()
 
+    private val _aiPreview = MutableLiveData<AiImportPreview?>(null)
+    val aiPreview = _aiPreview.asLiveData()
+    private val _aiError = MutableLiveData<String?>(null)
+    val aiError = _aiError.asLiveData()
+    private var aiBusy = false
+
     fun start(screen: ImportScreen) {
         nav.onBackPressed[screen] = {
             when (importStep.value) {
                 ImportStep.IMPORT_FROM -> false
                 ImportStep.INSTRUCTIONS -> {
                     _importStep.value = ImportStep.IMPORT_FROM
+                    true
+                }
+
+                ImportStep.AI_GUIDE -> {
+                    _aiError.value = null
+                    _importStep.value = ImportStep.IMPORT_FROM
+                    true
+                }
+
+                ImportStep.AI_REVIEW -> {
+                    _aiPreview.value = null
+                    _aiError.value = null
+                    _importStep.value = ImportStep.AI_GUIDE
                     true
                 }
 
@@ -71,6 +95,73 @@ class ImportViewModel @Inject constructor(
         }
     }
 
+    fun openAiGuide() {
+        _aiError.value = null
+        _aiPreview.value = null
+        _importStep.value = ImportStep.AI_GUIDE
+    }
+
+    fun selectAiFile() {
+        if (aiBusy) return
+        ivyContext.openFile { uri ->
+            viewModelScope.launch {
+                if (aiBusy) return@launch
+                aiBusy = true
+                TestIdlingResource.increment()
+                _aiError.value = null
+                _importStep.value = ImportStep.LOADING
+                try {
+                    val payload = withContext(Dispatchers.IO) {
+                        fileReader.readAutoBounded(uri, AiImportContract.MAX_BYTES).fold(
+                            { throw IllegalArgumentException("Cannot read this JSON file. Choose an uncompressed JSON file smaller than 8 MB.") }, { it })
+                    }
+                    _aiPreview.value = backupDataUseCase.prepareAiImport(payload)
+                    _importStep.value = ImportStep.AI_REVIEW
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Exception) {
+                    _aiPreview.value = null
+                    _aiError.value = safeAiError(error)
+                    _importStep.value = ImportStep.AI_GUIDE
+                } finally {
+                    aiBusy = false
+                    TestIdlingResource.decrement()
+                }
+            }
+        }
+    }
+
+    fun confirmAiImport() {
+        val preview = _aiPreview.value ?: return
+        if (aiBusy) return
+        aiBusy = true
+        viewModelScope.launch {
+            TestIdlingResource.increment()
+            _importStep.value = ImportStep.LOADING
+            try {
+                val result: com.ivy.data.backup.ImportResult = backupDataUseCase.importAiPreview(preview)
+                _importResult.value = result
+                _aiPreview.value = null
+                _importStep.value = ImportStep.RESULT
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                _aiPreview.value = null
+                _aiError.value = safeAiError(error)
+                _importStep.value = ImportStep.AI_GUIDE
+            } finally {
+                aiBusy = false
+                TestIdlingResource.decrement()
+            }
+        }
+    }
+
+    // Never expose parser excerpts or log the converted financial payload.
+    private fun safeAiError(error: Exception): String = if (error is IllegalArgumentException &&
+        error !is kotlinx.serialization.SerializationException) {
+        error.message?.takeIf { it.length <= 300 } ?: "The file did not pass validation. Compare it with the copied guide."
+    } else "The file could not be imported. Compare it with the copied guide; nothing was imported."
+
     @ExperimentalStdlibApi
     fun uploadFile(context: Context) {
         val importType = importType.value ?: return
@@ -78,25 +169,33 @@ class ImportViewModel @Inject constructor(
         ivyContext.openFile { fileUri ->
             viewModelScope.launch {
                 TestIdlingResource.increment()
+                try {
+                    _importStep.value = ImportStep.LOADING
+                    _importProgressPercent.value = 0
 
-                _importStep.value = ImportStep.LOADING
-
-                _importResult.value = if (hasCSVExtension(context, fileUri)) {
-                    restoreCSVFile(fileUri = fileUri, importType = importType)
-                } else {
-                    backupDataUseCase.importBackupFile(
-                        backupFileUri = fileUri
-                    ) { progressPercent ->
-                        com.ivy.legacy.utils.uiThread {
-                            _importProgressPercent.value =
-                                (progressPercent * 100).roundToInt()
+                    _importResult.value = if (hasCSVExtension(context, fileUri)) {
+                        restoreCSVFile(fileUri = fileUri, importType = importType)
+                    } else {
+                        backupDataUseCase.importBackupFile(
+                            backupFileUri = fileUri
+                        ) { progressPercent ->
+                            com.ivy.legacy.utils.uiThread {
+                                _importProgressPercent.value =
+                                    (progressPercent * 100).roundToInt()
+                            }
                         }
                     }
+
+                    _importStep.value = ImportStep.RESULT
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Timber.e("Import failed; details are available in the in-app result.")
+                    _importResult.value = failureResult(e)
+                    _importStep.value = ImportStep.RESULT
+                } finally {
+                    TestIdlingResource.decrement()
                 }
-
-                _importStep.value = ImportStep.RESULT
-
-                TestIdlingResource.decrement()
             }
         }
     }
@@ -104,20 +203,15 @@ class ImportViewModel @Inject constructor(
     @ExperimentalStdlibApi
     private suspend fun restoreCSVFile(fileUri: Uri, importType: ImportType): ImportResult {
         return com.ivy.legacy.utils.ioThread {
-            val rawCSV = fileReader.read(
-                uri = fileUri,
-                charset = when (importType) {
-                    ImportType.IVY -> Charsets.UTF_16
-                    else -> Charsets.UTF_8
-                }
-            ).getOrNull()
+            val rawCSV = fileReader.readAuto(fileUri).getOrNull()
             if (rawCSV.isNullOrBlank()) {
                 return@ioThread ImportResult(
                     rowsFound = 0,
                     transactionsImported = 0,
                     accountsImported = 0,
                     categoriesImported = 0,
-                    failedRows = persistentListOf()
+                    failedRows = persistentListOf(),
+                    errorMessage = "The selected CSV file is empty or unreadable."
                 )
             }
 
@@ -128,7 +222,7 @@ class ImportViewModel @Inject constructor(
 
             val mapping = csvMapper.mapping(
                 type = importType,
-                headerRow = normalizedCSV.split("\n").getOrNull(0)
+                headerRow = normalizedCSV.lineSequence().firstOrNull()
             )
 
             return@ioThread try {
@@ -144,18 +238,21 @@ class ImportViewModel @Inject constructor(
                 )
 
                 if (result.failedRows.isNotEmpty()) {
-                    Timber.e("Import failed rows: ${result.failedRows}")
+                    Timber.e("Import rejected ${result.failedRows.size} rows; see the in-app result.")
                 }
 
                 result
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                e.printStackTrace()
+                Timber.e("CSV import failed; details are available in the in-app result.")
                 ImportResult(
                     rowsFound = 0,
                     transactionsImported = 0,
                     accountsImported = 0,
                     categoriesImported = 0,
-                    failedRows = persistentListOf()
+                    failedRows = persistentListOf(),
+                    errorMessage = e.userFacingImportMessage()
                 )
             }
         }
@@ -183,7 +280,11 @@ class ImportViewModel @Inject constructor(
         onboardingViewModel: OnboardingViewModel
     ) {
         if (screen.launchedFromOnboarding) {
-            val importSuccess = importResult.value?.transactionsImported?.let { it > 0 } ?: false
+            val result = importResult.value
+            val importSuccess = result != null &&
+                result.errorMessage == null &&
+                (result.transactionsImported > 0 || result.accountsImported > 0 ||
+                    result.categoriesImported > 0 || result.duplicatesSkipped > 0)
             onboardingViewModel.importFinished(
                 success = importSuccess
             )
@@ -194,6 +295,8 @@ class ImportViewModel @Inject constructor(
     }
 
     private fun resetState() {
+        _aiPreview.value = null
+        _aiError.value = null
         _importStep.value = ImportStep.IMPORT_FROM
     }
 
@@ -204,4 +307,17 @@ class ImportViewModel @Inject constructor(
         val fileName = context.getFileName(fileUri)
         fileName?.endsWith(suffix = ".csv", ignoreCase = true) ?: false
     }
+
+    private fun failureResult(error: Throwable): ImportResult = ImportResult(
+        rowsFound = 0,
+        transactionsImported = 0,
+        accountsImported = 0,
+        categoriesImported = 0,
+        failedRows = persistentListOf(),
+        errorMessage = error.userFacingImportMessage()
+    )
+
+    private fun Throwable.userFacingImportMessage(): String =
+        message?.takeIf { it.isNotBlank() }
+            ?: "The import could not be completed. Check the result before retrying."
 }

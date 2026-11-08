@@ -1,0 +1,4 @@
+<resources>
+    <string name="search_load_failed">Could not load results. Your query is still here. Try again.</string>
+    <string name="search_retry">Try again</string>
+</resources>

@@ -3,6 +3,7 @@ package com.ivy.home
 import androidx.compose.runtime.Immutable
 import com.ivy.base.legacy.Theme
 import com.ivy.base.legacy.TransactionHistoryItem
+import com.ivy.data.db.entity.SavedAnalyticsEntity
 import com.ivy.home.customerjourney.CustomerJourneyCardModel
 import com.ivy.legacy.data.AppBaseData
 import com.ivy.legacy.data.BufferInfo
@@ -10,6 +11,7 @@ import com.ivy.legacy.data.LegacyDueSection
 import com.ivy.legacy.data.model.TimePeriod
 import com.ivy.wallet.domain.pure.data.IncomeExpensePair
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import java.math.BigDecimal
 
 @Immutable
@@ -34,5 +36,16 @@ data class HomeState(
     val hideBalance: Boolean,
     val hideIncome: Boolean,
     val expanded: Boolean,
-    val shouldShowAccountSpecificColorInTransactions: Boolean
+    val shouldShowAccountSpecificColorInTransactions: Boolean,
+    val moneyComingUp: MoneyComingUpState = MoneyComingUpState(),
+    val trend: HomeTrendState = HomeTrendState(),
+    val spendingBreakdown: HomeSpendingBreakdownState = HomeSpendingBreakdownState(),
+    val visibleDashboardCards: Set<HomeDashboardCardId> = defaultVisibleHomeDashboardCards,
+    val dashboardEditorVisible: Boolean = false,
+    val dashboardOrder: List<HomeDashboardCardId> = defaultHomeDashboardCards.map { it.id },
+    val savedAnalytics: ImmutableList<SavedAnalyticsEntity> = persistentListOf(),
+    val periodSelection: HomePeriodSelection = HomePeriodSelection.CurrentCycle,
+    val appliedPeriodSelection: HomePeriodSelection = HomePeriodSelection.CurrentCycle,
+    val periodError: String? = null,
+    val periodCapped: Boolean = false,
 )

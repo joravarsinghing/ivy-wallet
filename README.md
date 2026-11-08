@@ -1,177 +1,419 @@
->[!IMPORTANT]
->**🚨 Notice: Project No Longer Maintained 🚨**
->
->As of **Nov 5th, 2024**, this project is no longer maintained by the original developers. No further updates, bug fixes, or support will be provided.
->
->- **Pull Requests and Issues**: We will not be reviewing or merging pull requests, nor responding to issues or discussions.
->
->- **Forking and Future Development**: In accordance with the [GPL-3.0 License](LICENSE), you are encouraged to **fork this repository** to continue development independently. You are free to modify, distribute, and release your own versions under the same license.
->
->- **Disclaimer of Liability**:
->  - **"As-Is" Basis**: This software is provided on an "as-is" basis without any warranties or conditions of any kind, either express or implied.
->  - **No Liability**: The original maintainers shall not be liable for any claims, damages, or other liabilities arising from the use, modification, or distribution of this software.
->  - **User Responsibility**: Users and developers who choose to use or fork this project assume all risks and responsibilities associated with its use and further development.
->
->For more information, please refer to the [LICENSE](LICENSE) file.
+<div align="center">
 
-[![Latest Release](https://img.shields.io/github/v/release/Ivy-Apps/ivy-wallet)](https://github.com/Ivy-Apps/ivy-wallet/releases)
-[![APK](https://github.com/Ivy-Apps/ivy-wallet/actions/workflows/apk.yml/badge.svg)](https://github.com/Ivy-Apps/ivy-wallet/actions/workflows/apk.yml)
-[![Telegram Group](https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/+ETavgioAvWg4NThk)
+<img src="docs/assets/jvy-wallet-logo-hd.png" alt="Jvy Wallet" width="120" />
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![GitHub Repo stars](https://img.shields.io/github/stars/Ivy-Apps/ivy-wallet?style=social)](https://github.com/Ivy-Apps/ivy-wallet/stargazers)
-[![Fork Ivy Wallet](https://img.shields.io/github/forks/Ivy-Apps/ivy-wallet?logo=github&style=social)](https://github.com/Ivy-Apps/ivy-wallet/fork)
+# Jvy Wallet
 
-# [Ivy Wallet: money manager](https://play.google.com/store/apps/details?id=com.ivy.wallet)
+### Know where you stand.
 
-|                                                                                                            |                                                                                                            |                                                                                                            |                                                                                                            |
-|:----------------------------------------------------------------------------------------------------------:|:----------------------------------------------------------------------------------------------------------:|:----------------------------------------------------------------------------------------------------------:|:----------------------------------------------------------------------------------------------------------:|
-| ![1](https://user-images.githubusercontent.com/5564499/189540998-4d6cdcd3-ab4d-40f7-85d4-c82fe8a017d1.png) | ![2](https://user-images.githubusercontent.com/5564499/189541011-1ebbd8b6-50fe-432a-91e2-59206efe99ce.png) | ![3](https://user-images.githubusercontent.com/5564499/189541023-35e7f163-d639-4466-9a91-c56890d5a28e.png) | ![4](https://user-images.githubusercontent.com/5564499/189541027-d352314c-fd5c-43eb-82ad-4aba14c7b0fa.png) |
-| ![5](https://user-images.githubusercontent.com/5564499/189541030-1a0d7948-33af-420b-b126-936d0211c93f.png) | ![6](https://user-images.githubusercontent.com/5564499/189541035-621c4511-5ec7-4d3f-b08e-925d8da95472.png) | ![7](https://user-images.githubusercontent.com/5564499/189541127-7adf5bfa-0652-461c-80f1-076b7179eb6c.png) | ![8](https://user-images.githubusercontent.com/5564499/189541040-7cab633e-be4c-40b2-a2c6-890a15edf805.png) |
+**The calm, local-first Android money manager that tells you what you can *safely* spend.**
+No bank sync. No ads. No cloud account. Just an honest ledger you control.
 
-Ivy Wallet is a free and open source **money management android app**. It's written using **100% Kotlin and Jetpack Compose**. It's designed to help you keep track of your personal finances with ease.
+<br/>
 
-Think of Ivy Wallet as a manual expense tracker that tries to replace the good old spreadsheet for managing your finances.
+[![Download APK](https://img.shields.io/github/v/release/joravarsinghing/ivy-wallet?style=for-the-badge&logo=android&logoColor=white&label=Download&color=6D4AFF)](https://github.com/joravarsinghing/ivy-wallet/releases/latest)
+[![Stars](https://img.shields.io/github/stars/joravarsinghing/ivy-wallet?style=for-the-badge&logo=github&color=FFB400)](https://github.com/joravarsinghing/ivy-wallet/stargazers)
+[![License](https://img.shields.io/badge/License-GPL--3.0-blue?style=for-the-badge)](LICENSE)
 
-**Do you know? Ask yourself.**
+![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?logo=android&logoColor=white)
+![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=white)
+![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-4285F4?logo=jetpackcompose&logoColor=white)
+![Local-first](https://img.shields.io/badge/Data-Local--first-success)
+![No ads](https://img.shields.io/badge/Ads-None-success)
+![No bank sync](https://img.shields.io/badge/Bank%20sync-None%20by%20design-lightgrey)
+[![Tests](https://img.shields.io/github/actions/workflow/status/joravarsinghing/ivy-wallet/test.yml?logo=githubactions&logoColor=white&label=tests)](https://github.com/joravarsinghing/ivy-wallet/actions/workflows/test.yml)
 
-1) How much money do I have in total?
+Public-release acceptance, supported update paths and recovery rules are tracked in the [release checklist](docs/releases/PUBLIC-RELEASE-CHECKLIST.md). English is the first reviewed launch language; existing translations remain available but are not all release-certified. No automatic crash diagnostics are included in the next public release.
+[![Last commit](https://img.shields.io/github/last-commit/joravarsinghing/ivy-wallet?logo=git&logoColor=white)](https://github.com/joravarsinghing/ivy-wallet/commits)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
 
-2) How much did I spend this month and what did I spend it on?
+[**Download**](#-install) · [**Features**](#-features) · [**Screenshots**](#-screenshots) · [**Privacy**](#-privacy--security) · [**Roadmap**](#-roadmap) · [**Contribute**](#-contributing)
 
-3) How much can I spend and still meet my financial goals?
+<br/>
 
-A money management app can help you answer these questions.
+<img src="docs/assets/marketing/01-home-dashboard.png" alt="Jvy Wallet home dashboard with balance, cash flow and Safe to Spend" width="300" />
 
-Ivy Wallet may lack some of the features you're looking for, but it truly shines in its user interface and experience, as well as its simplicity and customization options. This was recognized in the ["Top/Best Android App in 2021/2022 charts"](https://youtube.com/playlist?list=PLguJN0waG1-eSzKMuFMIULrR3MlqJ3cAE) by the YouTube tech community.
-
-<a href='https://play.google.com/store/apps/details?id=com.ivy.wallet&utm_source=github&pcampaignid=pcampaignidMKT-Other-global-all-co-prtnr-py-PartBadge-Mar2515-1'><img alt='Get it on Google Play' src='https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png' width="323" height="125"/></a>
-
-> Join our **[private Telegram Community](https://t.me/+ETavgioAvWg4NThk)**.
-
-> To support our free open source project, please give it a star. ⭐
-> This means a lot to us. Thank you so much! [![GitHub Repo stars](https://img.shields.io/github/stars/Ivy-Apps/ivy-wallet?style=social)](https://github.com/Ivy-Apps/ivy-wallet/stargazers)
-
-## Project Requirements
-
-- Java 17+
-- The **latest stable** Android Studio (for easy install use [JetBrains Toolbox](https://www.jetbrains.com/toolbox-app/))
-
-### Initialize the project
-
-**1. Fork and clone the repo**
-
-Instructions in [CONTRIBUTING.md](./CONTRIBUTING.md).
-
-### Need help?
-
-Join our Telegram community and drop a message in the "Development" topic.
-
-[![Telegram Group](https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/+ETavgioAvWg4NThk)
-
-## Learning Materials
-
-Ivy Wallet is a great place to code and learn. That's why we also link to great learning materials (books, articles, videos), check them out in **[docs/resources 📚](docs/resources/)**.
-
-Make sure to check out our short **[Developer Guidelines 🏗️](docs/Guidelines.md)** to learn more about the technical side of the Ivy Wallet.
-
-## Tech Stack
-
-### Core
-
-- 100% [Kotlin](https://kotlinlang.org/)
-- 100% [Jetpack Compose](https://developer.android.com/jetpack/compose)
-- [Material3 design](https://m3.material.io/) (UI components)
-- [Kotlin Coroutines](https://kotlinlang.org/docs/coroutines-overview.html) (structured concurrency)
-- [Kotlin Flow](https://kotlinlang.org/docs/flow.html) (reactive data stream)
-- [Hilt](https://dagger.dev/hilt/) (DI)
-- [ArrowKt](https://arrow-kt.io/) (functional programming)
-
-
-### Testing
-- [JUnit4](https://github.com/junit-team/junit4) (test framework, compatible with Android)
-- [Kotest](https://kotest.io/) (unit test assertions)
-- [Paparazzi](https://github.com/cashapp/paparazzi) (screenshot testing)
-
-### Local Persistence
-- [DataStore](https://developer.android.com/topic/libraries/architecture/datastore) (key-value storage)
-- [Room DB](https://developer.android.com/training/data-storage/room) (SQLite ORM)
-
-### Networking
-- [Ktor client](https://ktor.io/docs/getting-started-ktor-client.html) (HTTP client)
-- [Kotlinx Serialization](https://github.com/Kotlin/kotlinx.serialization) (JSON serialization)
-
-### Build & CI
-- [Gradle KTS](https://docs.gradle.org/current/userguide/kotlin_dsl.html) (Kotlin DSL)
-- [Gradle convention plugins](https://docs.gradle.org/current/samples/sample_convention_plugins.html) (build logic)
-- [Gradle version catalogs](https://developer.android.com/build/migrate-to-catalogs) (dependencies versions)
-- [GitHub Actions](https://github.com/Ivy-Apps/ivy-wallet/actions) (CI/CD)
-- [Fastlane](https://fastlane.tools/) (uploads the app to the Google Play Store)
-
-### Other
-- [Firebase Crashlytics](https://firebase.google.com/products/crashlytics) (stability monitoring)
-- [Timber](https://github.com/JakeWharton/timber) (logging)
-- [Detekt](https://github.com/detekt/detekt) (linter)
-- [Ktlint](https://github.com/pinterest/ktlint) (linter)
-- [Slack's compose-lints](https://slackhq.github.io/compose-lints/) (linter)
-
-## Contribute
-
-**Want to contribute?** See **[CONTRIBUTING.md](/CONTRIBUTING.md)** [![Fork Ivy Wallet](https://img.shields.io/github/forks/Ivy-Apps/ivy-wallet?logo=github&style=social)](https://github.com/Ivy-Apps/ivy-wallet/fork)
-
-### Contributors Wall:
-
-<a href="https://github.com/ILIYANGERMANOV/ivy-wallet/graphs/contributors">
-  <img alt="contributors graph" src="https://contrib.rocks/image?repo=Ivy-Apps/ivy-wallet" />
-</a>
-<br>
-<br>
-
-_Note: It may take up to 24 hours for the [contrib.rocks](https://contrib.rocks/preview?repo=Ivy-Apps%2Fivy-wallet) plugin to update._ 
-
-**P.S.** You'll also be recognized in a special "Contributors" section. We salute you! 👏
-
-## Creative Contributors
-
-Folks that helped Ivy Wallet in a non-dev creative ways that can't be captured on GitHub.
-
-### Creative Contributors Wall:
-
-<!-- <div align="center">
-  <a href="URL_TO_CONTRIBUTION">
-    <img src="URL_TO_PERSONS_PHOTO" width="100px;" alt="PERSON'S PHOTO"/><br>
-    <strong>USERNAME</strong><br>
-    <small>MESSAGE_FOR_THEIR_CONTRIBUTION</small>
-  </a>
-</div> -->
-
-<div style="text-align: center">
-    <img src="https://avatars.githubusercontent.com/u/62771583?v=4" width="100px;" alt="Stefan Ilijev - Desinger"/><br>
-    <strong>Stefan Ilijev</strong><br>
-    <small>Co-founder and designer of Ivy Wallet. Created the <a href="https://www.figma.com/file/kSwIa07jcHEHZXo6rzx7dn/Design-System?node-id=0%3A1&mode=dev">Ivy design system</a>.</small>
-    <br/>
-    <br/>
 </div>
 
-<div style="text-align: center">
-    <img src="https://avatars.githubusercontent.com/u/86833171?v=4" width="100px;" alt="Aditya [ADX]"/><br>
-    <strong><a href="https://github.com/adx69" >Aditya</a> </strong><br>
-    <br/>
+---
+
+## 💡 Why Jvy Wallet?
+
+Every budget comes down to one question:
+
+> **What do I have, what's coming, and what can I safely do next?**
+
+Most finance apps answer with a wall of charts, a bank-sync login, or a subscription. Jvy Wallet answers in **one scan**: your balance, your upcoming commitments, and the amount that's genuinely **safe to spend** after goals and protected money are set aside.
+
+It's **manual-first and fully explainable**. Every number traces back to a record you entered. It doesn't pretend to be a bank connection, an investment platform, or a financial adviser.
+
+| | Typical finance app | **Jvy Wallet** |
+|---|---|---|
+| Bank login required | Usually | **Never** |
+| Where your data lives | Their servers | **Your device** |
+| Ads / data profile | Often | **None** |
+| "Safe to Spend" after goals | Rare | **Built in** |
+| Numbers you can explain | Black box | **Ledger is the source of truth** |
+| Switching in / out | Painful | **Guided CSV import + full backup** |
+
+---
+
+## ✨ Features
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 🧭 Know your position
+Balances across cash, banks, emergency funds and more, with **Safe to Spend** that accounts for goal reservations and protected money.
+
+</td>
+<td width="50%" valign="top">
+
+### 📅 Plan ahead
+One-time and recurring **planned payments** stay visible as projections until you post them. No surprises, no fake transactions.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+### 🎯 Give money a job
+**Goals** for purchases, travel, emergency funds, or anything personal. Reserved money is metadata, so your ledger stays clean.
+
+</td>
+<td valign="top">
+
+### 📈 Understand the pattern
+Daily and monthly **balance trends**, **reports**, **budgets**, and ranked category breakdowns, with honest handling of sparse history.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+### 🧾 Context on every entry
+Account, category, title, notes and amount recorded together, so your history is still useful a year later.
+
+</td>
+<td valign="top">
+
+### 🔄 Portable by design
+Full backups, CSV ledger export, and guided import from the apps you may already use.
+
+</td>
+</tr>
+</table>
+
+### Built around four decisions
+
+```mermaid
+flowchart LR
+    A[Jvy Wallet Home] --> B[What can I safely spend?]
+    A --> C[What is coming up?]
+    A --> D[Where did my money go?]
+    A --> E[What needs my attention?]
+    B --> B1[Balances · Reservations · Safe to Spend]
+    C --> C1[Planned income · Bills · Commitments]
+    D --> D1[Reports · Budgets · Trends]
+    E --> E1[Recent activity · Overdue · Goal progress]
+```
+
+---
+
+## 🔄 Bring your history with you
+
+Jvy Wallet keeps the import path local and explicit. Choose the source format, select its exported CSV, review the result, and import only what you recognize. Full Jvy/Ivy backup JSON and ZIP restores are also supported, including UTF-8 and UTF-16 files.
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/assets/importers/ivy-wallet.png" alt="Ivy Wallet" width="56" /><br/><sub>Ivy Wallet</sub></td>
+    <td align="center"><img src="docs/assets/importers/money-manager.png" alt="Money Manager" width="56" /><br/><sub>Money Manager</sub></td>
+    <td align="center"><img src="docs/assets/importers/budgetbakers-wallet.png" alt="Wallet by BudgetBakers" width="56" /><br/><sub>Wallet</sub></td>
+    <td align="center"><img src="docs/assets/importers/spendee.png" alt="Spendee" width="56" /><br/><sub>Spendee</sub></td>
+    <td align="center"><img src="docs/assets/importers/monefy.png" alt="Monefy" width="56" /><br/><sub>Monefy</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/assets/importers/one-money.png" alt="1Money" width="56" /><br/><sub>1Money</sub></td>
+    <td align="center"><img src="docs/assets/importers/bluecoins.png" alt="Bluecoins" width="56" /><br/><sub>Bluecoins</sub></td>
+    <td align="center"><img src="docs/assets/importers/ktw-money-manager.png" alt="Money Manager by KTW" width="56" /><br/><sub>KTW Money Manager</sub></td>
+    <td align="center"><img src="docs/assets/importers/fortune-city.png" alt="Fortune City" width="56" /><br/><sub>Fortune City</sub></td>
+    <td align="center"><img src="docs/assets/importers/financisto.png" alt="Financisto" width="56" /><br/><sub>Financisto</sub></td>
+  </tr>
+</table>
+
+Manual CSV import remains available for files from other apps. Source-app logos in this section identify import formats only; they are not Jvy branding. See the [import compatibility notes](docs/import-compatibility/README.md) for the evidence and current verification status of each format.
+
+**An app isn’t listed?** The optional [AI conversion workflow](docs/import-compatibility/AI-CONVERSION.md) (implemented after 0.4.2) provides a copyable schema and guide in regular import and onboarding, with local validation and a confirmation preview. You choose whether to share an export with any external AI; Jvy does not upload it. Review the conversion report before importing.
+
+---
+
+## 📸 Screenshots
+
+> *All screenshots use an illustrative "John Doe" dataset. No real finances are shown.*
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/assets/marketing/01-home-dashboard.png" alt="Home dashboard" />
+      <h4>Know where you stand</h4>
+      <p>Balance, cash flow, Safe to Spend and the next 30 days in one scan.</p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/assets/marketing/02-planned-payments.png" alt="Planned payments" />
+      <h4>Stay ahead of what's due</h4>
+      <p>One-time and recurring commitments, visible before they bite.</p>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <img src="docs/assets/marketing/03-goals-and-loans.png" alt="Goals and loans" />
+      <h4>Make progress visible</h4>
+      <p>Reserved money, deadlines, funding guidance and loans, with no hidden math.</p>
+    </td>
+    <td valign="top">
+      <img src="docs/assets/marketing/04-accounts.png" alt="Accounts" />
+      <h4>Every account, one view</h4>
+      <p>Cash, banks and emergency funds with account-level context.</p>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <img src="docs/assets/marketing/05-balance-trend.png" alt="Balance trend" />
+      <h4>See the trend, not just the total</h4>
+      <p>Daily and monthly views showing peaks, quiet periods and carried-forward balance.</p>
+    </td>
+    <td valign="top">
+      <img src="docs/assets/marketing/06-transactions.png" alt="Transactions" />
+      <h4>Every transaction has context</h4>
+      <p>Account, category, notes and amount, together.</p>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <img src="docs/assets/marketing/07-categories.png" alt="Categories" />
+      <h4>Organize spending your way</h4>
+      <p>Searchable categories with live totals.</p>
+    </td>
+    <td valign="top">
+      <img src="docs/assets/marketing/08-budgets.png" alt="Budgets" />
+      <h4>Give every month a plan</h4>
+      <p>See what remains before you spend it, including multi-category budgets.</p>
+    </td>
+  </tr>
+</table>
+
+---
+
+## 📲 Install
+
+**Option 1: Download the APK (recommended)**
+
+1. Open the [**latest release**](https://github.com/joravarsinghing/ivy-wallet/releases/latest).
+2. Download `Jvy_wallet_vX.Y.Z.apk`.
+3. Verify it against the checksum manifest published alongside it.
+4. Allow installs from your browser or file manager when Android asks, then open the APK.
+
+**Option 2: Build from source**: see [Build from source](#-build-from-source).
+
+---
+
+## 🔒 Privacy & security
+
+Jvy Wallet is for people who want useful money tools **without handing their financial history to an aggregator**.
+
+| | |
+|---|---|
+| 🔐 **Biometric app lock** | Android device credential or biometric (including fingerprint where supported). Relocks after inactivity. |
+| 🙈 **Privacy mode** | Hide balances and income on the dashboard; reveal them temporarily when you choose. |
+| 🏠 **Local-first** | No bank sync, no advertising profile, and no cloud account required for the core ledger. |
+| 💾 **Portable backups** | Export a full backup or a CSV ledger from Settings, and restore on another installation. |
+| 🔁 **Easy migration** | Guided CSV import from Wallet by BudgetBakers, Monefy, Spendee, Money Manager, 1Money, Bluecoins, KTW Money Manager, Fortune City, Financisto, and more. |
+
+> [!IMPORTANT]
+> Backups are **user-controlled files, not encrypted cloud storage**. Keep exports somewhere private, and use Android device security, a trusted password manager, or encrypted storage when sharing or archiving them.
+
+Read the complete [Jvy Wallet Privacy Policy](docs/legal/PRIVACY_POLICY.md) for details about local storage, imports, backups, diagnostics, permissions, and deletion.
+
+<details>
+<summary><b>What Jvy Wallet deliberately does <u>not</u> do</b></summary>
+
+<br/>
+
+- ❌ Automatic bank synchronization
+- ❌ Investment advice or an investment platform
+- ❌ Cloud backup
+- ❌ Silently rewriting historical transactions or moving money between accounts
+
+Bank sync and cloud backup would each require a separate security and privacy review before being offered or marketed.
+
+</details>
+
+---
+
+## 🧠 Product principles
+
+<details open>
+<summary><b>Explainable money</b></summary>
+
+The ledger is the source of truth. Goals reserve money as metadata and never create fake transactions. Planned payments stay projections until you post them. Balance, Safe to Spend and reports can always be explained from the records you entered.
+</details>
+
+<details>
+<summary><b>Useful density</b></summary>
+
+Readable rows, compact summaries, clear hierarchy, and focused cards instead of oversized dashboards that repeat the same number. The Accounts tab owns detailed account management; Home shows only derived insights that answer a different question.
+</details>
+
+<details>
+<summary><b>Honest history</b></summary>
+
+Charts distinguish *missing* history from *real zero-activity* periods. Daily and monthly views use calendar identities, preserve gaps before the first observed activity, and never invent a trend from data that doesn't exist.
+</details>
+
+<details>
+<summary><b>Safe evolution</b></summary>
+
+Compatibility with supported Ivy Wallet backup data is preserved where possible. New features must not silently rewrite historical transactions, alter import meaning, or move money between accounts.
+</details>
+
+---
+
+## 🗺️ Roadmap
+
+**Now**
+
+- Goal funding guidance, deadlines and multi-account reservations
+- Balance and cash-flow trends with daily/monthly ranges and sparse-history handling
+- Compact Home activity and ranked spending breakdowns
+- Reports that update from any filter and render useful zero-result states
+- Reliable imports, backup validation and recovery paths
+- Consistent, normal-sized mobile UI across Home, Accounts, Reports, Settings and entry screens
+
+**Next**
+
+- More explainable historical balance and net-worth views
+- Better goal funding plans and on-track guidance
+- Optional recurring-transaction and remembered-category suggestions
+- Monthly financial check-ins and emergency-fund planning
+- Stronger backup versioning, validation and recovery tools
+
+**Later**
+
+- Debt payoff and investment views, *only after the core ledger stays dependable*
+
+See [ROADMAP_STATUS.md](ROADMAP_STATUS.md) for live status.
+
+---
+
+## 🛠️ Build from source
+
+**Requirements**
+
+- Android Studio with the bundled JDK
+- An Android device or emulator on a supported Android version
+- Primary manual QA target: Samsung Galaxy S22 Ultra, Android 16 / One UI 8
+
+**Run tests**
+
+```bash
+# macOS / Linux
+./gradlew test
+
+# Windows
+.\gradlew.bat test
+```
+
+Before changing imports, balances, money calculations, reservations or chart bucketing, run the relevant compatibility, domain, UI-snapshot and regression tests.
+
+**Build a numbered release APK** (Windows, from the repo root)
+
+```powershell
+.\scripts\build-jvy-apk.ps1 -Variant release
+```
+
+With your private signing credentials configured, this produces artifacts like `Jvy_wallet_v0.2.5.apk` in `artifacts/apk/`, records the Android `versionCode`, and writes a checksum manifest beside the APK. Legacy-compatible test updates require explicit `-Variant demo -AllowPublicTestKey` acknowledgement and are not production releases. Don't distribute the raw Gradle output filename. Full rules and signing/migration constraints: [APK generation standard](docs/standards/APK-GENERATION.md).
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome, from bug reports to pull requests.
+
+1. Read the [Contributing guide](CONTRIBUTING.md) and [Developer guidelines](docs/guidelines/README.md).
+2. Read the [Jvy design language](docs/design/JVY-DESIGN-LANGUAGE.md) and [Mobile UI standards](docs/guidelines/Mobile-UI-Standards.md) before touching any screen. The shared Raleway/Open Sans typography, shapes, logo, navigation and responsive/accessibility rules are mandatory for every new or modified feature.
+3. Open an issue or draft PR early, and include reproducible steps and screenshots.
+
+> [!WARNING]
+> Please **never** include real financial records in public issues or screenshots.
+
+<details>
+<summary><b>All documentation</b></summary>
+
+- [Roadmap status](ROADMAP_STATUS.md)
+- [Developer guidelines](docs/guidelines/README.md)
+- [Jvy design language — mandatory UI tokens and patterns](docs/design/JVY-DESIGN-LANGUAGE.md)
+- [Mobile UI standards](docs/guidelines/Mobile-UI-Standards.md)
+- [Goal and saving-pool plan](docs/plans/001-goals-and-saving-pools.md)
+- [Dashboard research notes](docs/recon/BUDGETBAKERS-UI-REFERENCE-AND-JVY-MASHUP.md)
+- [APK generation standard](docs/standards/APK-GENERATION.md)
+- [Audit hardening and remaining release checks](docs/standards/AUDIT-HARDENING.md)
+- [Agent instructions](AGENTS.md)
+- [Contributing guide](CONTRIBUTING.md)
+
+</details>
+
+---
+
+## ❓ FAQ
+
+<details>
+<summary><b>Does Jvy Wallet connect to my bank?</b></summary>
+No, and that's deliberate. You record your own transactions, which keeps the app private and every number explainable.
+</details>
+
+<details>
+<summary><b>Where is my data stored?</b></summary>
+On your device. No cloud account is required for the core ledger.
+</details>
+
+<details>
+<summary><b>Can I bring my data from another app?</b></summary>
+Yes. Guided CSV import supports Wallet by BudgetBakers, Monefy, Spendee, Money Manager, 1Money, Bluecoins, KTW Money Manager, Fortune City, Financisto and other supported formats, plus compatible Ivy Wallet backups.
+</details>
+
+<details>
+<summary><b>How is this related to Ivy Wallet?</b></summary>
+Jvy Wallet is an independent continuation of the open-source Ivy Wallet. It preserves compatibility with supported Ivy Wallet data where possible, while branding, product direction, releases and support are maintained independently.
+</details>
+
+<details>
+<summary><b>Is it financial advice?</b></summary>
+No. It's a ledger and planning tool, not an adviser or investment platform.
+</details>
+
+---
+
+## 🙏 Credits & license
+
+Jvy Wallet is an independent continuation of [Ivy Wallet](https://github.com/Ivy-Apps/ivy-wallet), maintained by **Joravar Singh**. Thanks to the original authors and contributors whose open-source work made this possible.
+
+Distributed under the **[GNU General Public License v3.0](LICENSE)**.
+
+## 📬 Contact & support
+
+[![GitHub](https://img.shields.io/badge/GitHub-joravarsinghing-181717?logo=github&logoColor=white)](https://github.com/joravarsinghing)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-joravarsingh-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/joravarsingh/)
+[![Portfolio](https://img.shields.io/badge/Portfolio-visit-6D4AFF?logo=googlechrome&logoColor=white)](https://joravarsinghing.github.io/portfolio/)
+
+For support, [open an issue](https://github.com/joravarsinghing/ivy-wallet/issues) with reproducible steps and screenshots.
+
+<div align="center">
+
+<br/>
+
+**If Jvy Wallet helps you see your money clearly, a ⭐ goes a long way.**
+
+[![Star History Chart](https://api.star-history.com/svg?repos=joravarsinghing/ivy-wallet&type=Date)](https://star-history.com/#joravarsinghing/ivy-wallet&Date)
+
 </div>
-
-<div style="text-align: center">
-    <img src="https://avatars.githubusercontent.com/u/130169485?v=4" width="100px;" alt="Shymom [SSI]"/><br>
-    <strong><a href="https://github.com/SHYMOM" >Shymom</a> </strong><br>
-    <br/>
-</div>
-
-
-## Community Projects
-
-> ⚠️ Disclaimer: The community projects listed are independently developed and not affiliated with Ivy Apps Ltd. Consequently, we cannot vouch for their functionality, security or intentions. Your engagement with these projects is solely at your own discretion and risk. Ivy Apps Ltd explicitly disclaims any warranties, express or implied, and shall not be held liable for any damages or losses resulting from the use of these community-developed projects.
-> 
-### [ivy-wallet-web](https://github.com/pratikkabade/ivy-wallet-web) by [Pratik Kabade](https://github.com/pratikkabade)
-
-This community-developed project allows users to conveniently access Ivy Wallet through their **web browsers**, ensuring a smooth experience across multiple platforms.
-- [GitHub URL](https://github.com/pratikkabade/ivy-wallet-web)
-- [Web app URL](https://ivy-wallet-web.vercel.app/)

@@ -17,6 +17,7 @@ import com.ivy.legacy.datamodel.PlannedPaymentRule
 import com.ivy.legacy.utils.ioThread
 import com.ivy.wallet.domain.action.account.AccountsAct
 import com.ivy.wallet.domain.deprecated.logic.PlannedPaymentsLogic
+import com.ivy.wallet.domain.action.wallet.CalcWalletBalanceAct
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -30,7 +31,8 @@ class PlannedPaymentsViewModel @Inject constructor(
     private val settingsDao: SettingsDao,
     private val plannedPaymentsLogic: PlannedPaymentsLogic,
     private val categoriesRepository: CategoryRepository,
-    private val accountsAct: AccountsAct
+    private val accountsAct: AccountsAct,
+    private val calcWalletBalanceAct: CalcWalletBalanceAct,
 ) : ComposeViewModel<PlannedPaymentsScreenState, PlannedPaymentsScreenEvent>() {
 
     private var currency by mutableStateOf("")
@@ -46,6 +48,7 @@ class PlannedPaymentsViewModel @Inject constructor(
     private var recurringExpenses by mutableDoubleStateOf(0.0)
     private var isOneTimePaymentsExpanded by mutableStateOf(true)
     private var isRecurringPaymentsExpanded by mutableStateOf(true)
+    private var forecast by mutableStateOf(CashFlowForecast())
 
     @Composable
     override fun uiState(): PlannedPaymentsScreenState {
@@ -64,7 +67,8 @@ class PlannedPaymentsViewModel @Inject constructor(
             recurringPlannedPayment = getRecurringPlannedPayment(),
             oneTimePlannedPayment = getOneTimePlannedPayment(),
             isOneTimePaymentsExpanded = getOneTimePaymentsExpanded(),
-            isRecurringPaymentsExpanded = getRecurringPaymentsExpanded()
+            isRecurringPaymentsExpanded = getRecurringPaymentsExpanded(),
+            forecast = forecast,
         )
     }
 
@@ -138,6 +142,9 @@ class PlannedPaymentsViewModel @Inject constructor(
         viewModelScope.launch {
             val settings = ioThread { settingsDao.findFirst() }
             currency = settings.currency
+            val currentBalance = ioThread {
+                calcWalletBalanceAct(CalcWalletBalanceAct.Input(baseCurrency = currency))
+            }.toDouble()
 
             categories = categoriesRepository.findAll().toImmutableList()
             accounts = accountsAct(Unit)
@@ -151,6 +158,13 @@ class PlannedPaymentsViewModel @Inject constructor(
                 ioThread { plannedPaymentsLogic.recurring() }.toImmutableList()
             recurringIncome = ioThread { plannedPaymentsLogic.recurringIncome() }
             recurringExpenses = ioThread { plannedPaymentsLogic.recurringExpenses() }
+            forecast = calculateCashFlowForecast(
+                currentBalance = currentBalance,
+                recurringIncome = recurringIncome,
+                recurringExpenses = recurringExpenses,
+                oneTimeIncome = oneTimeIncome,
+                oneTimeExpenses = oneTimeExpenses,
+            )
         }
     }
 }

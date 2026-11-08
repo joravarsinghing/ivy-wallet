@@ -1,0 +1,29 @@
+<resources>
+    <string name="ai_import_entry_title">Your app isn’t listed?</string>
+    <string name="ai_import_entry_body">Use our file format and an AI you choose to convert your export. Review it before adding anything.</string>
+    <string name="ai_import_open">Other app / AI conversion</string>
+    <string name="ai_import_title">Other app</string>
+    <string name="ai_import_review_title">Review import</string>
+    <string name="ai_import_privacy_title">You choose what to share</string>
+    <string name="ai_import_privacy_body">Jvy does not send your data to an AI. The copied guide contains only instructions, a fictional example and the schema. Remove personal identifiers before sharing an export with any provider. Never share a PIN, recovery code or bank login.</string>
+    <string name="ai_import_step_one">1. Copy the conversion guide</string>
+    <string name="ai_import_step_one_body">The guide explains the file format, transfers, dates and currencies. Your AI must ask about anything unclear, not guess.</string>
+    <string name="ai_import_copy_guide">Copy AI guide + schema</string>
+    <string name="ai_import_copied">Copied. No wallet data was included.</string>
+    <string name="ai_import_step_two">2. Convert your exported file</string>
+    <string name="ai_import_step_two_body">Paste the guide into your chosen AI and provide an export you are comfortable sharing. Ask for jvy-import.json and a separate reconciliation report. Supported data includes accounts, transactions, budgets, goals, reservations, planned payments, loans, tags and net-worth items. App settings and credentials are not imported.</string>
+    <string name="ai_import_step_three">3. Check before importing</string>
+    <string name="ai_import_step_three_body">Save the JSON file, not a chat transcript or ZIP. Select it below for a read-only validation and count preview. Jvy cannot verify that an AI understood your original export; compare its report and balances yourself.</string>
+    <string name="ai_import_show_schema">Show schema · v1</string>
+    <string name="ai_import_hide_schema">Hide schema</string>
+    <string name="ai_import_copy_schema">Copy schema only</string>
+    <string name="ai_import_choose_json">Choose converted JSON · up to 8 MB</string>
+    <string name="ai_import_error_title">File not imported</string>
+    <string name="ai_import_counts">Ready for your review</string>
+    <string name="ai_import_currencies">Account currencies: %1$s</string>
+    <string name="ai_import_review_body">Validation passed, but this is not proof of financial accuracy. Import adds data to this wallet; it does not replace it. Matching account/category names may be reused. Unchanged IDs may be reimported; conflicting records are rejected. New IDs can create duplicates.</string>
+    <string name="ai_import_currency_existing">Budgets and goal targets use your Jvy base currency; reserve only from accounts in that currency. Loans use their linked account’s currency, or the base currency if unlinked. Check these against the conversion report and back up your wallet first.</string>
+    <string name="ai_import_currency_onboarding">Next, choose the base currency used for budgets, goal targets, reservations and unlinked loans in the conversion report. Linked loans use their account’s currency. Account currencies are stored separately.</string>
+    <string name="ai_import_confirmation">I checked the conversion report, currencies and counts, and backed up any existing wallet data.</string>
+    <string name="ai_import_confirm_import">Confirm and import</string>
+</resources>

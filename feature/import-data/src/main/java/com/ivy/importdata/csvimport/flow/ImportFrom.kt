@@ -45,6 +45,7 @@ fun BoxWithConstraintsScope.ImportFrom(
 
     onSkip: () -> Unit = {},
     onImportFrom: (ImportType) -> Unit = {},
+    onAiGuide: () -> Unit = {},
 ) {
     val importTypes = ImportType.values()
 
@@ -57,11 +58,16 @@ fun BoxWithConstraintsScope.ImportFrom(
         stickyHeader {
             val nav = navigation()
             OnboardingToolbar(
+                title = stringResource(R.string.import_from),
                 hasSkip = hasSkip,
                 onBack = { nav.onBackPressed() },
                 onSkip = onSkip
             )
             // onboarding toolbar include paddingBottom 16.dp
+        }
+
+        item(key = "ai-conversion") {
+            com.ivy.importdata.csvimport.AiImportEntryCard(onAiGuide)
         }
 
         item {
@@ -90,13 +96,6 @@ fun BoxWithConstraintsScope.ImportFrom(
         item {
             Spacer(Modifier.height(8.dp))
 
-            Text(
-                modifier = Modifier.padding(start = 32.dp),
-                text = stringResource(R.string.import_from),
-                style = UI.typo.h2.style(
-                    fontWeight = FontWeight.Black
-                )
-            )
 
             Spacer(Modifier.height(24.dp))
         }

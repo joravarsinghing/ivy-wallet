@@ -20,7 +20,7 @@ class NotificationService @Inject constructor(
     ): IvyNotification {
         val ivyNotification = IvyNotification(context, channel)
         val color = ContextCompat.getColor(context, R.color.green)
-        ivyNotification.setSmallIcon(R.drawable.ic_notification)
+        ivyNotification.setSmallIcon(R.drawable.jvy_wallet_notification_white)
             .setColor(color)
             .setPriority(priority)
             .setColorized(true)

@@ -1,5 +1,7 @@
 package com.ivy.main
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -34,7 +36,7 @@ class MainViewModel @Inject constructor(
 
     fun start(screen: MainScreen) {
         nav.onBackPressed[screen] = {
-            if (ivyContext.mainTab == MainTab.ACCOUNTS) {
+            if (ivyContext.mainTab != MainTab.HOME) {
                 ivyContext.selectMainTab(MainTab.HOME)
                 true
             } else {
@@ -65,13 +67,21 @@ class MainViewModel @Inject constructor(
         ivyContext.selectMainTab(tab)
     }
 
-    fun createAccount(data: CreateAccountData) {
+    val editorModals = com.ivy.legacy.ui.EditorModalHost()
+    var accountModalData: com.ivy.wallet.ui.theme.modal.edit.AccountModalData?
+        get() = editorModals.account
+        private set(value) { editorModals.account = value }
+
+    fun changeAccountModal(data: com.ivy.wallet.ui.theme.modal.edit.AccountModalData?, expectedId: java.util.UUID? = null) {
+        if (expectedId == null || accountModalData?.id == expectedId) accountModalData = data
+    }
+
+    fun createAccount(data: CreateAccountData, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
             TestIdlingResource.increment()
 
-            accountCreator.createAccount(data) {}
-
-            TestIdlingResource.decrement()
+            try { accountCreator.createAccount(data, onResult) {} }
+            finally { TestIdlingResource.decrement() }
         }
     }
 }

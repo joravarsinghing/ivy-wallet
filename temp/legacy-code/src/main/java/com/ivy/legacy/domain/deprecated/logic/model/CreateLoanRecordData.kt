@@ -12,5 +12,6 @@ data class CreateLoanRecordData(
     val account: Account? = null,
     val createLoanRecordTransaction: Boolean = false,
     val convertedAmount: Double? = null,
-    val loanRecordType: LoanRecordType
+    val loanRecordType: LoanRecordType,
+    val id: java.util.UUID = java.util.UUID.randomUUID(),
 )

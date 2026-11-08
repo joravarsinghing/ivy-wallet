@@ -3,6 +3,7 @@ package com.ivy.data.file
 import android.content.Context
 import android.net.Uri
 import arrow.core.Either
+import com.ivy.base.legacy.UnsafeArchiveException
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.BufferedReader
 import java.io.FileInputStream
@@ -57,6 +58,72 @@ class FileSystem @Inject constructor(
         } catch (e: Exception) {
             Either.Left(Failure.IO(e))
         }
+    }
+
+    /**
+     * Reads text exported by another app without assuming its charset.
+     *
+     * Android file pickers do not guarantee a useful MIME type and many finance
+     * apps export UTF-16 while others export UTF-8. Prefer a BOM when present,
+     * otherwise choose the candidate with the fewest replacement/NUL characters.
+     */
+    fun readAuto(uri: Uri): Either<Failure, String> {
+        return readBytes(uri).map { bytes -> decodeText(bytes) }
+    }
+
+    /** Backups are untrusted input. Reject oversized JSON before allocating an unbounded byte array. */
+    fun readAutoBounded(uri: Uri, maxBytes: Long = 64L * 1024 * 1024): Either<Failure, String> =
+        readBytes(uri, maxBytes).map(::decodeText)
+
+    private fun readBytes(uri: Uri, maxBytes: Long? = null): Either<Failure, ByteArray> {
+        return try {
+            val contentResolver = appContext.contentResolver
+            val bytes = contentResolver.openFileDescriptor(uri, "r")?.use { descriptor ->
+                FileInputStream(descriptor.fileDescriptor).use { input ->
+                    if (maxBytes == null) input.readBytes() else {
+                        require(maxBytes > 0)
+                        val output = java.io.ByteArrayOutputStream()
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        var total = 0L
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            total += count
+                            if (total > maxBytes) throw UnsafeArchiveException("The backup JSON exceeds the import size limit.")
+                            output.write(buffer, 0, count)
+                        }
+                        output.toByteArray()
+                    }
+                }
+            } ?: throw FileNotFoundException("Could not open $uri")
+            Either.Right(bytes)
+        } catch (e: FileNotFoundException) {
+            Either.Left(Failure.FileNotFound(e))
+        } catch (e: Exception) {
+            Either.Left(Failure.IO(e))
+        }
+    }
+
+    private fun decodeText(bytes: ByteArray): String {
+        if (bytes.size >= 2 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xFE.toByte()) {
+            return bytes.copyOfRange(2, bytes.size).toString(Charsets.UTF_16LE)
+        }
+        if (bytes.size >= 2 && bytes[0] == 0xFE.toByte() && bytes[1] == 0xFF.toByte()) {
+            return bytes.copyOfRange(2, bytes.size).toString(Charsets.UTF_16BE)
+        }
+        if (bytes.size >= 3 && bytes[0] == 0xEF.toByte() &&
+            bytes[1] == 0xBB.toByte() && bytes[2] == 0xBF.toByte()
+        ) {
+            return bytes.copyOfRange(3, bytes.size).toString(Charsets.UTF_8)
+        }
+
+        return listOf(Charsets.UTF_8, Charsets.UTF_16LE, Charsets.UTF_16BE)
+            .map { charset -> bytes.toString(charset) }
+            .minBy { candidate ->
+                candidate.count { it == '\uFFFD' } * 1000 +
+                    candidate.count { it == '\u0000' } * 10
+            }
+            .trimStart('\uFEFF')
     }
 
     @Throws(IOException::class)

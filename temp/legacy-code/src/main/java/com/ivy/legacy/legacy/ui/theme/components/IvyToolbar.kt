@@ -20,8 +20,8 @@ enum class BackButtonType {
 fun IvyToolbar(
     onBack: () -> Unit,
     backButtonType: BackButtonType = BackButtonType.BACK,
-    paddingTop: Dp = 16.dp,
-    paddingBottom: Dp = 16.dp,
+    paddingTop: Dp = 12.dp,
+    paddingBottom: Dp = 12.dp,
     Content: @Composable RowScope.() -> Unit = { }
 ) {
     Row(
@@ -31,25 +31,9 @@ fun IvyToolbar(
             .padding(top = paddingTop),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Spacer(Modifier.width(20.dp))
+        Spacer(Modifier.width(24.dp))
 
-        when (backButtonType) {
-            BackButtonType.BACK -> {
-                BackButton(
-                    modifier = Modifier.testTag("toolbar_back")
-                ) {
-                    onBack()
-                }
-            }
-
-            BackButtonType.CLOSE -> {
-                CloseButton(
-                    modifier = Modifier.testTag("toolbar_close")
-                ) {
-                    onBack()
-                }
-            }
-        }
+        com.ivy.design.system.JvyBackButton(onBack, Modifier.testTag("toolbar_back"))
 
         Content()
     }

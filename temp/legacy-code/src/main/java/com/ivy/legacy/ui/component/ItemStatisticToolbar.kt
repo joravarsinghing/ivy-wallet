@@ -34,15 +34,11 @@ fun ItemStatisticToolbar(
         Spacer(Modifier.width(24.dp))
 
         val nav = navigation()
-        CircleButton(
-            modifier = Modifier.testTag("toolbar_close"),
-            icon = R.drawable.ic_dismiss,
-            borderColor = contrastColor,
+        com.ivy.design.system.JvyBackButton(
+            onClick = { nav.back() },
+            modifier = Modifier.testTag("toolbar_back"),
             tint = contrastColor,
-            backgroundColor = Transparent
-        ) {
-            nav.back()
-        }
+        )
 
         Spacer(Modifier.weight(1f))
 

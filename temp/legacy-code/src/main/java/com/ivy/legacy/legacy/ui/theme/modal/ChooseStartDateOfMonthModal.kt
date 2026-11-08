@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -45,15 +46,10 @@ fun BoxWithConstraintsScope.ChooseStartDateOfMonthModal(
     IvyModal(
         id = id,
         visible = visible,
+        title = stringResource(R.string.choose_start_date_of_month),
         dismiss = dismiss,
         PrimaryAction = { }
     ) {
-        Spacer(Modifier.height(32.dp))
-
-        ModalTitle(text = stringResource(R.string.choose_start_date_of_month))
-
-        Spacer(Modifier.height(32.dp))
-
         NumberRow(
             selectedNumber = selectedStartDateOfMonth,
             fromInclusive = 1,
@@ -173,23 +169,22 @@ private fun ColumnScope.NumberRow(
 ) {
     Row(
         modifier = Modifier
-            .align(Alignment.CenterHorizontally),
+            .align(Alignment.CenterHorizontally)
+            .padding(horizontal = 24.dp),
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Spacer(Modifier.width(24.dp))
-
         for (number in fromInclusive..toInclusive) {
             NumberView(
+                modifier = Modifier.weight(1f),
                 number = number,
                 selected = number == selectedNumber
             ) {
                 onClick(it)
             }
 
-            Spacer(Modifier.width(20.dp))
         }
 
-        Spacer(Modifier.width(24.dp))
     }
 }
 
@@ -197,11 +192,12 @@ private fun ColumnScope.NumberRow(
 private fun NumberView(
     number: Int,
     selected: Boolean,
+    modifier: Modifier = Modifier,
     onClick: (Int) -> Unit
 ) {
     Box(
-        modifier = Modifier
-            .size(48.dp)
+        modifier = modifier
+            .height(48.dp)
             .clip(CircleShape)
             .border(2.dp, if (selected) Ivy else UI.colors.medium, CircleShape)
             .thenIf(selected) {

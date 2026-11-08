@@ -1,6 +1,7 @@
 package com.ivy.wallet.ui.theme.modal
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -31,46 +32,23 @@ fun ModalAmountSection(
     Header: (@Composable () -> Unit)? = null,
     amountPaddingTop: Dp = 48.dp,
     amountPaddingBottom: Dp = 48.dp,
+    enabled: Boolean = true,
     showAmountModal: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        IvyDividerLine()
-
+    Column(modifier.fillMaxWidth()) {
         Header?.invoke()
-
-        Spacer(Modifier.height(amountPaddingTop))
-
-        Text(
-            text = label,
-            style = UI.typo.c.style(
-                color = UI.colors.gray,
-                fontWeight = FontWeight.ExtraBold
-            )
-        )
-
-        Spacer(Modifier.height(4.dp))
-
-        BalanceRow(
-            modifier = Modifier
-                .clickableNoIndication(rememberInteractionSource()) {
-                    showAmountModal()
-                }
-                .testTag("amount_balance"),
-            currency = currency,
-            balance = amount,
-
-            spacerCurrency = 8.dp,
-
-            balanceFontSize = 40.sp,
-            currencyFontSize = 30.sp,
-
-            currencyUpfront = false
-        )
-
-        Spacer(Modifier.height(amountPaddingBottom))
+        Spacer(Modifier.height(amountPaddingTop.coerceAtMost(16.dp)))
+        Column(Modifier.padding(horizontal = 24.dp)) {
+            Text(label, style = com.ivy.design.system.JvyTypography.Supporting,
+                color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(8.dp))
+            com.ivy.design.system.JvyOutlinedButton(showAmountModal,
+                Modifier.fillMaxWidth().testTag("amount_balance"), enabled = enabled) {
+                // This is the explicitly editable amount, not a read-only balance.
+                Text(if (amount.isFinite()) com.ivy.ui.money.formatDecimalMoney(amount.toBigDecimal(), currency) else "Enter a valid amount.",
+                    style = com.ivy.design.system.JvyTypography.AmountSmall)
+            }
+        }
+        Spacer(Modifier.height(amountPaddingBottom.coerceAtMost(16.dp)))
     }
 }

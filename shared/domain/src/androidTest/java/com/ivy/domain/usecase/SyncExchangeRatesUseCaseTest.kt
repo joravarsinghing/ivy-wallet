@@ -1,6 +1,7 @@
 package com.ivy.domain.usecase
 
 import android.content.Context
+import com.ivy.data.datastore.dataStore
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -47,7 +48,7 @@ class SyncExchangeRatesUseCaseTest {
             dispatchers = TestDispatchersProvider,
         )
 
-        useCase = SyncExchangeRatesUseCase(repository)
+        useCase = SyncExchangeRatesUseCase(repository, context.dataStore)
     }
 
     @After

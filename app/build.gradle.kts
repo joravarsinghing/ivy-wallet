@@ -1,3 +1,7 @@
+import java.util.Properties
+import java.security.KeyStore
+import java.security.MessageDigest
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -6,9 +10,65 @@ plugins {
     id("dagger.hilt.android.plugin")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.devtools.ksp")
-    id("com.google.gms.google-services")
-    id("com.google.firebase.crashlytics")
     id("io.gitlab.arturbosch.detekt")
+}
+
+val persistedVersion = Properties().apply {
+    val versionFile = rootProject.file("version.properties")
+    if (versionFile.exists()) {
+        versionFile.inputStream().use { load(it) }
+    }
+}
+
+val appVersionName = providers.gradleProperty("jvyVersionName")
+    .orElse(persistedVersion.getProperty("versionName") ?: libs.versions.version.name.get())
+    .get()
+val appVersionCode = providers.gradleProperty("jvyVersionCode")
+    .orElse(persistedVersion.getProperty("versionCode") ?: libs.versions.version.code.get())
+    .get()
+    .toInt()
+
+val jvyReleaseStoreFile = rootProject.file(providers.environmentVariable("SIGNING_STORE_FILE").orElse("sign.jks").get())
+val jvyPublicTestStoreFile = rootProject.file("debug.jks")
+abstract class VerifyJvyReleaseSigningTask : DefaultTask() {
+    @get:Internal abstract val privateStore: RegularFileProperty
+    @get:Internal abstract val publicTestStore: RegularFileProperty
+    @TaskAction fun verify() {
+        fun credential(name: String) = System.getenv(name)?.takeIf { it.isNotBlank() }
+            ?: throw GradleException("Private release signing requires $name. Do not use the repository test key for public distribution.")
+        val password = credential("SIGNING_STORE_PASSWORD").toCharArray()
+        try {
+            val keyPassword = credential("SIGNING_KEY_PASSWORD").toCharArray()
+            try {
+                val alias = credential("SIGNING_KEY_ALIAS")
+                val store = privateStore.get().asFile
+                require(store.isFile) { "Private release keystore not found. Set SIGNING_STORE_FILE to your own keystore path." }
+                val release = KeyStore.getInstance(store, password)
+                require(release.isKeyEntry(alias) && release.getKey(alias, keyPassword) is java.security.PrivateKey) { "The release alias must contain a private signing key." }
+                val certificate = requireNotNull(release.getCertificate(alias)) { "Release signing certificate is missing." }
+                val publicStore = KeyStore.getInstance(publicTestStore.get().asFile, "IVY7834!DEbug".toCharArray())
+                val testCertificate = requireNotNull(publicStore.getCertificate("debug"))
+                // Compare keys, not only certificates: reissuing a certificate must not
+                // make the publicly known private key acceptable for release signing.
+                require(!MessageDigest.isEqual(certificate.publicKey.encoded, testCertificate.publicKey.encoded)) {
+                    "Public distribution with the repository's test signing certificate is prohibited. Supply your own private release key."
+                }
+            } finally { keyPassword.fill('\u0000') }
+        } finally {
+            password.fill('\u0000')
+        }
+    }
+}
+val verifyJvyReleaseSigning = tasks.register<VerifyJvyReleaseSigningTask>("verifyJvyReleaseSigning") {
+    group = "verification"
+    description = "Reject missing private signing credentials and the repository's public test key."
+    privateStore.set(jvyReleaseStoreFile)
+    publicTestStore.set(jvyPublicTestStoreFile)
+}
+
+// Guard raw Gradle builds too, not just the numbered PowerShell workflow.
+tasks.configureEach {
+    if (name == "validateSigningRelease") dependsOn(verifyJvyReleaseSigning)
 }
 
 android {
@@ -19,8 +79,8 @@ android {
         applicationId = "com.ivy.wallet"
         minSdk = libs.versions.min.sdk.get().toInt()
         targetSdk = libs.versions.compile.sdk.get().toInt()
-        versionName = libs.versions.version.name.get()
-        versionCode = libs.versions.version.code.get().toInt()
+        versionName = appVersionName
+        versionCode = appVersionCode
     }
 
     androidResources {
@@ -36,7 +96,7 @@ android {
         }
 
         create("release") {
-            storeFile = file("../sign.jks")
+            storeFile = jvyReleaseStoreFile
             storePassword = System.getenv("SIGNING_STORE_PASSWORD")
             keyAlias = System.getenv("SIGNING_KEY_ALIAS")
             keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
@@ -57,7 +117,7 @@ android {
 
             signingConfig = signingConfigs.getByName("release")
 
-            resValue("string", "app_name", "Ivy Wallet")
+            resValue("string", "app_name", "Jvy Wallet")
         }
 
         debug {
@@ -70,7 +130,7 @@ android {
             signingConfig = signingConfigs.getByName("debug")
 
             applicationIdSuffix = ".debug"
-            resValue("string", "app_name", "Ivy Wallet Debug")
+            resValue("string", "app_name", "Jvy Wallet Debug")
         }
 
         create("demo") {
@@ -89,7 +149,7 @@ android {
             signingConfig = signingConfigs.getByName("debug")
 
             applicationIdSuffix = ".debug"
-            resValue("string", "app_name", "Ivy Wallet")
+            resValue("string", "app_name", "Jvy Wallet")
         }
     }
 
@@ -111,8 +171,8 @@ android {
     lint {
         disable += "ComposeViewModelInjection"
         checkDependencies = true
-        abortOnError = false
-        checkReleaseBuilds = false
+        abortOnError = true
+        checkReleaseBuilds = true
         htmlReport = true
         htmlOutput = file("${project.rootDir}/build/reports/lint/lint.html")
         xmlReport = true
@@ -122,15 +182,14 @@ android {
 }
 
 dependencies {
-    implementation(projects.feature.attributions)
     implementation(projects.feature.balance)
     implementation(projects.feature.budgets)
     implementation(projects.feature.categories)
-    implementation(projects.feature.contributors)
     implementation(projects.feature.disclaimer)
     implementation(projects.feature.editTransaction)
     implementation(projects.feature.exchangeRates)
     implementation(projects.feature.features)
+    implementation(projects.feature.goals)
     implementation(projects.feature.home)
     implementation(projects.feature.importData)
     implementation(projects.feature.loans)
@@ -141,6 +200,9 @@ dependencies {
     implementation(projects.feature.poll.impl)
     implementation(projects.feature.poll.public)
     implementation(projects.feature.releases)
+    implementation(projects.shared.security)
+    implementation(projects.feature.security)
+    implementation(projects.feature.networth)
     implementation(projects.feature.reports)
     implementation(projects.feature.search)
     implementation(projects.feature.settings)
@@ -163,7 +225,6 @@ dependencies {
     implementation(libs.bundles.compose)
     implementation(libs.bundles.activity)
     implementation(libs.bundles.google)
-    implementation(libs.bundles.firebase)
     implementation(libs.datastore)
     implementation(libs.androidx.security)
     implementation(libs.androidx.biometrics)

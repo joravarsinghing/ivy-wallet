@@ -72,6 +72,7 @@ class IvyWalletCtx @Inject constructor() : IvyContext() {
     @Deprecated("Legacy code. Don't use it, please.")
     fun updateSelectedPeriodInMemory(period: com.ivy.legacy.data.model.TimePeriod) {
         selectedPeriod = period
+        selectedPeriodInitialized = true
     }
 
     @Deprecated("Legacy code. Don't use it, please.")

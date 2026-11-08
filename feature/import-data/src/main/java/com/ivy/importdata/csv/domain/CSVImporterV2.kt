@@ -7,14 +7,17 @@ import com.ivy.base.model.TransactionType
 import com.ivy.base.time.TimeConverter
 import com.ivy.data.backup.CSVRow
 import com.ivy.data.backup.ImportResult
+import com.ivy.data.backup.importFingerprint
 import com.ivy.data.db.dao.read.AccountDao
 import com.ivy.data.db.dao.read.SettingsDao
+import com.ivy.data.db.dao.read.TransactionDao
 import com.ivy.data.model.Category
 import com.ivy.data.model.CategoryId
 import com.ivy.data.model.primitive.ColorInt
 import com.ivy.data.model.primitive.IconAsset
 import com.ivy.data.model.primitive.NotBlankTrimmedString
 import com.ivy.data.repository.AccountRepository
+import com.ivy.data.repository.AtomicWriteRepository
 import com.ivy.data.repository.CategoryRepository
 import com.ivy.data.repository.CurrencyRepository
 import com.ivy.data.repository.TransactionRepository
@@ -27,6 +30,7 @@ import com.ivy.legacy.datamodel.Account
 import com.ivy.legacy.datamodel.temp.toLegacyDomain
 import com.ivy.legacy.datamodel.toEntity
 import com.ivy.legacy.utils.toLowerCaseLocal
+import com.ivy.legacy.domain.deprecated.logic.csv.resolveImportedCsvCurrency
 import com.ivy.wallet.domain.data.IvyCurrency
 import com.ivy.wallet.domain.pure.util.nextOrderNum
 import com.ivy.wallet.ui.theme.Green
@@ -42,10 +46,12 @@ class CSVImporterV2 @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val transactionMapper: TransactionMapper,
     private val accountDao: AccountDao,
+    private val transactionDao: TransactionDao,
     private val categoryRepository: CategoryRepository,
     private val currencyRepository: CurrencyRepository,
     private val accountRepository: AccountRepository,
     private val timeConverter: TimeConverter,
+    private val atomicWrite: AtomicWriteRepository,
 ) {
 
     lateinit var accounts: List<Account>
@@ -60,7 +66,7 @@ class CSVImporterV2 @Inject constructor(
         transferFields: TransferFields,
         optionalFields: OptionalFields,
         onProgress: suspend (progressPercent: Double) -> Unit,
-    ): ImportResult {
+    ): ImportResult = atomicWrite.run {
         val rows = csv.drop(1) // drop the header
         val rowsCount = rows.size
 
@@ -74,8 +80,12 @@ class CSVImporterV2 @Inject constructor(
         val initialCategoriesCount = categories.size
 
         val baseCurrency = settingsDao.findFirst().currency
+        val importedFingerprints = transactionDao.findAll()
+            .map { it.importFingerprint() }
+            .toMutableSet()
 
         val failedRows = mutableListOf<CSVRow>()
+        val sourceRows = mutableMapOf<UUID, CSVRow>()
 
         val transactions = rows.mapIndexedNotNull { index, row ->
             val progressPercent = if (rowsCount > 0) {
@@ -100,10 +110,14 @@ class CSVImporterV2 @Inject constructor(
                         content = row.values
                     )
                 )
+            } else {
+                sourceRows[transaction.id] = CSVRow(index + 2, row.values)
             }
             transaction
         }
 
+        var importedCount = 0
+        var duplicatesSkipped = 0
         for ((index, transaction) in transactions.withIndex()) {
             val progressPercent = if (rowsCount > 0) {
                 index / transactions.size.toDouble()
@@ -112,18 +126,28 @@ class CSVImporterV2 @Inject constructor(
             }
             onProgress(0.5 + progressPercent / 2)
             with(transactionMapper) {
-                transaction.toEntity().toDomain().getOrNull()?.let {
-                    transactionRepository.save(it)
+                val entity = transaction.toEntity()
+                if (!importedFingerprints.add(entity.importFingerprint())) {
+                    duplicatesSkipped++
+                } else {
+                    entity.toDomain().getOrNull()?.let {
+                        transactionRepository.save(it)
+                        importedCount++
+                    } ?: run {
+                        importedFingerprints.remove(entity.importFingerprint())
+                        sourceRows[transaction.id]?.let(failedRows::add)
+                    }
                 }
             }
         }
 
-        return ImportResult(
+        ImportResult(
             rowsFound = rowsCount,
-            transactionsImported = transactions.size,
+            transactionsImported = importedCount,
             accountsImported = accounts.size - initialAccountsCount,
             categoriesImported = categories.size - initialCategoriesCount,
-            failedRows = failedRows.toImmutableList()
+            failedRows = failedRows.toImmutableList(),
+            duplicatesSkipped = duplicatesSkipped
         )
     }
 
@@ -139,70 +163,55 @@ class CSVImporterV2 @Inject constructor(
             metadata = importantFields.type.metadata,
         ) ?: return null
 
+        val accountName = parseAccount(row.extractValue(importantFields.account), importantFields.account.metadata)
+            ?: return null
+        val toAccountName = if (type == TransactionType.TRANSFER) {
+            parseToAccount(row.extractValue(transferFields.toAccount), transferFields.toAccount.metadata)
+                ?.takeUnless { it.equals(accountName, ignoreCase = true) } ?: return null
+        } else null
+
+        val sourceCurrency = resolveImportedCsvCurrency(accountName,
+            parseAccountCurrency(row.extractValue(importantFields.accountCurrency), importantFields.accountCurrency.metadata),
+            baseCurrency, accounts) ?: return null
+        val destinationCurrency = if (toAccountName != null) {
+            resolveImportedCsvCurrency(toAccountName,
+                parseToAccountCurrency(row.extractValue(transferFields.toAccountCurrency), transferFields.toAccountCurrency.metadata),
+                sourceCurrency, accounts) ?: return null
+        } else null
+
+        val csvAmount = parseAmount(
+            value = row.extractValue(importantFields.amount),
+            metadata = importantFields.amount.metadata
+        ) ?: return null
+        val amount = csvAmount.absoluteValue
+        if (!amount.isFinite() || amount <= 0) return null
+
+        val toAmount = if (type == TransactionType.TRANSFER) {
+            parseAmount(row.extractValue(transferFields.toAmount), transferFields.toAmount.metadata)
+                ?.takeIf { it.isFinite() && it > 0 } ?: return null
+        } else null
+
+        val dateTime = parseDate(
+            row.extractValue(importantFields.date), importantFields.date.metadata
+        ) ?: return null
+
         val toAccount = if (type == TransactionType.TRANSFER) {
             mapAccount(
                 baseCurrency = baseCurrency,
-                accountNameString = parseToAccount(
-                    value = row.extractValue(transferFields.toAccount),
-                    metadata = transferFields.toAccount.metadata
-                ),
-                currencyRawString = parseToAccountCurrency(
-                    value = row.extractValue(transferFields.toAccountCurrency),
-                    metadata = transferFields.toAccountCurrency.metadata
-                ) ?: parseAccountCurrency(
-                    value = row.extractValue(importantFields.accountCurrency),
-                    metadata = importantFields.accountCurrency.metadata,
-                ),
+                accountNameString = toAccountName,
+                currencyRawString = destinationCurrency,
                 color = null,
                 icon = null,
                 orderNum = null,
-            )
+            ) ?: return null
         } else {
             null
         }
-
-        val csvAmount = if (type != TransactionType.TRANSFER) {
-            parseAmount(
-                value = row.extractValue(importantFields.amount),
-                metadata = importantFields.amount.metadata
-            )
-        } else {
-            parseAmount(
-                value = row.extractValue(transferFields.toAmount),
-                metadata = transferFields.toAmount.metadata
-            )
-        } ?: return null
-        val amount = csvAmount.absoluteValue
-
-        if (amount <= 0) {
-            // Cannot save transactions with zero amount
-            return null
-        }
-
-        val toAmount = if (type == TransactionType.TRANSFER) {
-            parseAmount(
-                value = row.extractValue(transferFields.toAmount),
-                metadata = transferFields.toAmount.metadata
-            )
-        } else {
-            null
-        }
-
-        val dateTime = parseDate(
-            row.extractValue(importantFields.date),
-            importantFields.date.metadata
-        ) ?: return null
 
         val account = mapAccount(
             baseCurrency = baseCurrency,
-            accountNameString = parseAccount(
-                value = row.extractValue(importantFields.account),
-                metadata = importantFields.account.metadata
-            ),
-            currencyRawString = parseAccountCurrency(
-                value = row.extractValue(importantFields.accountCurrency),
-                metadata = importantFields.accountCurrency.metadata
-            ),
+            accountNameString = accountName,
+            currencyRawString = sourceCurrency,
             color = null,
             icon = null,
             orderNum = null,

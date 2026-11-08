@@ -218,6 +218,13 @@ private fun RuleTextRow(
     intervalN: Int?,
     intervalType: IntervalType?
 ) {
+    val nextDate = nextPlannedPaymentDate(
+        startDate = startDate,
+        oneTime = oneTime,
+        intervalN = intervalN,
+        intervalType = intervalType,
+        now = LocalDateTime.now(),
+    )
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -262,6 +269,17 @@ private fun RuleTextRow(
                     color = Orange,
                     fontWeight = FontWeight.ExtraBold
                 )
+            )
+        }
+
+        if (!oneTime && nextDate != null) {
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = "· NEXT ${nextDate.toLocalDate().formatDateOnlyWithYear().uppercaseLocal()}",
+                style = UI.typo.nC.style(
+                    color = UI.colors.gray,
+                    fontWeight = FontWeight.ExtraBold,
+                ),
             )
         }
 

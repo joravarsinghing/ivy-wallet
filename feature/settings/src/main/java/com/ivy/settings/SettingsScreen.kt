@@ -5,6 +5,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -47,8 +49,6 @@ import com.ivy.legacy.Constants
 import com.ivy.legacy.IvyWalletPreview
 import com.ivy.legacy.rootScreen
 import com.ivy.legacy.utils.drawColoredShadow
-import com.ivy.navigation.AttributionsScreen
-import com.ivy.navigation.ContributorsScreen
 import com.ivy.navigation.ExchangeRatesScreen
 import com.ivy.navigation.FeaturesScreen
 import com.ivy.navigation.ImportScreen
@@ -58,14 +58,10 @@ import com.ivy.navigation.navigation
 import com.ivy.navigation.screenScopedViewModel
 import com.ivy.ui.R
 import com.ivy.wallet.domain.data.IvyCurrency
-import com.ivy.wallet.ui.theme.Blue
 import com.ivy.wallet.ui.theme.Gradient
 import com.ivy.wallet.ui.theme.GradientGreen
-import com.ivy.wallet.ui.theme.GradientIvy
 import com.ivy.wallet.ui.theme.Gray
-import com.ivy.wallet.ui.theme.MediumBlack
 import com.ivy.wallet.ui.theme.Red
-import com.ivy.wallet.ui.theme.Red3
 import com.ivy.wallet.ui.theme.White
 import com.ivy.wallet.ui.theme.components.IvySwitch
 import com.ivy.wallet.ui.theme.components.IvyToolbar
@@ -82,6 +78,16 @@ fun BoxWithConstraintsScope.SettingsScreen() {
     val viewModel: SettingsViewModel = screenScopedViewModel()
     val uiState = viewModel.uiState()
     val rootScreen = rootScreen()
+
+    uiState.currencyError?.let { message ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { viewModel.onEvent(SettingsEvent.DismissCurrencyError) },
+            text = { Text(message, Modifier.verticalScroll(rememberScrollState())) },
+            confirmButton = { com.ivy.design.system.JvyTextButton({ viewModel.onEvent(SettingsEvent.DismissCurrencyError) }) {
+                Text(stringResource(android.R.string.ok))
+            } },
+        )
+    }
 
     UI(
         currencyCode = uiState.currencyCode,
@@ -177,6 +183,7 @@ private fun BoxWithConstraintsScope.UI(
     var deleteAllDataModalVisible by remember { mutableStateOf(false) }
     var deleteAllDataModalFinalVisible by remember { mutableStateOf(false) }
     val nav = navigation()
+    val rootActivity = rootScreen()
 
     LazyColumn(
         modifier = Modifier
@@ -186,11 +193,9 @@ private fun BoxWithConstraintsScope.UI(
             .testTag("settings_lazy_column")
     ) {
         stickyHeader {
-            IvyToolbar(
+            com.ivy.design.system.JvyScreenHeader(stringResource(R.string.settings),
                 onBack = { nav.onBackPressed() },
             ) {
-                Spacer(Modifier.weight(1f))
-
                 val rootScreen = rootScreen()
                 Text(
                     modifier = Modifier.clickable {
@@ -203,23 +208,12 @@ private fun BoxWithConstraintsScope.UI(
                     )
                 )
 
-                Spacer(Modifier.width(32.dp))
             }
             // onboarding toolbar include paddingBottom 16.dp
         }
 
         item {
-            Spacer(Modifier.height(8.dp))
-
-            Text(
-                modifier = Modifier.padding(start = 32.dp),
-                text = stringResource(R.string.settings),
-                style = UI.typo.h2.style(
-                    fontWeight = FontWeight.Black
-                )
-            )
-
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(16.dp))
 
             CurrencyButton(currency = currencyCode) {
                 currencyModalVisible = true
@@ -328,12 +322,10 @@ private fun BoxWithConstraintsScope.UI(
 
             Spacer(Modifier.height(12.dp))
 
-            AppSwitch(
-                lockApp = lockApp,
-                onSetLockApp = onSetLockApp,
-                text = stringResource(R.string.lock_app),
-                icon = R.drawable.ic_custom_fingerprint_m
-            )
+            SettingsDefaultButton(
+                text = "Security & screen capture",
+                icon = R.drawable.ic_custom_fingerprint_m,
+            ) { nav.navigateTo(com.ivy.navigation.SecurityScreen) }
 
             Spacer(Modifier.height(12.dp))
 
@@ -341,7 +333,7 @@ private fun BoxWithConstraintsScope.UI(
                 lockApp = showNotifications,
                 onSetLockApp = onSetShowNotifications,
                 text = stringResource(R.string.show_notifications),
-                icon = R.drawable.ic_notification_m
+                icon = R.drawable.jvy_wallet_notification_white
             )
 
             Spacer(Modifier.height(12.dp))
@@ -404,55 +396,61 @@ private fun BoxWithConstraintsScope.UI(
 //        }
 
         item {
-            SettingsSectionDivider(text = stringResource(R.string.other))
+            SettingsSectionDivider(text = stringResource(R.string.jvy_wallet))
 
             Spacer(Modifier.height(16.dp))
 
             val rootScreen = rootScreen()
-            SettingsPrimaryButton(
+            SettingsDefaultButton(
                 icon = R.drawable.ic_custom_star_m,
-                text = stringResource(R.string.rate_us_on_google_play),
-                backgroundGradient = GradientIvy
+                text = stringResource(R.string.jvy_feedback_support),
             ) {
-                rootScreen.reviewIvyWallet(dismissReviewCard = false)
+                rootScreen.openUrlInBrowser("https://github.com/joravarsinghing/ivy-wallet/issues")
             }
 
             Spacer(Modifier.height(12.dp))
 
-            SettingsPrimaryButton(
+            SettingsDefaultButton(
                 icon = R.drawable.ic_custom_family_m,
                 text = stringResource(R.string.share_ivy_wallet),
-                backgroundGradient = Gradient.solid(Red3)
             ) {
                 rootScreen.shareIvyWallet()
             }
 
             Spacer(Modifier.height(12.dp))
 
-            SettingsPrimaryButton(
+            SettingsDefaultButton(
                 icon = R.drawable.github_logo,
                 iconPadding = 10.dp,
-                text = stringResource(R.string.ivy_wallet_is_opensource),
-                backgroundGradient = Gradient.solid(MediumBlack)
+                text = stringResource(R.string.jvy_wallet_open_source),
+                description = "github.com/joravarsinghing"
             ) {
-                rootScreen.openUrlInBrowser(url = Constants.URL_IVY_WALLET_REPO)
+                rootScreen.openUrlInBrowser(url = Constants.URL_JVY_WALLET_REPO)
             }
         }
 
         item {
-            SettingsSectionDivider(text = stringResource(R.string.product))
+            SettingsSectionDivider(text = stringResource(R.string.connect_with_jvy))
 
             Spacer(Modifier.height(12.dp))
 
-            IvyTelegram()
-
-            Spacer(Modifier.height(16.dp))
-
-            HelpCenter()
+            JvyLink(
+                icon = R.drawable.ic_vue_location_global,
+                text = stringResource(R.string.jvy_website),
+                description = "joravarsinghing.github.io/portfolio"
+            ) {
+                rootActivity.openUrlInBrowser(Constants.URL_JVY_WEBSITE)
+            }
 
             Spacer(Modifier.height(12.dp))
 
-            Releases(nav = nav)
+            JvyLink(
+                icon = R.drawable.ic_support,
+                text = stringResource(R.string.jvy_linkedin),
+                description = "linkedin.com/in/joravarsingh"
+            ) {
+                rootActivity.openUrlInBrowser(Constants.URL_JVY_LINKEDIN)
+            }
 
             Spacer(Modifier.height(12.dp))
 
@@ -467,15 +465,7 @@ private fun BoxWithConstraintsScope.UI(
 
             Spacer(Modifier.height(12.dp))
 
-            ContactSupport()
-
-            Spacer(Modifier.height(12.dp))
-
-            Contributors(nav = nav)
-
-            Spacer(Modifier.height(12.dp))
-
-            Attributions()
+            Releases(nav = nav)
 
             Spacer(Modifier.height(12.dp))
 
@@ -649,27 +639,19 @@ private fun CustomFeatures(
 }
 
 @Composable
-private fun IvyTelegram() {
-    val rootActivity = rootScreen()
-    SettingsPrimaryButton(
-        icon = R.drawable.ic_telegram_24dp,
-        text = stringResource(R.string.ivy_telegram),
-        backgroundGradient = Gradient.solid(Blue),
-        iconPadding = 10.dp
-    ) {
-        rootActivity.openUrlInBrowser(Constants.URL_IVY_TELEGRAM_INVITE)
-    }
-}
-
-@Composable
-private fun HelpCenter() {
-    val uriHandler = LocalUriHandler.current
+private fun JvyLink(
+    @DrawableRes icon: Int,
+    text: String,
+    description: String,
+    onClick: () -> Unit
+) {
     SettingsDefaultButton(
-        icon = R.drawable.ic_custom_education_m,
-        text = stringResource(R.string.help_center),
-    ) {
-        uriHandler.openUri(Constants.URL_HELP_CENTER)
-    }
+        icon = icon,
+        text = text,
+        description = description,
+        iconPadding = if (icon == R.drawable.github_logo) 10.dp else 6.dp,
+        onClick = onClick
+    )
 }
 
 @Composable
@@ -697,17 +679,6 @@ private fun RequestFeature(
 }
 
 @Composable
-private fun ContactSupport() {
-    val rootActivity = rootScreen()
-    SettingsDefaultButton(
-        icon = R.drawable.ic_support,
-        text = stringResource(R.string.contact_support),
-    ) {
-        rootActivity.openUrlInBrowser(Constants.URL_IVY_TELEGRAM_INVITE)
-    }
-}
-
-@Composable
 private fun Releases(nav: Navigation) {
     SettingsDefaultButton(
         icon = R.drawable.ic_vue_money_tag,
@@ -715,30 +686,6 @@ private fun Releases(nav: Navigation) {
         iconPadding = 8.dp
     ) {
         nav.navigateTo(ReleasesScreen)
-    }
-}
-
-@Composable
-private fun Contributors(nav: Navigation) {
-    SettingsDefaultButton(
-        icon = R.drawable.ic_vue_people_people,
-        text = stringResource(R.string.project_contributors),
-        iconPadding = 8.dp
-    ) {
-        nav.navigateTo(ContributorsScreen)
-    }
-}
-
-@Composable
-private fun Attributions() {
-    val nav = navigation()
-
-    SettingsDefaultButton(
-        icon = R.drawable.ic_vue_location_global,
-        text = stringResource(R.string.attributions),
-        iconPadding = 6.dp
-    ) {
-        nav.navigateTo(AttributionsScreen)
     }
 }
 
@@ -786,7 +733,7 @@ private fun AppSwitch(
         Column(
             Modifier
                 .weight(1f)
-                .padding(top = 20.dp, bottom = 20.dp, end = 8.dp)
+                .padding(top = 14.dp, bottom = 14.dp, end = 8.dp)
         ) {
             Text(
                 text = text,
@@ -908,53 +855,7 @@ private fun ExportCSV(
 
 @Composable
 private fun TCAndPrivacyPolicy() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Spacer(Modifier.width(16.dp))
-
-        val uriHandler = LocalUriHandler.current
-
-        Text(
-            modifier = Modifier
-                .weight(1f)
-                .clip(UI.shapes.rFull)
-                .border(2.dp, UI.colors.medium, UI.shapes.rFull)
-                .clickable {
-                    uriHandler.openUri(Constants.URL_TC)
-                }
-                .padding(vertical = 14.dp),
-            text = stringResource(R.string.terms_conditions),
-            style = UI.typo.c.style(
-                fontWeight = FontWeight.ExtraBold,
-                color = UI.colors.pureInverse,
-                textAlign = TextAlign.Center
-            )
-        )
-
-        Spacer(Modifier.width(12.dp))
-
-        Text(
-            modifier = Modifier
-                .weight(1f)
-                .clip(UI.shapes.rFull)
-                .border(2.dp, UI.colors.medium, UI.shapes.rFull)
-                .clickable {
-                    uriHandler.openUri(Constants.URL_PRIVACY_POLICY)
-                }
-                .padding(vertical = 14.dp),
-            text = stringResource(R.string.privacy_policy),
-            style = UI.typo.c.style(
-                fontWeight = FontWeight.ExtraBold,
-                color = UI.colors.pureInverse,
-                textAlign = TextAlign.Center
-            )
-        )
-
-        Spacer(Modifier.width(16.dp))
-    }
+    com.ivy.design.system.JvyLegalLinks(Modifier.fillMaxWidth().padding(horizontal = 24.dp))
 }
 
 @Composable
@@ -987,7 +888,7 @@ private fun SettingsPrimaryButton(
         Column(
             Modifier
                 .weight(1f)
-                .padding(top = 20.dp, bottom = 20.dp, end = 8.dp)
+                .padding(top = 14.dp, bottom = 14.dp, end = 8.dp)
         ) {
             Text(
                 text = text,

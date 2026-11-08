@@ -23,12 +23,7 @@ class CurrencyRepository @Inject constructor(
         const val FALLBACK_DEFAULT_CURRENCY = "USD"
     }
 
-    private var baseCurrencyMemo: AssetCode? = null
-
     suspend fun getBaseCurrency(): AssetCode = withContext(dispatchersProvider.io) {
-        val baseCurrency = baseCurrencyMemo
-        if (baseCurrency != null) return@withContext baseCurrency
-
         val currencyCode = settingsDao.findFirstOrNull()?.currency
             ?: getDefaultFIATCurrency()?.currencyCode
         currencyCode?.let(AssetCode::from)?.getOrNull()
@@ -51,7 +46,6 @@ class CurrencyRepository @Inject constructor(
                     isDeleted = false,
                     id = UUID.randomUUID()
                 )
-            baseCurrencyMemo = newCurrency
             writeSettingsDao.save(
                 currentEntity.copy(
                     currency = newCurrency.code

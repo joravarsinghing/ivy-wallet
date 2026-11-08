@@ -14,5 +14,6 @@ data class CreateLoanData(
     val account: Account? = null,
     val note: String?,
     val createLoanTransaction: Boolean = false,
-    val dateTime: LocalDateTime
+    val dateTime: LocalDateTime,
+    val id: java.util.UUID = java.util.UUID.randomUUID(),
 )

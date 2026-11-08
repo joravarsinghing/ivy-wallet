@@ -27,6 +27,8 @@ fun BoxWithConstraintsScope.ImportCSVScreen(screen: ImportScreen) {
     val importType by viewModel.importType.observeAsState()
     val importProgressPercent by viewModel.importProgressPercent.observeAsState(0)
     val importResult by viewModel.importResult.observeAsState()
+    val aiPreview by viewModel.aiPreview.observeAsState()
+    val aiError by viewModel.aiError.observeAsState()
 
     val onboardingViewModel: OnboardingViewModel = viewModel()
 
@@ -41,6 +43,11 @@ fun BoxWithConstraintsScope.ImportCSVScreen(screen: ImportScreen) {
         importType = importType,
         importProgressPercent = importProgressPercent,
         importResult = importResult,
+        aiPreview = aiPreview,
+        aiError = aiError,
+        onAiGuide = viewModel::openAiGuide,
+        onChooseAiFile = viewModel::selectAiFile,
+        onConfirmAiImport = viewModel::confirmAiImport,
 
         onChooseImportType = viewModel::setImportType,
         onUploadCSVFile = { viewModel.uploadFile(context) },
@@ -68,6 +75,11 @@ private fun BoxWithConstraintsScope.UI(
     importType: ImportType?,
     importProgressPercent: Int,
     importResult: ImportResult?,
+    aiPreview: com.ivy.data.backup.AiImportPreview? = null,
+    aiError: String? = null,
+    onAiGuide: () -> Unit = {},
+    onChooseAiFile: () -> Unit = {},
+    onConfirmAiImport: () -> Unit = {},
 
     onChooseImportType: (ImportType) -> Unit = {},
     onUploadCSVFile: () -> Unit = {},
@@ -80,6 +92,7 @@ private fun BoxWithConstraintsScope.UI(
                 hasSkip = screen.launchedFromOnboarding,
                 launchedFromOnboarding = screen.launchedFromOnboarding,
                 onSkip = onSkip,
+                onAiGuide = onAiGuide,
                 onImportFrom = onChooseImportType
             )
         }
@@ -90,6 +103,18 @@ private fun BoxWithConstraintsScope.UI(
                 importType = importType!!,
                 onSkip = onSkip,
                 onUploadClick = onUploadCSVFile
+            )
+        }
+
+        ImportStep.AI_GUIDE, ImportStep.AI_REVIEW -> {
+            val nav = com.ivy.navigation.navigation()
+            AiImportScreenContent(
+                preview = aiPreview.takeIf { importStep == ImportStep.AI_REVIEW },
+                error = aiError,
+                onboarding = screen.launchedFromOnboarding,
+                onBack = { nav.onBackPressed() },
+                onChooseFile = onChooseAiFile,
+                onConfirm = onConfirmAiImport,
             )
         }
 

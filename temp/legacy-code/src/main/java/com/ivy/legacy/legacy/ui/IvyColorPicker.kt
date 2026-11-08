@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -51,10 +52,11 @@ private data class IvyColor(
 @Composable
 fun ColumnScope.IvyColorPicker(
     selectedColor: Color,
+    enabled: Boolean = true,
     onColorSelected: (Color) -> Unit
 ) {
     Text(
-        modifier = Modifier.padding(horizontal = 32.dp),
+        modifier = Modifier.padding(horizontal = com.ivy.design.system.JvySpacing.PageGutter),
         text = stringResource(R.string.choose_color),
         style = UI.typo.b2.style(
             color = UI.colors.pureInverse,
@@ -62,7 +64,7 @@ fun ColumnScope.IvyColorPicker(
         )
     )
 
-    Spacer(Modifier.height(16.dp))
+    Spacer(Modifier.height(com.ivy.design.system.JvySpacing.Related))
 
     val freeIvyColors = IVY_COLOR_PICKER_COLORS_FREE
         .map {
@@ -118,6 +120,7 @@ fun ColumnScope.IvyColorPicker(
                 index = index,
                 ivyColor = ivyColors[index],
                 selectedColor = selectedColor,
+                enabled = enabled,
                 onSelected = {
                     onColorSelected(it.color)
                 }
@@ -132,6 +135,7 @@ private fun ColorItem(
     index: Int,
     ivyColor: IvyColor,
     selectedColor: Color,
+    enabled: Boolean,
     onSelected: (IvyColor) -> Unit
 ) {
     val color = ivyColor.color
@@ -146,11 +150,12 @@ private fun ColorItem(
         modifier = Modifier
             .clip(CircleShape)
             .size(48.dp)
+            .alpha(if (enabled) 1f else .38f)
             .background(color, CircleShape)
             .thenIf(selected) {
                 border(width = 4.dp, color = color.dynamicContrast(), CircleShape)
             }
-            .clickable(onClick = {
+            .clickable(enabled = enabled, onClick = {
                 onSelected(ivyColor)
             })
             .testTag("color_item_${ivyColor.color.value}"),

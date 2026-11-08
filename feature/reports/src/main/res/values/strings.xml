@@ -1,0 +1,3 @@
+<resources>
+    <string name="report_amount_range_error">Minimum must be zero or more and no greater than maximum.</string>
+</resources>

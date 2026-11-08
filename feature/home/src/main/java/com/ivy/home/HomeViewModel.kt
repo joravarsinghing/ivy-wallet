@@ -1,5 +1,9 @@
 package com.ivy.home
 
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
+import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -12,8 +16,11 @@ import com.ivy.base.legacy.Transaction
 import com.ivy.base.legacy.TransactionHistoryItem
 import com.ivy.base.time.TimeConverter
 import com.ivy.base.time.TimeProvider
+import com.ivy.data.datastore.IvyDataStore
 import com.ivy.data.model.primitive.AssetCode
 import com.ivy.data.repository.CategoryRepository
+import com.ivy.data.repository.GoalRepository
+import com.ivy.data.repository.SavedAnalyticsRepository
 import com.ivy.data.repository.mapper.TransactionMapper
 import com.ivy.domain.features.Features
 import com.ivy.domain.usecase.exchange.SyncExchangeRatesUseCase
@@ -27,6 +34,7 @@ import com.ivy.legacy.data.AppBaseData
 import com.ivy.legacy.data.BufferInfo
 import com.ivy.legacy.data.LegacyDueSection
 import com.ivy.legacy.data.model.MainTab
+import com.ivy.legacy.data.model.Month
 import com.ivy.legacy.data.model.TimePeriod
 import com.ivy.legacy.data.model.toUTCCloseTimeRange
 import com.ivy.legacy.datamodel.Account
@@ -39,12 +47,14 @@ import com.ivy.legacy.utils.ioThread
 import com.ivy.navigation.BalanceScreen
 import com.ivy.navigation.MainScreen
 import com.ivy.navigation.Navigation
+import com.ivy.navigation.ReportScreen
 import com.ivy.ui.ComposeViewModel
 import com.ivy.wallet.domain.action.account.AccountsAct
 import com.ivy.wallet.domain.action.global.StartDayOfMonthAct
 import com.ivy.wallet.domain.action.settings.CalcBufferDiffAct
 import com.ivy.wallet.domain.action.settings.SettingsAct
 import com.ivy.wallet.domain.action.transaction.HistoryWithDateDivsAct
+import com.ivy.wallet.domain.action.transaction.LegacyCalcTrnsIncomeExpenseAct
 import com.ivy.wallet.domain.action.viewmodel.home.HasTrnsAct
 import com.ivy.wallet.domain.action.viewmodel.home.OverdueAct
 import com.ivy.wallet.domain.action.viewmodel.home.ShouldHideBalanceAct
@@ -52,6 +62,7 @@ import com.ivy.wallet.domain.action.viewmodel.home.UpcomingAct
 import com.ivy.wallet.domain.action.viewmodel.home.UpdateAccCacheAct
 import com.ivy.wallet.domain.action.viewmodel.home.UpdateCategoriesCacheAct
 import com.ivy.wallet.domain.action.wallet.CalcIncomeExpenseAct
+import com.ivy.base.model.TransactionType
 import com.ivy.wallet.domain.action.wallet.CalcWalletBalanceAct
 import com.ivy.wallet.domain.deprecated.logic.PlannedPaymentsLogic
 import com.ivy.wallet.domain.pure.data.ClosedTimeRange
@@ -61,9 +72,19 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.math.BigDecimal
+import java.time.LocalDate
+import java.time.format.TextStyle
+import java.util.Locale
 import javax.inject.Inject
+
+private val HOME_TREND_METRICS_KEY = stringSetPreferencesKey("home_trend_metrics")
+private val HOME_DASHBOARD_CARDS_KEY = stringSetPreferencesKey("home_dashboard_cards")
+private val HOME_PERIOD_KEY = stringPreferencesKey("home_period_v1")
+private val HOME_DASHBOARD_ORDER_KEY = stringPreferencesKey("home_dashboard_order_v1")
 
 @Stable
 @HiltViewModel
@@ -74,10 +95,13 @@ class HomeViewModel @Inject constructor(
     private val customerJourneyLogic: CustomerJourneyCardsProvider,
     private val historyWithDateDivsAct: HistoryWithDateDivsAct,
     private val calcIncomeExpenseAct: CalcIncomeExpenseAct,
+    private val calcTrnsIncomeExpenseAct: LegacyCalcTrnsIncomeExpenseAct,
     private val calcWalletBalanceAct: CalcWalletBalanceAct,
     private val settingsAct: SettingsAct,
     private val accountsAct: AccountsAct,
     private val categoryRepository: CategoryRepository,
+    private val rangeActivityLoader: HomeRangeActivityLoader,
+    private val goalRepository: GoalRepository,
     private val calcBufferDiffAct: CalcBufferDiffAct,
     private val upcomingAct: UpcomingAct,
     private val overdueAct: OverdueAct,
@@ -90,13 +114,25 @@ class HomeViewModel @Inject constructor(
     private val updateCategoriesCacheAct: UpdateCategoriesCacheAct,
     private val syncExchangeRatesUseCase: SyncExchangeRatesUseCase,
     private val transactionMapper: TransactionMapper,
+    private val moneyComingUpAdapter: MoneyComingUpAdapter,
     private val timeProvider: TimeProvider,
     private val timeConverter: TimeConverter,
-    private val features: Features
+    private val features: Features,
+    private val dataStore: IvyDataStore,
+    private val savedAnalyticsRepository: SavedAnalyticsRepository,
+    private val transactionRepository: com.ivy.data.repository.TransactionRepository,
+    private val timelineLoader: HomeTimelineLoader,
 ) : ComposeViewModel<HomeState, HomeEvent>() {
     private var currentTheme by mutableStateOf(Theme.AUTO)
     private var name by mutableStateOf("")
     private var period by mutableStateOf(ivyContext.selectedPeriod)
+    private var periodSelection by mutableStateOf<HomePeriodSelection>(HomePeriodSelection.CurrentCycle)
+    private var appliedPeriodSelection by mutableStateOf<HomePeriodSelection>(HomePeriodSelection.CurrentCycle)
+    private var periodError by mutableStateOf<String?>(null)
+    private var periodCapped by mutableStateOf(false)
+    private val timelineGeneration = HomeTimelineGeneration()
+    private var lastCalendarDay: LocalDate? = null
+    private var lastTimeZone: java.time.ZoneId? = null
     private var baseData by mutableStateOf(
         AppBaseData(
             baseCurrency = "",
@@ -132,6 +168,13 @@ class HomeViewModel @Inject constructor(
     private var hideBalance by mutableStateOf(false)
     private var hideIncome by mutableStateOf(false)
     private var expanded by mutableStateOf(true)
+    private var moneyComingUp by mutableStateOf(MoneyComingUpState())
+    private var trend by mutableStateOf(HomeTrendState())
+    private var spendingBreakdown by mutableStateOf(HomeSpendingBreakdownState())
+    private var visibleDashboardCards by mutableStateOf(defaultVisibleHomeDashboardCards)
+    private var dashboardEditorVisible by mutableStateOf(false)
+    private var dashboardOrder by mutableStateOf(defaultHomeDashboardCards.map { it.id })
+    private var savedAnalytics by mutableStateOf<ImmutableList<com.ivy.data.db.entity.SavedAnalyticsEntity>>(persistentListOf())
 
     @Composable
     override fun uiState(): HomeState {
@@ -154,7 +197,18 @@ class HomeViewModel @Inject constructor(
             hideBalance = getHideBalance(),
             expanded = getExpanded(),
             hideIncome = getHideIncome(),
-            shouldShowAccountSpecificColorInTransactions = getShouldShowAccountSpecificColorInTransactions()
+            shouldShowAccountSpecificColorInTransactions = getShouldShowAccountSpecificColorInTransactions(),
+            moneyComingUp = moneyComingUp,
+            trend = trend,
+            spendingBreakdown = spendingBreakdown,
+            visibleDashboardCards = visibleDashboardCards,
+            dashboardEditorVisible = dashboardEditorVisible,
+            dashboardOrder = dashboardOrder,
+            savedAnalytics = savedAnalytics,
+            periodSelection = periodSelection,
+            appliedPeriodSelection = appliedPeriodSelection,
+            periodError = periodError,
+            periodCapped = periodCapped,
         )
     }
 
@@ -243,6 +297,8 @@ class HomeViewModel @Inject constructor(
                 is HomeEvent.SkipPlanned -> skipPlanned(event.transaction)
                 is HomeEvent.SkipAllPlanned -> skipAllPlanned(event.transactions)
                 is HomeEvent.SetPeriod -> setPeriod(event.period)
+                is HomeEvent.SetHomePeriod -> selectHomePeriod(event.selection)
+                HomeEvent.RefreshHomePeriod -> refreshForCalendarChange()
                 HomeEvent.SelectNextMonth -> onSelectNextMonth()
                 HomeEvent.SelectPreviousMonth -> onSelectPreviousMonth()
                 is HomeEvent.SetUpcomingExpanded -> setUpcomingExpanded(event.expanded)
@@ -252,11 +308,29 @@ class HomeViewModel @Inject constructor(
                 HomeEvent.SwitchTheme -> switchTheme()
                 is HomeEvent.DismissCustomerJourneyCard -> dismissCustomerJourneyCard(event.card)
                 is HomeEvent.SetExpanded -> setExpanded(event.expanded)
+                is HomeEvent.SetTrendRange -> setTrendRange(event.range)
+                is HomeEvent.ToggleTrendMetric -> toggleTrendMetric(event.metric)
+                HomeEvent.OpenTrendEditor -> trend = trend.copy(editorVisible = true)
+                HomeEvent.CloseTrendEditor -> trend = trend.copy(editorVisible = false)
+                HomeEvent.OpenDashboardEditor -> dashboardEditorVisible = true
+                HomeEvent.CloseDashboardEditor -> dashboardEditorVisible = false
+                is HomeEvent.ToggleDashboardCard -> toggleDashboardCard(event.card)
+                HomeEvent.RestoreDashboardDefaults -> restoreDashboardDefaults()
+                is HomeEvent.MoveDashboardCard -> {
+                    dashboardOrder = moveHomeCard(dashboardOrder, event.card, event.offset)
+                    dataStore.edit { it[HOME_DASHBOARD_ORDER_KEY] = dashboardOrder.joinToString(",") { card -> card.stableId } }
+                }
+                HomeEvent.OpenSavedReports -> nav.navigateTo(ReportScreen)
             }
         }
     }
 
     private suspend fun start() {
+        loadTrendPreferences()
+        periodSelection = decodeHomePeriod(dataStore.data.first()[HOME_PERIOD_KEY])
+        period = periodSelection.asTimePeriod(timeConverter)
+        loadDashboardPreferences()
+        savedAnalytics = savedAnalyticsRepository.findAll().toImmutableList()
         suspend {
             val startDay = startDayOfMonthAct(Unit)
             ivyContext.initSelectedPeriodInMemory(
@@ -267,7 +341,7 @@ class HomeViewModel @Inject constructor(
 
     // -----------------------------------------------------------------------------------
     private suspend fun reload(
-        timePeriod: TimePeriod = ivyContext.selectedPeriod
+        timePeriod: TimePeriod = period
     ) = suspend {
         val settings = settingsAct(Unit)
         val hideBalance = shouldHideBalanceAct(Unit)
@@ -284,14 +358,10 @@ class HomeViewModel @Inject constructor(
 
         Pair(
             settings,
-            period.toRange(
-                startDateOfMonth = ivyContext.startDayOfMonth,
-                timeConverter = timeConverter,
-                timeProvider = timeProvider
-            ).toUTCCloseTimeRange()
+            HomeDateWindow(timeProvider.localDateNow(), timeProvider.localDateNow().plusDays(30)).toUtcRange(timeConverter)
         )
     } then ::loadAppBaseData then ::loadIncomeExpenseBalance then
-            ::loadBuffer then ::loadTrnHistory then
+            ::loadBuffer then ::loadMoneyComingUp then
             ::loadDueTrns thenInvokeAfter ::loadCustomerJourney
 
     private suspend fun loadAppBaseData(
@@ -306,11 +376,21 @@ class HomeViewModel @Inject constructor(
         } thenInvokeAfter { (accounts, categories) ->
             val (settings, timeRange) = input
 
-            baseData = AppBaseData(
-                baseCurrency = settings.baseCurrency,
-                categories = categories.toImmutableList(),
-                accounts = accounts.toImmutableList()
-            )
+            androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
+                if (baseData.baseCurrency != settings.baseCurrency) {
+                    // All three cards must discard old-currency values before relabeling.
+                    timelineGeneration.next()
+                    trend = trend.copy(points = persistentListOf(), loading = true, window = null)
+                    history = persistentListOf()
+                    stats = IncomeExpensePair.zero()
+                    spendingBreakdown = HomeSpendingBreakdownState()
+                }
+                baseData = AppBaseData(
+                    baseCurrency = settings.baseCurrency,
+                    categories = categories.toImmutableList(),
+                    accounts = accounts.toImmutableList()
+                )
+            }
 
             Triple(settings, timeRange, accounts)
         }
@@ -320,22 +400,135 @@ class HomeViewModel @Inject constructor(
     ): Triple<Settings, ClosedTimeRange, BigDecimal> {
         val (settings, timeRange, accounts) = input
 
-        val incomeExpense = calcIncomeExpenseAct(
-            CalcIncomeExpenseAct.Input(
-                baseCurrency = settings.baseCurrency,
-                accounts = accounts,
-                range = timeRange
-            )
-        )
-
         val balanceAmount = calcWalletBalanceAct(
             CalcWalletBalanceAct.Input(baseCurrency = settings.baseCurrency)
         )
 
         balance = balanceAmount
-        stats = incomeExpense
+        loadTrend(settings.baseCurrency, accounts)
 
         return Triple(settings, timeRange, balanceAmount)
+    }
+
+    private suspend fun loadTrend(baseCurrency: String, accounts: List<Account>) {
+        val generation = timelineGeneration.next()
+        val selection = periodSelection
+        val today = timeProvider.localDateNow()
+        lastCalendarDay = today
+        lastTimeZone = timeProvider.getZoneId()
+        trend = trend.copy(loading = true)
+        periodError = null
+        try {
+            val first = withContext(Dispatchers.IO) {
+                transactionRepository.findFirstSettledTime(accounts.map { com.ivy.data.model.AccountId(it.id) })
+            }?.let { with(timeConverter) { it.toLocalDate() } }
+            val resolved = selection.resolve(today, ivyContext.startDayOfMonth, first)
+            val request = HomeTimelineRequest(selection, resolved.window, baseCurrency,
+                accounts.toList(), baseData.categories.toList(), first)
+            val result = withContext(Dispatchers.Default) { timelineLoader.load(request) { timelineGeneration.owns(generation) } }
+            if (!timelineGeneration.owns(generation) || selection != periodSelection || baseCurrency != baseData.baseCurrency) return
+            androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
+                stats = result.totals
+                history = result.activity.history
+                spendingBreakdown = result.activity.spending
+                appliedPeriodSelection = selection
+                periodCapped = resolved.cappedAtToday
+                trend = trend.copy(points = result.points.toImmutableList(), loading = false, window = resolved.window)
+            }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            if (timelineGeneration.owns(generation)) {
+                trend = trend.copy(loading = false)
+                periodError = "Couldn't update this period. Your previous results are still shown. Try again."
+            }
+        }
+    }
+
+    private suspend fun loadTrendPreferences() {
+        val preferences = dataStore.data.first()
+        trend = trend.copy(visibleMetrics = preferences[HOME_TREND_METRICS_KEY]
+            ?.mapNotNull(HomeTrendMetric::fromStoredName)?.toSet()?.takeIf { it.isNotEmpty() }
+            ?: HomeTrendState().visibleMetrics)
+    }
+
+    private suspend fun setTrendRange(range: HomeTrendRange) {
+        selectHomePeriod(HomePeriodSelection.Rolling(range.periodCount,
+            if (range.isDaily) com.ivy.data.model.IntervalType.DAY else com.ivy.data.model.IntervalType.MONTH))
+    }
+
+    private suspend fun selectHomePeriod(selection: HomePeriodSelection) {
+        try {
+            // Validate before persisting; unknown all-time coverage is resolved by the loader.
+            selection.resolve(timeProvider.localDateNow(), ivyContext.startDayOfMonth, null)
+        } catch (_: IllegalArgumentException) {
+            periodError = "Choose a period that starts today or earlier."
+            return
+        }
+        val intent = timelineGeneration.next()
+        periodSelection = selection
+        period = selection.asTimePeriod(timeConverter)
+        try {
+            dataStore.edit { it[HOME_PERIOD_KEY] = selection.encode() }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            if (timelineGeneration.owns(intent)) {
+                trend = trend.copy(loading = false)
+                periodError = "Couldn't save your date choice. Try again."
+            }
+            return
+        }
+        if (timelineGeneration.owns(intent) && selection == periodSelection)
+            loadTrend(baseData.baseCurrency, baseData.accounts.toList())
+    }
+
+    private suspend fun refreshForCalendarChange() {
+        if (lastCalendarDay != null && (lastCalendarDay != timeProvider.localDateNow() || lastTimeZone != timeProvider.getZoneId())) reload()
+    }
+
+    private suspend fun toggleTrendMetric(metric: HomeTrendMetric) {
+        val updated = trend.visibleMetrics.toMutableSet().apply {
+            if (contains(metric) && size > 1) remove(metric) else add(metric)
+        }.toSet()
+        trend = trend.copy(visibleMetrics = updated)
+        dataStore.edit { it[HOME_TREND_METRICS_KEY] = updated.map(HomeTrendMetric::name).toSet() }
+    }
+
+    private suspend fun loadDashboardPreferences() {
+        val preferences = dataStore.data.first()
+        dashboardOrder = normalizedHomeCardOrder(preferences[HOME_DASHBOARD_ORDER_KEY].orEmpty().split(','))
+        val stored = preferences[HOME_DASHBOARD_CARDS_KEY]
+            ?.mapNotNull { value ->
+                HomeDashboardCardId.entries.firstOrNull { it.stableId == value }
+            }
+            ?.toSet()
+        visibleDashboardCards = stored ?: defaultVisibleHomeDashboardCards
+        if (preferences[HOME_DASHBOARD_ORDER_KEY] == null) {
+            visibleDashboardCards = visibleDashboardCards + HomeDashboardCardId.RECENT_ACTIVITY
+            dataStore.edit {
+                it[HOME_DASHBOARD_ORDER_KEY] = dashboardOrder.joinToString(",") { card -> card.stableId }
+                it[HOME_DASHBOARD_CARDS_KEY] = visibleDashboardCards.map { card -> card.stableId }.toSet()
+            }
+        }
+    }
+
+    private suspend fun toggleDashboardCard(card: HomeDashboardCardId) {
+        val updated = toggleHomeDashboardCard(visibleDashboardCards, card)
+        visibleDashboardCards = updated
+        dataStore.edit { preferences ->
+            preferences[HOME_DASHBOARD_CARDS_KEY] = updated.map { it.stableId }.toSet()
+        }
+    }
+
+    private suspend fun restoreDashboardDefaults() {
+        visibleDashboardCards = defaultVisibleHomeDashboardCards
+        dashboardOrder = defaultHomeDashboardCards.map { it.id }
+        dataStore.edit { preferences ->
+            preferences[HOME_DASHBOARD_ORDER_KEY] = dashboardOrder.joinToString(",") { it.stableId }
+            preferences[HOME_DASHBOARD_CARDS_KEY] =
+                defaultVisibleHomeDashboardCards.map { it.stableId }.toSet()
+        }
     }
 
     private suspend fun loadBuffer(
@@ -343,12 +536,20 @@ class HomeViewModel @Inject constructor(
     ): Pair<String, ClosedTimeRange> {
         val (settings, timeRange, balance) = input
 
+        // The old global bufferAmount was a target, not money that actually existed.
+        // Safe-to-spend now subtracts only real account reservations made in Goals.
+        // This keeps a target such as AED 50,000 from becoming fictitious cash or
+        // producing the old "155 months covered" result.
+        val reservedForGoals = goalRepository.findActiveGoals()
+            .flatMap { goalRepository.findAllocations(it.id) }
+            .sumOf { allocation -> BigDecimal.valueOf(allocation.reservedAmount) }
+
         buffer = BufferInfo(
-            amount = settings.bufferAmount,
+            amount = reservedForGoals,
             bufferDiff = calcBufferDiffAct(
                 CalcBufferDiffAct.Input(
                     balance = balance,
-                    buffer = settings.bufferAmount
+                    buffer = reservedForGoals
                 )
             )
         )
@@ -356,19 +557,15 @@ class HomeViewModel @Inject constructor(
         return settings.baseCurrency to timeRange
     }
 
-    private suspend fun loadTrnHistory(
+    private suspend fun loadMoneyComingUp(
         input: Pair<String, ClosedTimeRange>
     ): Pair<String, ClosedTimeRange> {
-        val (baseCurrency, timeRange) = input
-
-        history = historyWithDateDivsAct(
-            HistoryWithDateDivsAct.Input(
-                range = timeRange,
-                baseCurrency = baseCurrency
-            )
+        moneyComingUp = moneyComingUpAdapter.load(
+            openingBalance = balance,
+            baseCurrency = input.first,
+            accounts = baseData.accounts.toList(),
         )
-
-        return baseCurrency to timeRange
+        return input
     }
 
     private suspend fun loadDueTrns(
@@ -528,7 +725,7 @@ class HomeViewModel @Inject constructor(
     }
 
     private suspend fun setPeriod(period: TimePeriod) {
-        reload(period)
+        selectHomePeriod(homePeriodFromLegacy(period, timeProvider.localDateNow(), timeConverter))
     }
 
     @JvmName("setExpandedMethod")

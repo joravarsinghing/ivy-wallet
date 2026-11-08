@@ -8,13 +8,16 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.lifecycle.viewModelScope
 import com.ivy.base.legacy.SharedPrefs
 import com.ivy.base.time.TimeConverter
 import com.ivy.base.time.TimeProvider
 import com.ivy.data.DataObserver
 import com.ivy.data.DataWriteEvent
+import com.ivy.data.datastore.IvyDataStore
 import com.ivy.data.repository.AccountRepository
+import com.ivy.data.repository.GoalRepository
 import com.ivy.domain.features.Features
 import com.ivy.legacy.IvyWalletCtx
 import com.ivy.legacy.data.model.AccountData
@@ -32,7 +35,9 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.util.UUID
 import javax.inject.Inject
 
 @Stable
@@ -47,11 +52,15 @@ class AccountsViewModel @Inject constructor(
     private val baseCurrencyAct: BaseCurrencyAct,
     private val accountDataAct: AccountDataAct,
     private val accountRepository: AccountRepository,
+    private val goalRepository: GoalRepository,
     private val dataObserver: DataObserver,
     private val features: Features,
     private val timeProvider: TimeProvider,
     private val timeConverter: TimeConverter,
+    private val dataStore: IvyDataStore,
 ) : ComposeViewModel<AccountsState, AccountsEvent>() {
+    private val netWorthAssetsKey = stringSetPreferencesKey("net_worth_asset_account_ids")
+    private val netWorthLiabilitiesKey = stringSetPreferencesKey("net_worth_liability_account_ids")
     private var baseCurrency by mutableStateOf("")
     private var accountsData by mutableStateOf(listOf<AccountData>())
     private var totalBalanceWithExcluded by mutableStateOf("")
@@ -91,7 +100,8 @@ class AccountsViewModel @Inject constructor(
             totalBalanceWithoutExcludedText = getTotalBalanceWithoutExcludedText(),
             reorderVisible = getReorderVisible(),
             compactAccountsModeEnabled = getCompactAccountsMode(),
-            hideTotalBalance = getHideTotalBalance()
+            hideTotalBalance = getHideTotalBalance(),
+            hideBalances = sharedPrefs.getBoolean(SharedPrefs.HIDE_CURRENT_BALANCE, false),
         )
     }
 
@@ -186,6 +196,21 @@ class AccountsViewModel @Inject constructor(
             )
         )
 
+        val legacyRoles = dataStore.data.first()
+        val legacyAssets = legacyRoles[netWorthAssetsKey].orEmpty().mapNotNull { it.toUuidOrNull() }.toSet()
+        val legacyLiabilities = legacyRoles[netWorthLiabilitiesKey].orEmpty().mapNotNull { it.toUuidOrNull() }.toSet()
+        val assetIds = sharedPrefs.getStringList(SharedPrefs.NET_WORTH_ASSET_ACCOUNT_IDS)
+            .mapNotNull { it.toUuidOrNull() }
+            .toSet()
+            .ifEmpty { legacyAssets }
+        val liabilityIds = sharedPrefs.getStringList(SharedPrefs.NET_WORTH_LIABILITY_ACCOUNT_IDS)
+            .mapNotNull { it.toUuidOrNull() }
+            .toSet()
+            .ifEmpty { legacyLiabilities }
+        if (legacyAssets.isNotEmpty() || legacyLiabilities.isNotEmpty()) {
+            persistNetWorthRoles(assetIds, liabilityIds)
+        }
+        baseCurrency = baseCurrencyCode
         val totalBalanceWithExcludedAccounts = calcWalletBalanceAct(
             CalcWalletBalanceAct.Input(
                 baseCurrency = baseCurrencyCode,
@@ -199,8 +224,22 @@ class AccountsViewModel @Inject constructor(
             )
         ).toDouble()
 
-        baseCurrency = baseCurrencyCode
-        accountsData = accountsDataList
+        val reservedByAccount = buildMap {
+            goalRepository.findActiveGoals().forEach { goal ->
+                goalRepository.findAllocations(goal.id).forEach { allocation ->
+                    put(
+                        allocation.accountId,
+                        (get(allocation.accountId) ?: 0.0) + allocation.reservedAmount
+                    )
+                }
+            }
+        }
+
+        accountsData = accountsDataList.map { accountData ->
+            accountData.copy(
+                reservedForGoals = reservedByAccount[accountData.account.id.value] ?: 0.0
+            )
+        }
         totalBalanceWithExcluded = totalBalanceWithExcludedAccounts.toString()
         totalBalanceWithExcludedText = context.getString(
             R.string.total,
@@ -222,4 +261,20 @@ class AccountsViewModel @Inject constructor(
     private fun reorderModalVisible(visible: Boolean) {
         reorderVisible = visible
     }
+
+    private fun SharedPrefs.getStringList(key: String): List<String> =
+        getString(key, null)
+            ?.split(",")
+            ?.map(String::trim)
+            ?.filter(String::isNotBlank)
+            ?: emptyList()
+
+    private fun persistNetWorthRoles(assets: Set<UUID>, liabilities: Set<UUID>) {
+        sharedPrefs.putString(SharedPrefs.NET_WORTH_ASSET_ACCOUNT_IDS, assets.joinToString(","))
+        sharedPrefs.putString(SharedPrefs.NET_WORTH_LIABILITY_ACCOUNT_IDS, liabilities.joinToString(","))
+    }
+
 }
+
+private fun String.toUuidOrNull(): UUID? =
+    runCatching { UUID.fromString(this) }.getOrNull()

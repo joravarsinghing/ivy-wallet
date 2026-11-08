@@ -17,6 +17,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Search
+import com.ivy.navigation.SearchScreen
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -206,7 +211,10 @@ private fun HeaderStickyRow(
 
         Spacer(Modifier.width(12.dp))
 
-        Spacer(Modifier.width(40.dp)) // settings menu button spacer
+        val nav = navigation()
+        IconButton(onClick = { nav.navigateTo(SearchScreen) }, modifier = Modifier.testTag("home_search")) {
+            Icon(Icons.Outlined.Search, "Search transactions")
+        }
     }
 }
 
@@ -220,22 +228,12 @@ fun CashFlowInfo(
     hideBalance: Boolean,
     hideIncome: Boolean,
     onHiddenIncomeClick: () -> Unit,
-    onOpenMoreMenu: () -> Unit,
     onBalanceClick: () -> Unit,
     percentExpanded: Float,
     onHiddenBalanceClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier
-            .verticalSwipeListener(
-                sensitivity = Constants.SWIPE_DOWN_THRESHOLD_OPEN_MORE_MENU,
-                state = rememberSwipeListenerState(),
-                onSwipeDown = {
-                    onOpenMoreMenu()
-                },
-            ),
-    ) {
+    Column(modifier = modifier) {
         BalanceRow(
             modifier = Modifier
                 .padding(horizontal = 20.dp)
@@ -311,7 +309,7 @@ private fun IncomeExpenses(
             percentVisible = percentExpanded,
             icon = R.drawable.ic_income,
             backgroundGradient = GradientGreen,
-            textColor = White,
+            textColor = com.ivy.wallet.ui.theme.Black,
             label = stringResource(R.string.income),
             currency = currency,
             amount = monthlyIncome,

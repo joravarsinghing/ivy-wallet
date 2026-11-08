@@ -8,4 +8,6 @@ data class ImportResult(
     val accountsImported: Int,
     val categoriesImported: Int,
     val failedRows: ImmutableList<CSVRow>,
+    val duplicatesSkipped: Int = 0,
+    val errorMessage: String? = null,
 )

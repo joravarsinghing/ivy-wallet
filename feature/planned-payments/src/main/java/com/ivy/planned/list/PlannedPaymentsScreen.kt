@@ -6,6 +6,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import com.ivy.domain.usecase.analytics.ContextCharts
+import com.ivy.design.system.chart.JvyAnalyticsCard
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringResource
@@ -21,6 +27,8 @@ import com.ivy.data.model.primitive.NotBlankTrimmedString
 import com.ivy.design.l0_system.Purple
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
+import com.ivy.design.system.JvySubsectionScaffold
+import com.ivy.design.system.JvyPrimaryAction
 import com.ivy.legacy.IvyWalletPreview
 import com.ivy.legacy.datamodel.Account
 import com.ivy.legacy.datamodel.PlannedPaymentRule
@@ -49,24 +57,39 @@ fun BoxWithConstraintsScope.PlannedPaymentsScreen(screen: PlannedPaymentsScreen)
 }
 
 @Composable
-private fun BoxWithConstraintsScope.UI(
+internal fun BoxWithConstraintsScope.UI(
     state: PlannedPaymentsScreenState,
     onEvent: (PlannedPaymentsScreenEvent) -> Unit = {}
 ) {
-    PlannedPaymentsLazyColumn(
+    val nav = navigation()
+    val add = {
+        nav.navigateTo(EditPlannedScreen(type = TransactionType.EXPENSE, plannedPaymentRuleId = null))
+    }
+    val empty = state.oneTimePlannedPayment.isEmpty() && state.recurringPlannedPayment.isEmpty()
+    var showForecastDetails by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    JvySubsectionScaffold(stringResource(R.string.planned_payments_inline), { nav.back() }, footer = {
+        if (!empty) JvyPrimaryAction(stringResource(R.string.add_payment), add)
+    }) {
+      PlannedPaymentsLazyColumn(
         Header = {
-            Spacer(Modifier.height(32.dp))
-
-            Text(
-                modifier = Modifier.padding(start = 24.dp),
-                text = stringResource(R.string.planned_payments_inline),
-                style = UI.typo.h2.style(
-                    fontWeight = FontWeight.ExtraBold,
-                    color = UI.colors.pureInverse
+          if (!empty) {
+            Spacer(Modifier.height(12.dp))
+            val chart = remember(state.forecast, state.currency) { ContextCharts.bridge("planned-forecast", "How scheduled payments change your balance",
+                "Uses the existing forecast: current balance plus recurring and upcoming planned net change. This is a projection, not recorded history or guaranteed money.", state.currency,
+                ContextCharts.amount(state.forecast.currentBalance), ContextCharts.amount(state.forecast.nextPeriodNet), ContextCharts.amount(state.forecast.projectedBalance)) }
+            JvyAnalyticsCard(chart, compact = true)
+            com.ivy.design.system.JvyTextButton({ showForecastDetails = !showForecastDetails }, Modifier.padding(horizontal = 24.dp)) {
+                androidx.compose.material3.Text(if (showForecastDetails) "Hide forecast details" else "Forecast details")
+            }
+            if (showForecastDetails) {
+                CashFlowForecastCard(
+                    forecast = state.forecast,
+                    currency = state.currency,
                 )
-            )
+            }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(16.dp))
+          }
         },
         currency = state.currency,
         categories = state.categories,
@@ -85,23 +108,10 @@ private fun BoxWithConstraintsScope.UI(
         setRecurringExpanded = {
             onEvent(PlannedPaymentsScreenEvent.OnRecurringPaymentsExpanded(it))
         },
-        listState = rememberScrollPositionListState(key = "plannedPayments")
+        listState = rememberScrollPositionListState(key = "plannedPayments"),
+        onAdd = add,
     )
-
-    val nav = navigation()
-    PlannedPaymentsBottomBar(
-        onClose = {
-            nav.back()
-        },
-        onAdd = {
-            nav.navigateTo(
-                EditPlannedScreen(
-                    type = TransactionType.EXPENSE,
-                    plannedPaymentRuleId = null
-                )
-            )
-        }
-    )
+    }
 }
 
 @Preview

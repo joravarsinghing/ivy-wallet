@@ -1,6 +1,8 @@
 package com.ivy.onboarding.viewmodel
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
@@ -38,6 +40,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withContext
+import com.ivy.base.threading.DispatchersProvider
+import java.util.UUID
 import javax.inject.Inject
 
 @Stable
@@ -56,14 +63,26 @@ class OnboardingViewModel @Inject constructor(
     private val settingsWriter: WriteSettingsDao,
 
     // Only OnboardingRouter stuff
-    sharedPrefs: SharedPrefs,
+    private val sharedPrefs: SharedPrefs,
     transactionReminderLogic: TransactionReminderLogic,
     preloadDataLogic: PreloadDataLogic,
     logoutLogic: LogoutLogic,
+    private val dispatchers: DispatchersProvider,
 ) : ComposeViewModel<OnboardingDetailState, OnboardingEvent>() {
 
     private val _state = mutableStateOf(OnboardingState.SPLASH)
     val state: State<OnboardingState> = _state
+    val editorModals = com.ivy.legacy.ui.EditorModalHost()
+    private var startedEntry: UUID? = null
+    private var initialized by androidx.compose.runtime.mutableStateOf(false)
+    val ready: Boolean get() = initialized
+    private var startupJob: Job? = null
+    private val _startupError = mutableStateOf(false)
+    val startupError: State<Boolean> = _startupError
+    private val accountSuggestionIntents = com.ivy.legacy.domain.creation.CreationIntentPool<CreateAccountData>()
+    private val categorySuggestionIntents = com.ivy.legacy.domain.creation.CreationIntentPool<CreateCategoryData>()
+    val accountSuggestionSubmission = com.ivy.design.system.EditorSubmission { com.ivy.wallet.ui.theme.modal.edit.accountSuggestionErrorMessage(it) }
+    val categorySuggestionSubmission = com.ivy.design.system.EditorSubmission()
 
     private val _currency = mutableStateOf(IvyCurrency.getDefault())
     private val _opGoogleSignIn = mutableStateOf<OpResult<Unit>?>(null)
@@ -100,30 +119,53 @@ class OnboardingViewModel @Inject constructor(
         transactionReminderLogic = transactionReminderLogic,
         logoutLogic = logoutLogic,
         syncExchangeRatesUseCase = syncExchangeRatesUseCase,
+        dispatchers = dispatchers,
     )
 
-    fun start(screen: OnboardingScreen, isSystemDarkMode: Boolean) {
-        viewModelScope.launch {
-            initiateSettings(isSystemDarkMode)
+    fun saveDraft(): List<String>? = if (initialized) com.ivy.design.system.ProcessDraftState.encode(mapOf("step" to state.value.name)) else null
 
+    fun start(screen: OnboardingScreen, isSystemDarkMode: Boolean, restored: List<String>? = null) {
+        val entry = nav.currentEntryId ?: return
+        if (startedEntry == entry && (initialized || startupJob?.isActive == true)) return
+        startupJob?.cancel()
+        if (startedEntry != entry) {
+            _state.value = OnboardingState.SPLASH
+            initialized = false
+        }
+        startedEntry = entry
+        _startupError.value = false
+        startupJob = viewModelScope.launch {
+            try {
+            val currency = initiateSettings(isSystemDarkMode)
+            if (startedEntry != entry || !nav.retainsEntry(entry)) return@launch
+            _currency.value = currency
             router.initBackHandling(
                 screen = screen,
                 viewModelScope = viewModelScope,
                 restartOnboarding = {
+                    initialized = false
                     start(screen, isSystemDarkMode)
                 }
             )
 
-            router.splashNext()
+            val step = com.ivy.design.system.ProcessDraftState.decode(restored)?.get("step")?.let {
+                runCatching { OnboardingState.valueOf(it) }.getOrNull()
+            }
+            if (step != null) router.restoreStep(step, currency, ::accountsWithBalance) else router.splashNext()
+            initialized = true
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                if (startedEntry == entry) _startupError.value = true
+            }
         }
     }
 
-    private suspend fun initiateSettings(isSystemDarkMode: Boolean) {
+    private suspend fun initiateSettings(isSystemDarkMode: Boolean): IvyCurrency {
         val defaultCurrency = IvyCurrency.getDefault()
-        _currency.value = defaultCurrency
-
-        ioThread {
-            if (settingsDao.findAll().isEmpty()) {
+        return withContext(dispatchers.io) {
+            val existing = settingsDao.findFirstOrNull()
+            if (existing == null) {
                 settingsWriter.save(
                     Settings(
                         theme = if (isSystemDarkMode) Theme.DARK else Theme.LIGHT,
@@ -133,16 +175,19 @@ class OnboardingViewModel @Inject constructor(
                     ).toEntity()
                 )
             }
+            existing?.currency?.let(IvyCurrency::fromCode) ?: defaultCurrency
         }
     }
 
     override fun onEvent(event: OnboardingEvent) {
         viewModelScope.launch {
             when (event) {
-                is OnboardingEvent.CreateAccount -> createAccount(event.data)
-                is OnboardingEvent.CreateCategory -> createCategory(event.data)
-                is OnboardingEvent.EditAccount -> editAccount(event.account, event.newBalance)
-                is OnboardingEvent.EditCategory -> editCategory(event.updatedCategory)
+                is OnboardingEvent.CreateAccountSuggestion -> createSuggestedAccount(event.data, event.onResult)
+                is OnboardingEvent.CreateCategorySuggestion -> createSuggestedCategory(event.data, event.onResult)
+                is OnboardingEvent.CreateAccount -> createAccount(event.data, event.onResult)
+                is OnboardingEvent.CreateCategory -> createCategory(event.data, event.onResult)
+                is OnboardingEvent.EditAccount -> editAccount(event.account, event.newBalance, event.onResult)
+                is OnboardingEvent.EditCategory -> editCategory(event.updatedCategory, event.onResult)
                 is OnboardingEvent.ImportFinished -> importFinished(event.success)
                 OnboardingEvent.ImportSkip -> importSkip()
                 OnboardingEvent.LoginOfflineAccount -> loginOfflineAccount()
@@ -189,8 +234,11 @@ class OnboardingViewModel @Inject constructor(
     }
 
     private suspend fun updateBaseCurrency(baseCurrency: IvyCurrency) {
-        ioThread {
-            settingsWriter.save(
+        withContext(dispatchers.io) {
+            // This is the explicit initial currency confirmation, not Settings' later
+            // currency-change action. AI imports establish their implicit units here.
+            check(!sharedPrefs.getBoolean(com.ivy.base.legacy.SharedPrefs.ONBOARDING_COMPLETED, false))
+            settingsWriter.saveInitialCurrency(
                 settingsDao.findFirst().copy(
                     currency = baseCurrency.code
                 )
@@ -200,24 +248,40 @@ class OnboardingViewModel @Inject constructor(
     }
 
     // --------------------- Accounts ---------------------------------------------------------------
-    private suspend fun editAccount(account: Account, newBalance: Double) {
-        accountCreator.editAccount(account, newBalance) {
+    private suspend fun editAccount(account: Account, newBalance: Double, onResult: (Result<Unit>) -> Unit) {
+        accountCreator.editAccount(account, newBalance, onResult) {
             _accounts.value = accountsWithBalance()
         }
     }
 
-    private suspend fun createAccount(data: CreateAccountData) {
-        accountCreator.createAccount(data) {
+    private suspend fun createSuggestedAccount(source: CreateAccountData, onResult: (Result<Unit>) -> Unit) {
+        val intent = accountSuggestionIntents.request(source.id) { source.copy(id = java.util.UUID.randomUUID()) }
+        createAccount(intent) { result ->
+            accountSuggestionIntents.complete(source.id, intent, result)
+            onResult(result)
+        }
+    }
+
+    private suspend fun createSuggestedCategory(source: CreateCategoryData, onResult: (Result<Unit>) -> Unit) {
+        val intent = categorySuggestionIntents.request(source.id) { source.copy(id = java.util.UUID.randomUUID()) }
+        createCategory(intent) { result ->
+            categorySuggestionIntents.complete(source.id, intent, result)
+            onResult(result)
+        }
+    }
+
+    private suspend fun createAccount(data: CreateAccountData, onResult: (Result<Unit>) -> Unit) {
+        accountCreator.createAccount(data, onResult) {
             _accounts.value = accountsWithBalance()
         }
     }
 
-    private suspend fun accountsWithBalance(): ImmutableList<AccountBalance> = ioThread {
+    private suspend fun accountsWithBalance(): ImmutableList<AccountBalance> = withContext(dispatchers.io) {
         accountsAct(Unit)
             .map {
                 AccountBalance(
                     account = it,
-                    balance = ioThread { accountLogic.calculateAccountBalance(it) }
+                    balance = withContext(dispatchers.io) { accountLogic.calculateAccountBalance(it) }
                 )
             }.toImmutableList()
     }
@@ -232,14 +296,14 @@ class OnboardingViewModel @Inject constructor(
     // --------------------- Accounts ---------------------------------------------------------------
 
     // ---------------------------- Categories ------------------------------------------------------
-    private suspend fun editCategory(updatedCategory: Category) {
-        categoryCreator.editCategory(updatedCategory) {
+    private suspend fun editCategory(updatedCategory: Category, onResult: (Result<Unit>) -> Unit) {
+        categoryCreator.editCategory(updatedCategory, onResult) {
             _categories.value = categoryRepository.findAll().toImmutableList()
         }
     }
 
-    private suspend fun createCategory(data: CreateCategoryData) {
-        categoryCreator.createCategory(data) {
+    private suspend fun createCategory(data: CreateCategoryData, onResult: (Result<Unit>) -> Unit) {
+        categoryCreator.createCategory(data, onResult) {
             _categories.value = categoryRepository.findAll().toImmutableList()
         }
     }

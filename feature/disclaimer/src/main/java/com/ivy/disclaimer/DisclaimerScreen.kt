@@ -14,13 +14,16 @@ import com.ivy.disclaimer.composables.AgreeButton
 import com.ivy.disclaimer.composables.AgreementCheckBox
 import com.ivy.disclaimer.composables.DisclaimerTopAppBar
 import com.ivy.navigation.screenScopedViewModel
+import com.ivy.navigation.navigation
 import com.ivy.ui.component.OpenSourceCard
 
 @Composable
 fun DisclaimerScreenImpl() {
     val viewModel: DisclaimerViewModel = screenScopedViewModel()
     val viewState = viewModel.uiState()
-    DisclaimerScreenUi(viewState = viewState, onEvent = viewModel::onEvent)
+    val nav = navigation()
+    DisclaimerScreenUi(viewState = viewState, onEvent = viewModel::onEvent,
+        onBack = if (nav.backStackEmpty()) null else ({ nav.onBackPressed(); Unit }))
 }
 
 @Composable
@@ -28,11 +31,12 @@ fun DisclaimerScreenUi(
     viewState: DisclaimerViewState,
     onEvent: (DisclaimerViewEvent) -> Unit,
     modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
 ) {
     Scaffold(
         modifier = modifier,
         topBar = {
-            DisclaimerTopAppBar()
+            DisclaimerTopAppBar(onBack)
         },
         content = { innerPadding ->
             Content(

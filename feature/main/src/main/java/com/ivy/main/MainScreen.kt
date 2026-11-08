@@ -3,6 +3,14 @@ package com.ivy.main
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
@@ -39,12 +47,16 @@ fun BoxWithConstraintsScope.MainScreen(screen: MainScreen) {
     }
 
     val ivyContext = ivyWalletCtx()
+    val modalsResolved = com.ivy.legacy.ui.rememberEditorModalRestoration(viewModel.editorModals, currency.isNotBlank(), currency, emptyList(), emptyList())
+    if (!modalsResolved) return
     UI(
         screen = screen,
         tab = ivyContext.mainTab,
         baseCurrency = currency,
         selectTab = viewModel::selectTab,
-        onCreateAccount = viewModel::createAccount
+        onCreateAccount = viewModel::createAccount,
+        accountModalData = viewModel.accountModalData,
+        onAccountModalChange = viewModel::changeAccountModal
     )
 }
 
@@ -58,14 +70,26 @@ private fun BoxWithConstraintsScope.UI(
     baseCurrency: String,
 
     selectTab: (MainTab) -> Unit,
-    onCreateAccount: (CreateAccountData) -> Unit,
+    onCreateAccount: (CreateAccountData, (Result<Unit>) -> Unit) -> Unit,
+    accountModalData: AccountModalData? = null,
+    onAccountModalChange: (AccountModalData?, java.util.UUID?) -> Unit = { _, _ -> },
 ) {
-    when (tab) {
-        MainTab.HOME -> HomeTab()
-        MainTab.ACCOUNTS -> AccountsTab()
+    val savedTabs = rememberSaveableStateHolder()
+    val rail = mainNavigationRailWidth(maxWidth, LocalDensity.current.fontScale)
+    // Reserve real space for the rail. The previous overlaid rail obscured content
+    // on folding/desktop windows rather than participating in layout.
+    MainContentWindow(rail) {
+        savedTabs.SaveableStateProvider(tab.name) {
+            when (tab) {
+                MainTab.HOME -> HomeTab()
+                MainTab.ACCOUNTS -> AccountsTab()
+                MainTab.PLAN -> MainToolsHub(planning = true)
+                MainTab.NET_WORTH -> com.ivy.networth.NetWorthTab()
+                MainTab.MORE -> MainToolsHub(planning = false)
+            }
+        }
     }
 
-    var accountModalData: AccountModalData? by remember { mutableStateOf(null) }
 
     val nav = navigation()
     BottomBar(
@@ -106,22 +130,28 @@ private fun BoxWithConstraintsScope.UI(
         },
 
         showAddAccountModal = {
-            accountModalData = AccountModalData(
+            onAccountModalChange(AccountModalData(
                 account = null,
                 balance = 0.0,
                 baseCurrency = baseCurrency
-            )
+            ), null)
         }
     )
 
     AccountModal(
         modal = accountModalData,
         onCreateAccount = onCreateAccount,
-        onEditAccount = { _, _ -> },
+        onEditAccount = { _, _, complete -> complete(Result.failure(IllegalStateException("Editing is unavailable in this create-only context."))) },
         dismiss = {
-            accountModalData = null
+            onAccountModalChange(null, accountModalData?.id)
         }
     )
+}
+
+/** One production content boundary, also exercised with real feature content in shell tests. */
+@Composable
+internal fun MainContentWindow(railWidth: Dp, content: @Composable BoxWithConstraintsScope.() -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxSize().padding(start = railWidth), content = content)
 }
 
 @ExperimentalAnimationApi
@@ -135,7 +165,7 @@ private fun PreviewMainScreen() {
             tab = MainTab.HOME,
             baseCurrency = "BGN",
             selectTab = {},
-            onCreateAccount = { }
+            onCreateAccount = { _, _ -> }
         )
     }
 }

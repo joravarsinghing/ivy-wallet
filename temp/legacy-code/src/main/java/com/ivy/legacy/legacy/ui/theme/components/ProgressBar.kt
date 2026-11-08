@@ -24,6 +24,7 @@ fun ProgressBar(
     positiveProgress: Boolean = true,
     percent: Double
 ) {
+    if (com.ivy.design.system.LocalFinancialVisibility.current.hidden) return
     Spacer(
         modifier = modifier
             .clip(UI.shapes.r4)

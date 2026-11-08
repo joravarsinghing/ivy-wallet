@@ -20,6 +20,8 @@ sealed interface HomeEvent {
     data class SetCurrency(val currency: String) : HomeEvent
 
     data class SetPeriod(val period: TimePeriod) : HomeEvent
+    data class SetHomePeriod(val selection: HomePeriodSelection) : HomeEvent
+    data object RefreshHomePeriod : HomeEvent
 
     data class PayOrGetPlanned(val transaction: Transaction) : HomeEvent
     data class SkipPlanned(val transaction: Transaction) : HomeEvent
@@ -29,4 +31,16 @@ sealed interface HomeEvent {
 
     data object SelectNextMonth : HomeEvent
     data object SelectPreviousMonth : HomeEvent
+
+    data class SetTrendRange(val range: HomeTrendRange) : HomeEvent
+    data class ToggleTrendMetric(val metric: HomeTrendMetric) : HomeEvent
+    data object OpenTrendEditor : HomeEvent
+    data object CloseTrendEditor : HomeEvent
+
+    data object OpenDashboardEditor : HomeEvent
+    data object CloseDashboardEditor : HomeEvent
+    data class ToggleDashboardCard(val card: HomeDashboardCardId) : HomeEvent
+    data object RestoreDashboardDefaults : HomeEvent
+    data class MoveDashboardCard(val card: HomeDashboardCardId, val offset: Int) : HomeEvent
+    data object OpenSavedReports : HomeEvent
 }

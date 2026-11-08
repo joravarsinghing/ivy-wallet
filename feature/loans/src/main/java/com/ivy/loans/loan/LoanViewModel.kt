@@ -57,6 +57,7 @@ class LoanViewModel @Inject constructor(
     private val loanWriter: WriteLoanDao,
     private val timeConverter: TimeConverter,
     private val timeProvider: TimeProvider,
+    private val nav: com.ivy.navigation.Navigation,
     private val dateTimePicker: DateTimePicker
 ) : ComposeViewModel<LoanScreenState, LoanScreenEvent>() {
 
@@ -76,8 +77,25 @@ class LoanViewModel @Inject constructor(
     /** Contains all loans including both paidOff and pending*/
     private var allLoans: ImmutableList<DisplayLoan> = persistentListOf()
     private var defaultCurrencyCode = ""
-    private var totalOweAmount = 0.0
-    private var totalOwedAmount = 0.0
+    private var initializedEntry: UUID? = null
+    private var refreshJob: kotlinx.coroutines.Job? = null
+    private var summaryOwe by mutableStateOf("")
+    private var summaryOwed by mutableStateOf("")
+    private var loadError by mutableStateOf<String?>(null)
+    private var loading by mutableStateOf(false)
+    private var refreshGeneration = 0L
+    private var modalRestorationLoaded by mutableStateOf(false)
+    val modalRestorationReady get() = modalRestorationLoaded && initializedEntry == nav.currentEntryId
+    fun saveModal(): List<String>? = com.ivy.loans.LoanEditorRestoration.save(loanModalData,
+        allLoans.firstOrNull { it.loan.id == loanModalData?.loan?.id }?.loan, null, null, dateTime, selectedTab.name)
+    fun restoreModal(payload: List<String>): Boolean {
+        if (loanModalData != null) return true
+        val recovered = com.ivy.loans.LoanEditorRestoration.restore(payload, baseCurrencyCode, allLoans.map { it.loan }, emptyList(), accounts) ?: return false
+        loanModalData = recovered.loan
+        dateTime = recovered.date
+        recovered.tab?.let { runCatching { LoanTab.valueOf(it) }.getOrNull() }?.let { selectedTab = it }
+        return true
+    }
 
     @Composable
     override fun uiState(): LoanScreenState {
@@ -91,8 +109,10 @@ class LoanViewModel @Inject constructor(
             selectedAccount = getSelectedAccount(),
             loanModalData = getLoanModalData(),
             reorderModalVisible = getReorderModalVisible(),
-            totalOweAmount = getTotalOweAmount(totalOweAmount, defaultCurrencyCode),
-            totalOwedAmount = getTotalOwedAmount(totalOwedAmount, defaultCurrencyCode),
+            totalOweAmount = summaryOwe,
+            totalOwedAmount = summaryOwed,
+            loadError = loadError,
+            loading = loading,
             paidOffLoanVisibility = getPaidOffLoanVisibility(),
             dateTime = dateTime,
             selectedTab = getSelectedTab(),
@@ -142,8 +162,9 @@ class LoanViewModel @Inject constructor(
 
     override fun onEvent(event: LoanScreenEvent) {
         when (event) {
+            LoanScreenEvent.Retry -> start(force = true)
             is LoanScreenEvent.OnLoanCreate -> {
-                createLoan(event.createLoanData)
+                createLoan(event.createLoanData, event.onResult)
             }
 
             is LoanScreenEvent.OnAddLoan -> {
@@ -168,7 +189,7 @@ class LoanViewModel @Inject constructor(
             }
 
             is LoanScreenEvent.OnCreateAccount -> {
-                createAccount(event.accountData)
+                createAccount(event.accountData, event.onResult)
             }
 
             LoanScreenEvent.OnTogglePaidOffLoanVisibility -> {
@@ -189,12 +210,22 @@ class LoanViewModel @Inject constructor(
         }
     }
 
-    private fun start() {
-        viewModelScope.launch(Dispatchers.Default) {
-            TestIdlingResource.increment()
-
+    private fun start(force: Boolean = false) {
+        val entry = nav.currentEntryId
+        if (!force && initializedEntry == entry && refreshJob?.isActive == true) return
+        refreshJob?.cancel()
+        val generation = ++refreshGeneration
+        loadError = null
+        loading = true
+        if (initializedEntry != entry) {
+            modalRestorationLoaded = false
+            loanModalData = null
             dateTime = timeProvider.utcNow()
-
+        }
+        initializedEntry = entry
+        refreshJob = viewModelScope.launch {
+            TestIdlingResource.increment()
+            try {
             defaultCurrencyCode = ioThread {
                 settingsDao.findFirst().currency
             }.also {
@@ -202,9 +233,6 @@ class LoanViewModel @Inject constructor(
             }
 
             initialiseAccounts()
-
-            totalOweAmount = 0.0
-            totalOwedAmount = 0.0
 
             allLoans = ioThread {
                 loansAct(Unit)
@@ -216,11 +244,6 @@ class LoanViewModel @Inject constructor(
                             0.0
                         }
                         var currCode = findCurrencyCode(accounts, loan.accountId)
-
-                        when (loan.type) {
-                            LoanType.BORROW -> totalOweAmount += (loanTotalAmount - amountPaid)
-                            LoanType.LEND -> totalOwedAmount += (loanTotalAmount - amountPaid)
-                        }
 
                         DisplayLoan(
                             loan = loan,
@@ -240,26 +263,22 @@ class LoanViewModel @Inject constructor(
                         )
                     }.toImmutableList()
             }
+            val summaries = ioThread {
+                outstandingLoanSummary(allLoans, LoanType.BORROW, defaultCurrencyCode) to
+                    outstandingLoanSummary(allLoans, LoanType.LEND, defaultCurrencyCode)
+            }
+            summaryOwe = summaries.first
+            summaryOwed = summaries.second
             loadPendingLoans()
             loadCompletedLoans()
-
-            TestIdlingResource.decrement()
-        }
-    }
-
-    private fun getTotalOwedAmount(totalOwedAmount: Double, currCode: String): String {
-        return if (totalOwedAmount != 0.0) {
-            "${totalOwedAmount.format(currCode)} $currCode"
-        } else {
-            ""
-        }
-    }
-
-    private fun getTotalOweAmount(totalOweAmount: Double, currCode: String): String {
-        return if (totalOweAmount != 0.0) {
-            "${totalOweAmount.format(currCode)} $currCode"
-        } else {
-            ""
+            modalRestorationLoaded = true
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
+            } catch (_: Exception) {
+                if (generation == refreshGeneration) loadError = "Could not refresh loans. Your saved data is unchanged. Try again."
+            } finally {
+                if (generation == refreshGeneration) loading = false
+                TestIdlingResource.decrement()
+            }
         }
     }
 
@@ -273,28 +292,32 @@ class LoanViewModel @Inject constructor(
     }
 
     private fun handleChangeDate() {
+        val id = loanModalData?.id ?: return
         dateTimePicker.pickDate(
             initialDate = loanModalData?.loan?.dateTime?.let {
                 with(timeConverter) { it.toUTC() }
-            } ?: timeProvider.utcNow()
+            } ?: dateTime
         ) { localDate ->
+            if (loanModalData?.id != id) return@pickDate
             val localTime = loanModalData?.loan?.dateTime?.let {
                 with(timeConverter) { it.toLocalTime() }
-            } ?: timeProvider.localTimeNow()
+            } ?: with(timeConverter) { dateTime.toLocalTime() }
 
             updateDateTime(localDate.atTime(localTime))
         }
     }
 
     private fun handleChangeTime() {
+        val id = loanModalData?.id ?: return
         dateTimePicker.pickTime(
             initialTime = loanModalData?.loan?.dateTime?.let {
                 with(timeConverter) { it.toLocalTime() }
-            } ?: timeProvider.localTimeNow()
+            } ?: with(timeConverter) { dateTime.toLocalTime() }
         ) { localTime ->
+            if (loanModalData?.id != id) return@pickTime
             val localDate = loanModalData?.loan?.dateTime?.let {
                 with(timeConverter) { it.toLocalDate() }
-            } ?: timeProvider.localDateNow()
+            } ?: with(timeConverter) { dateTime.toLocalDate() }
 
             updateDateTime(localDate.atTime(localTime))
         }
@@ -312,19 +335,15 @@ class LoanViewModel @Inject constructor(
         }
     }
 
-    private fun createLoan(data: CreateLoanData) {
+    private fun createLoan(data: CreateLoanData, onResult: (Result<Unit>) -> Unit) {
+        val entry = nav.currentEntryId
         viewModelScope.launch {
             TestIdlingResource.increment()
-
-            val uuid = loanCreator.create(data) {
-                start()
-            }
-
-            uuid?.let {
-                loanTransactionsLogic.Loan.createAssociatedLoanTransaction(data = data, loanId = it)
-            }
-
-            TestIdlingResource.decrement()
+            try {
+                loanCreator.create(data, onResult, relatedWrite = {
+                    loanTransactionsLogic.Loan.createAssociatedLoanTransaction(data, it.id)
+                }) { if (nav.currentEntryId == entry) start(force = true) }
+            } finally { TestIdlingResource.decrement() }
         }
     }
 
@@ -342,7 +361,7 @@ class LoanViewModel @Inject constructor(
                     )
                 }
             }
-            start()
+            start(force = true)
 
             TestIdlingResource.decrement()
         }
@@ -356,15 +375,16 @@ class LoanViewModel @Inject constructor(
         pendingLoans = allLoans.filter { loan -> loan.percentPaid < 1.0 }.toImmutableList()
     }
 
-    private fun createAccount(data: CreateAccountData) {
+    private fun createAccount(data: CreateAccountData, onResult: (Result<Unit>) -> Unit) {
+        val entry = nav.currentEntryId
         viewModelScope.launch {
             TestIdlingResource.increment()
-
-            accountCreator.createAccount(data) {
-                accounts = accountsAct(Unit)
-            }
-
-            TestIdlingResource.decrement()
+            try {
+                accountCreator.createAccount(data, onResult) {
+                    val refreshed = accountsAct(Unit)
+                    if (nav.currentEntryId == entry) accounts = refreshed
+                }
+            } finally { TestIdlingResource.decrement() }
         }
     }
 

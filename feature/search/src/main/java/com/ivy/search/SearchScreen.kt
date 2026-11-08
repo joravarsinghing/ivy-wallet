@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -16,6 +18,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -32,6 +39,8 @@ import com.ivy.legacy.utils.selectEndTextFieldValue
 import com.ivy.navigation.IvyPreview
 import com.ivy.navigation.SearchScreen
 import com.ivy.navigation.screenScopedViewModel
+import com.ivy.navigation.navigation
+import com.ivy.design.system.JvyScreenHeader
 import com.ivy.ui.R
 import com.ivy.wallet.ui.theme.modal.DURATION_MODAL_ANIM
 import kotlinx.collections.immutable.persistentListOf
@@ -40,6 +49,16 @@ import kotlinx.collections.immutable.persistentListOf
 fun SearchScreen(screen: SearchScreen) {
     val viewModel: SearchViewModel = screenScopedViewModel()
     val uiState = viewModel.uiState()
+    val entry = navigation().currentEntryId
+    val saved = com.ivy.design.system.rememberProcessRestoration("search-query") {
+        if (viewModel.readyEntry == entry) viewModel.saveQuery() else null
+    }
+    LaunchedEffect(entry) { viewModel.start(entry, saved.payload); saved.consumed = true }
+    if (viewModel.readyEntry != entry) {
+        val nav = navigation()
+        com.ivy.design.system.JvyEditorLoading(stringResource(R.string.search_transactions).removeSuffix("..."), false, { nav.back() }, {})
+        return
+    }
 
     SearchUi(
         uiState = uiState,
@@ -48,7 +67,7 @@ fun SearchScreen(screen: SearchScreen) {
 }
 
 @Composable
-private fun SearchUi(
+internal fun SearchUi(
     uiState: SearchState,
     onEvent: (SearchEvent) -> Unit
 ) {
@@ -57,11 +76,12 @@ private fun SearchUi(
             .fillMaxSize()
             .systemBarsPadding()
     ) {
-        Spacer(Modifier.height(24.dp))
+        val nav = navigation()
+        JvyScreenHeader(stringResource(R.string.search_transactions).removeSuffix("..."), { nav.back() })
 
         val listState = rememberLazyListState()
 
-        var searchQueryTextFieldValue by remember {
+        var searchQueryTextFieldValue by rememberSaveable(stateSaver = TextFieldValue.Saver) {
             mutableStateOf(selectEndTextFieldValue(uiState.searchQuery))
         }
 
@@ -75,9 +95,25 @@ private fun SearchUi(
             }
         )
 
-        LaunchedEffect(uiState.transactions) {
-            // scroll to top when transactions are changed
-            listState.animateScrollToItem(index = 0, scrollOffset = 0)
+        var lastQuery by rememberSaveable { mutableStateOf(searchQueryTextFieldValue.text) }
+        LaunchedEffect(searchQueryTextFieldValue.text) {
+            if (lastQuery != searchQueryTextFieldValue.text) {
+                lastQuery = searchQueryTextFieldValue.text
+                listState.scrollToItem(index = 0, scrollOffset = 0)
+            }
+        }
+
+        if (uiState.loading) androidx.compose.material3.LinearProgressIndicator()
+        if (uiState.failed) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = com.ivy.design.system.JvySpacing.PageGutter)) {
+            androidx.compose.material3.Text(stringResource(com.ivy.search.R.string.search_load_failed),
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                style = com.ivy.design.system.JvyTypography.Supporting)
+            com.ivy.design.system.JvyTextButton({ onEvent(SearchEvent.Search(searchQueryTextFieldValue.text)) }) {
+                androidx.compose.material3.Text(stringResource(com.ivy.search.R.string.search_retry))
+            }
+            }
         }
 
         Spacer(Modifier.height(16.dp))
@@ -91,7 +127,10 @@ private fun SearchUi(
             state = listState
 
         ) {
-            transactions(
+            if (!uiState.loading && !uiState.failed && uiState.resultsMatchQuery && uiState.transactions.isNotEmpty()) item(key = "search-activity-chart", contentType = "chart") {
+                com.ivy.legacy.ui.chart.ContextualActivityChart("search-activity", uiState.transactions, uiState.accounts, uiState.baseCurrency)
+            }
+            if (!uiState.failed && (!uiState.loading || (uiState.resultsMatchQuery && uiState.transactions.isNotEmpty()))) transactions(
                 baseData = AppBaseData(
                     baseCurrency = uiState.baseCurrency,
                     accounts = uiState.accounts,

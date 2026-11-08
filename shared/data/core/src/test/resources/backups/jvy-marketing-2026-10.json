@@ -1,0 +1,1262 @@
+{
+  "accounts": [
+    {
+      "id": "10000000-0000-4000-8000-000000000001",
+      "name": "Cash",
+      "currency": "AED",
+      "color": -15414114,
+      "icon": "cash",
+      "orderNum": 0,
+      "includeInBalance": true
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000002",
+      "name": "Everyday bank",
+      "currency": "AED",
+      "color": -10396690,
+      "icon": "bank",
+      "orderNum": 1,
+      "includeInBalance": true
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000003",
+      "name": "Savings",
+      "currency": "AED",
+      "color": -7057240,
+      "icon": "bank",
+      "orderNum": 2,
+      "includeInBalance": true
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000004",
+      "name": "Emergency fund",
+      "currency": "AED",
+      "color": -12627531,
+      "icon": "shield",
+      "orderNum": 3,
+      "includeInBalance": true
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000005",
+      "name": "Holiday fund",
+      "currency": "AED",
+      "color": -459786,
+      "icon": "travel",
+      "orderNum": 4,
+      "includeInBalance": true
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000006",
+      "name": "Investments",
+      "currency": "AED",
+      "color": -11746305,
+      "icon": "leaf",
+      "orderNum": 5,
+      "includeInBalance": false
+    }
+  ],
+  "categories": [
+    {
+      "id": "20000000-0000-4000-8000-000000000001",
+      "name": "Salary",
+      "color": -15414114,
+      "orderNum": 0
+    },
+    {
+      "id": "20000000-0000-4000-8000-000000000002",
+      "name": "Freelance",
+      "color": -5573920,
+      "orderNum": 1
+    },
+    {
+      "id": "20000000-0000-4000-8000-000000000003",
+      "name": "Groceries",
+      "color": -15414114,
+      "orderNum": 2
+    },
+    {
+      "id": "20000000-0000-4000-8000-000000000004",
+      "name": "Eating out",
+      "color": -459786,
+      "orderNum": 3
+    },
+    {
+      "id": "20000000-0000-4000-8000-000000000005",
+      "name": "Transport",
+      "color": -2151,
+      "orderNum": 4
+    },
+    {
+      "id": "20000000-0000-4000-8000-000000000006",
+      "name": "Home & bills",
+      "color": -49056,
+      "orderNum": 5
+    },
+    {
+      "id": "20000000-0000-4000-8000-000000000007",
+      "name": "Shopping",
+      "color": -9744897,
+      "orderNum": 6
+    },
+    {
+      "id": "20000000-0000-4000-8000-000000000008",
+      "name": "Health",
+      "color": -2765569,
+      "orderNum": 7
+    },
+    {
+      "id": "20000000-0000-4000-8000-000000000009",
+      "name": "Entertainment",
+      "color": -876752,
+      "orderNum": 8
+    },
+    {
+      "id": "20000000-0000-4000-8000-000000000010",
+      "name": "Loans",
+      "color": -10396690,
+      "orderNum": 9
+    }
+  ],
+  "transactions": [
+    {
+      "id": "80000000-0000-4000-8000-000000000001",
+      "accountId": "10000000-0000-4000-8000-000000000001",
+      "type": "INCOME",
+      "amount": 800,
+      "title": "Adjust balance",
+      "dateTime": 1788242400000,
+      "categoryId": null,
+      "description": "Fictional opening balance, not earned income."
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000002",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "INCOME",
+      "amount": 8000,
+      "title": "Adjust balance",
+      "dateTime": 1788242400000,
+      "categoryId": null,
+      "description": "Fictional opening balance, not earned income."
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000003",
+      "accountId": "10000000-0000-4000-8000-000000000003",
+      "type": "INCOME",
+      "amount": 16000,
+      "title": "Adjust balance",
+      "dateTime": 1788242400000,
+      "categoryId": null,
+      "description": "Fictional opening balance, not earned income."
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000004",
+      "accountId": "10000000-0000-4000-8000-000000000004",
+      "type": "INCOME",
+      "amount": 10000,
+      "title": "Adjust balance",
+      "dateTime": 1788242400000,
+      "categoryId": null,
+      "description": "Fictional opening balance, not earned income."
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000005",
+      "accountId": "10000000-0000-4000-8000-000000000005",
+      "type": "INCOME",
+      "amount": 3000,
+      "title": "Adjust balance",
+      "dateTime": 1788242400000,
+      "categoryId": null,
+      "description": "Fictional opening balance, not earned income."
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000006",
+      "accountId": "10000000-0000-4000-8000-000000000006",
+      "type": "INCOME",
+      "amount": 25000,
+      "title": "Adjust balance",
+      "dateTime": 1788242400000,
+      "categoryId": null,
+      "description": "Fictional opening balance, not earned income."
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000007",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "INCOME",
+      "amount": 15000,
+      "title": "Monthly salary",
+      "dateTime": 1788264000000,
+      "categoryId": "20000000-0000-4000-8000-000000000001"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000058",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "INCOME",
+      "amount": 15000,
+      "title": "Education loan received",
+      "dateTime": 1788264000000,
+      "categoryId": "20000000-0000-4000-8000-000000000010",
+      "loanId": "60000000-0000-4000-8000-000000000002"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000008",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 4500,
+      "title": "Apartment rent",
+      "dateTime": 1788350400000,
+      "categoryId": "20000000-0000-4000-8000-000000000006"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000012",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 320.5,
+      "title": "Weekly groceries",
+      "dateTime": 1788436800000,
+      "categoryId": "20000000-0000-4000-8000-000000000003"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000016",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 46,
+      "title": "Lunch with friends",
+      "dateTime": 1788523200000,
+      "categoryId": "20000000-0000-4000-8000-000000000004"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000017",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 19,
+      "title": "Metro and taxi",
+      "dateTime": 1788523200000,
+      "categoryId": "20000000-0000-4000-8000-000000000005"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000009",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 349,
+      "title": "Home internet",
+      "dateTime": 1788609600000,
+      "categoryId": "20000000-0000-4000-8000-000000000006"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000010",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 220,
+      "title": "Gym membership",
+      "dateTime": 1788782400000,
+      "categoryId": "20000000-0000-4000-8000-000000000008"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000018",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 50,
+      "title": "Lunch with friends",
+      "dateTime": 1788868800000,
+      "categoryId": "20000000-0000-4000-8000-000000000004"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000019",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 23,
+      "title": "Metro and taxi",
+      "dateTime": 1788868800000,
+      "categoryId": "20000000-0000-4000-8000-000000000005"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000060",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 500,
+      "title": "Education loan repayment",
+      "dateTime": 1788868800000,
+      "categoryId": "20000000-0000-4000-8000-000000000010",
+      "loanId": "60000000-0000-4000-8000-000000000002",
+      "loanRecordId": "90000000-0000-4000-8000-000000000002"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000013",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 285.75,
+      "title": "Weekly groceries",
+      "dateTime": 1789041600000,
+      "categoryId": "20000000-0000-4000-8000-000000000003"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000020",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 54,
+      "title": "Lunch with friends",
+      "dateTime": 1789214400000,
+      "categoryId": "20000000-0000-4000-8000-000000000004"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000021",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 27,
+      "title": "Metro and taxi",
+      "dateTime": 1789214400000,
+      "categoryId": "20000000-0000-4000-8000-000000000005"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000057",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 3000,
+      "title": "Lent to Sam",
+      "dateTime": 1789214400000,
+      "categoryId": "20000000-0000-4000-8000-000000000010",
+      "loanId": "60000000-0000-4000-8000-000000000001"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000011",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 49,
+      "title": "Movie subscription",
+      "dateTime": 1789387200000,
+      "categoryId": "20000000-0000-4000-8000-000000000009"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000028",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "TRANSFER",
+      "amount": 2000,
+      "title": "Move money to savings",
+      "dateTime": 1789473600000,
+      "categoryId": null,
+      "toAccountId": "10000000-0000-4000-8000-000000000003",
+      "toAmount": 2000
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000022",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 58,
+      "title": "Lunch with friends",
+      "dateTime": 1789560000000,
+      "categoryId": "20000000-0000-4000-8000-000000000004"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000023",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 31,
+      "title": "Metro and taxi",
+      "dateTime": 1789560000000,
+      "categoryId": "20000000-0000-4000-8000-000000000005"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000014",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 410.25,
+      "title": "Weekly groceries",
+      "dateTime": 1789646400000,
+      "categoryId": "20000000-0000-4000-8000-000000000003"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000029",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "TRANSFER",
+      "amount": 500,
+      "title": "Set aside for holiday",
+      "dateTime": 1789732800000,
+      "categoryId": null,
+      "toAccountId": "10000000-0000-4000-8000-000000000005",
+      "toAmount": 500
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000024",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 62,
+      "title": "Lunch with friends",
+      "dateTime": 1789905600000,
+      "categoryId": "20000000-0000-4000-8000-000000000004"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000025",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 35,
+      "title": "Metro and taxi",
+      "dateTime": 1789905600000,
+      "categoryId": "20000000-0000-4000-8000-000000000005"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000026",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 65,
+      "title": "Lunch with friends",
+      "dateTime": 1790164800000,
+      "categoryId": "20000000-0000-4000-8000-000000000004"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000027",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 38,
+      "title": "Metro and taxi",
+      "dateTime": 1790164800000,
+      "categoryId": "20000000-0000-4000-8000-000000000005"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000015",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 265,
+      "title": "Weekly groceries",
+      "dateTime": 1790251200000,
+      "categoryId": "20000000-0000-4000-8000-000000000003"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000030",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "INCOME",
+      "amount": 15000,
+      "title": "Monthly salary",
+      "dateTime": 1790856000000,
+      "categoryId": "20000000-0000-4000-8000-000000000001"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000031",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 4500,
+      "title": "Apartment rent",
+      "dateTime": 1790942400000,
+      "categoryId": "20000000-0000-4000-8000-000000000006"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000035",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 320.5,
+      "title": "Weekly groceries",
+      "dateTime": 1791028800000,
+      "categoryId": "20000000-0000-4000-8000-000000000003"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000039",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 46,
+      "title": "Lunch with friends",
+      "dateTime": 1791115200000,
+      "categoryId": "20000000-0000-4000-8000-000000000004"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000040",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 19,
+      "title": "Metro and taxi",
+      "dateTime": 1791115200000,
+      "categoryId": "20000000-0000-4000-8000-000000000005"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000032",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 349,
+      "title": "Home internet",
+      "dateTime": 1791201600000,
+      "categoryId": "20000000-0000-4000-8000-000000000006"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000033",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 220,
+      "title": "Gym membership",
+      "dateTime": 1791374400000,
+      "categoryId": "20000000-0000-4000-8000-000000000008"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000041",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 50,
+      "title": "Lunch with friends",
+      "dateTime": 1791460800000,
+      "categoryId": "20000000-0000-4000-8000-000000000004"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000042",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 23,
+      "title": "Metro and taxi",
+      "dateTime": 1791460800000,
+      "categoryId": "20000000-0000-4000-8000-000000000005"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000061",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 500,
+      "title": "Education loan repayment",
+      "dateTime": 1791460800000,
+      "categoryId": "20000000-0000-4000-8000-000000000010",
+      "loanId": "60000000-0000-4000-8000-000000000002",
+      "loanRecordId": "90000000-0000-4000-8000-000000000003"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000036",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 285.75,
+      "title": "Weekly groceries",
+      "dateTime": 1791633600000,
+      "categoryId": "20000000-0000-4000-8000-000000000003"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000043",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 54,
+      "title": "Lunch with friends",
+      "dateTime": 1791806400000,
+      "categoryId": "20000000-0000-4000-8000-000000000004"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000044",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 27,
+      "title": "Metro and taxi",
+      "dateTime": 1791806400000,
+      "categoryId": "20000000-0000-4000-8000-000000000005"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000034",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 49,
+      "title": "Movie subscription",
+      "dateTime": 1791979200000,
+      "categoryId": "20000000-0000-4000-8000-000000000009"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000051",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "TRANSFER",
+      "amount": 2000,
+      "title": "Move money to savings",
+      "dateTime": 1792065600000,
+      "categoryId": null,
+      "toAccountId": "10000000-0000-4000-8000-000000000003",
+      "toAmount": 2000
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000045",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 58,
+      "title": "Lunch with friends",
+      "dateTime": 1792152000000,
+      "categoryId": "20000000-0000-4000-8000-000000000004"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000046",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 31,
+      "title": "Metro and taxi",
+      "dateTime": 1792152000000,
+      "categoryId": "20000000-0000-4000-8000-000000000005"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000037",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 410.25,
+      "title": "Weekly groceries",
+      "dateTime": 1792238400000,
+      "categoryId": "20000000-0000-4000-8000-000000000003"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000052",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "TRANSFER",
+      "amount": 500,
+      "title": "Set aside for holiday",
+      "dateTime": 1792324800000,
+      "categoryId": null,
+      "toAccountId": "10000000-0000-4000-8000-000000000005",
+      "toAmount": 500
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000059",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "INCOME",
+      "amount": 1000,
+      "title": "Sam repaid part of loan",
+      "dateTime": 1792411200000,
+      "categoryId": "20000000-0000-4000-8000-000000000010",
+      "loanId": "60000000-0000-4000-8000-000000000001",
+      "loanRecordId": "90000000-0000-4000-8000-000000000001"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000047",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 62,
+      "title": "Lunch with friends",
+      "dateTime": 1792497600000,
+      "categoryId": "20000000-0000-4000-8000-000000000004"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000048",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 35,
+      "title": "Metro and taxi",
+      "dateTime": 1792497600000,
+      "categoryId": "20000000-0000-4000-8000-000000000005"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000053",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "INCOME",
+      "amount": 1800,
+      "title": "Freelance design project",
+      "dateTime": 1792497600000,
+      "categoryId": "20000000-0000-4000-8000-000000000002"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000054",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 420,
+      "title": "Running shoes",
+      "dateTime": 1792584000000,
+      "categoryId": "20000000-0000-4000-8000-000000000007"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000055",
+      "accountId": "10000000-0000-4000-8000-000000000001",
+      "type": "EXPENSE",
+      "amount": 35,
+      "title": "Coffee and a sandwich",
+      "dateTime": 1792670400000,
+      "categoryId": "20000000-0000-4000-8000-000000000004"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000049",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 65,
+      "title": "Lunch with friends",
+      "dateTime": 1792756800000,
+      "categoryId": "20000000-0000-4000-8000-000000000004"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000050",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 38,
+      "title": "Metro and taxi",
+      "dateTime": 1792756800000,
+      "categoryId": "20000000-0000-4000-8000-000000000005"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000056",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 125,
+      "title": "Cinema with friends",
+      "dateTime": 1792756800000,
+      "categoryId": "20000000-0000-4000-8000-000000000009"
+    },
+    {
+      "id": "80000000-0000-4000-8000-000000000038",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "type": "EXPENSE",
+      "amount": 265,
+      "title": "Weekly groceries",
+      "dateTime": 1792843200000,
+      "categoryId": "20000000-0000-4000-8000-000000000003"
+    }
+  ],
+  "budgets": [
+    {
+      "id": "30000000-0000-4000-8000-000000000001",
+      "name": "Groceries",
+      "amount": 1600,
+      "categoryIdsSerialized": "20000000-0000-4000-8000-000000000003",
+      "accountIdsSerialized": null,
+      "orderId": 0
+    },
+    {
+      "id": "30000000-0000-4000-8000-000000000002",
+      "name": "Eating out",
+      "amount": 700,
+      "categoryIdsSerialized": "20000000-0000-4000-8000-000000000004",
+      "accountIdsSerialized": null,
+      "orderId": 1
+    },
+    {
+      "id": "30000000-0000-4000-8000-000000000003",
+      "name": "Transport",
+      "amount": 600,
+      "categoryIdsSerialized": "20000000-0000-4000-8000-000000000005",
+      "accountIdsSerialized": null,
+      "orderId": 2
+    }
+  ],
+  "goals": [
+    {
+      "id": "40000000-0000-4000-8000-000000000001",
+      "name": "Emergency cushion",
+      "kind": "EMERGENCY_FUND",
+      "targetAmount": 20000,
+      "deadline": 1814356800000,
+      "createdAt": 1788264000000,
+      "updatedAt": 1788264000000
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000002",
+      "name": "New laptop",
+      "kind": "PURCHASE",
+      "targetAmount": 6000,
+      "deadline": 1803902400000,
+      "createdAt": 1788264000000,
+      "updatedAt": 1788264000000
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000003",
+      "name": "Japan holiday",
+      "kind": "SINKING_FUND",
+      "targetAmount": 12000,
+      "deadline": 1822392000000,
+      "createdAt": 1788264000000,
+      "updatedAt": 1788264000000
+    }
+  ],
+  "goalAllocations": [
+    {
+      "goalId": "40000000-0000-4000-8000-000000000001",
+      "accountId": "10000000-0000-4000-8000-000000000004",
+      "reservedAmount": 10000,
+      "createdAt": 1788264000000,
+      "updatedAt": 1788264000000
+    },
+    {
+      "goalId": "40000000-0000-4000-8000-000000000002",
+      "accountId": "10000000-0000-4000-8000-000000000003",
+      "reservedAmount": 2500,
+      "createdAt": 1788264000000,
+      "updatedAt": 1788264000000
+    },
+    {
+      "goalId": "40000000-0000-4000-8000-000000000003",
+      "accountId": "10000000-0000-4000-8000-000000000003",
+      "reservedAmount": 1500,
+      "createdAt": 1788264000000,
+      "updatedAt": 1788264000000
+    },
+    {
+      "goalId": "40000000-0000-4000-8000-000000000003",
+      "accountId": "10000000-0000-4000-8000-000000000005",
+      "reservedAmount": 3000,
+      "createdAt": 1788264000000,
+      "updatedAt": 1788264000000
+    }
+  ],
+  "plannedPaymentRules": [
+    {
+      "id": "50000000-0000-4000-8000-000000000001",
+      "startDate": 1793534400000,
+      "intervalN": 1,
+      "intervalType": "MONTH",
+      "oneTime": false,
+      "type": "INCOME",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "amount": 15000,
+      "categoryId": "20000000-0000-4000-8000-000000000001",
+      "title": "Monthly salary"
+    },
+    {
+      "id": "50000000-0000-4000-8000-000000000002",
+      "startDate": 1793620800000,
+      "intervalN": 1,
+      "intervalType": "MONTH",
+      "oneTime": false,
+      "type": "EXPENSE",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "amount": 4500,
+      "categoryId": "20000000-0000-4000-8000-000000000006",
+      "title": "Apartment rent"
+    },
+    {
+      "id": "50000000-0000-4000-8000-000000000003",
+      "startDate": 1793102400000,
+      "intervalN": 1,
+      "intervalType": "MONTH",
+      "oneTime": false,
+      "type": "EXPENSE",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "amount": 349,
+      "categoryId": "20000000-0000-4000-8000-000000000006",
+      "title": "Home internet"
+    },
+    {
+      "id": "50000000-0000-4000-8000-000000000004",
+      "startDate": 1793880000000,
+      "intervalN": null,
+      "intervalType": null,
+      "oneTime": true,
+      "type": "EXPENSE",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "amount": 350,
+      "categoryId": "20000000-0000-4000-8000-000000000008",
+      "title": "Annual health check"
+    }
+  ],
+  "loans": [
+    {
+      "id": "60000000-0000-4000-8000-000000000001",
+      "name": "Loan to Sam",
+      "amount": 3000,
+      "type": "LEND",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "dateTime": 1789214400000,
+      "note": "Fictional friend loan; 1,000 AED already repaid."
+    },
+    {
+      "id": "60000000-0000-4000-8000-000000000002",
+      "name": "Education loan",
+      "amount": 15000,
+      "type": "BORROW",
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "dateTime": 1788264000000,
+      "note": "Fictional principal with two 500 AED repayments."
+    }
+  ],
+  "loanRecords": [
+    {
+      "id": "90000000-0000-4000-8000-000000000001",
+      "loanId": "60000000-0000-4000-8000-000000000001",
+      "amount": 1000,
+      "dateTime": 1792411200000,
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "loanRecordType": "DECREASE",
+      "interest": false
+    },
+    {
+      "id": "90000000-0000-4000-8000-000000000002",
+      "loanId": "60000000-0000-4000-8000-000000000002",
+      "amount": 500,
+      "dateTime": 1788868800000,
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "loanRecordType": "DECREASE",
+      "interest": false
+    },
+    {
+      "id": "90000000-0000-4000-8000-000000000003",
+      "loanId": "60000000-0000-4000-8000-000000000002",
+      "amount": 500,
+      "dateTime": 1791460800000,
+      "accountId": "10000000-0000-4000-8000-000000000002",
+      "loanRecordType": "DECREASE",
+      "interest": false
+    }
+  ],
+  "wealth": {
+    "version": 1,
+    "items": [
+      {
+        "id": "demo-wealth-1",
+        "name": "Cash",
+        "kind": "CASH",
+        "currency": "AED",
+        "source": "ACCOUNT",
+        "sourceId": "10000000-0000-4000-8000-000000000001",
+        "convention": "ASSET",
+        "createdDate": "2026-09-01",
+        "note": "Entirely fictional marketing example.",
+        "reviewDays": 90
+      },
+      {
+        "id": "demo-wealth-2",
+        "name": "Everyday bank",
+        "kind": "CASH",
+        "currency": "AED",
+        "source": "ACCOUNT",
+        "sourceId": "10000000-0000-4000-8000-000000000002",
+        "convention": "ASSET",
+        "createdDate": "2026-09-01",
+        "note": "Entirely fictional marketing example.",
+        "reviewDays": 90
+      },
+      {
+        "id": "demo-wealth-3",
+        "name": "Savings",
+        "kind": "SAVINGS",
+        "currency": "AED",
+        "source": "ACCOUNT",
+        "sourceId": "10000000-0000-4000-8000-000000000003",
+        "convention": "ASSET",
+        "createdDate": "2026-09-01",
+        "note": "Entirely fictional marketing example.",
+        "reviewDays": 90
+      },
+      {
+        "id": "demo-wealth-4",
+        "name": "Emergency fund",
+        "kind": "SAVINGS",
+        "currency": "AED",
+        "source": "ACCOUNT",
+        "sourceId": "10000000-0000-4000-8000-000000000004",
+        "convention": "ASSET",
+        "createdDate": "2026-09-01",
+        "note": "Entirely fictional marketing example.",
+        "reviewDays": 90
+      },
+      {
+        "id": "demo-wealth-5",
+        "name": "Holiday fund",
+        "kind": "SAVINGS",
+        "currency": "AED",
+        "source": "ACCOUNT",
+        "sourceId": "10000000-0000-4000-8000-000000000005",
+        "convention": "ASSET",
+        "createdDate": "2026-09-01",
+        "note": "Entirely fictional marketing example.",
+        "reviewDays": 90
+      },
+      {
+        "id": "demo-wealth-6",
+        "name": "Investments",
+        "kind": "INVESTMENT",
+        "currency": "AED",
+        "source": "ACCOUNT",
+        "sourceId": "10000000-0000-4000-8000-000000000006",
+        "convention": "ASSET",
+        "createdDate": "2026-09-01",
+        "note": "Entirely fictional marketing example.",
+        "reviewDays": 90
+      },
+      {
+        "id": "demo-wealth-7",
+        "name": "Loan to Sam",
+        "kind": "RECEIVABLE",
+        "currency": "AED",
+        "source": "LOAN",
+        "sourceId": "60000000-0000-4000-8000-000000000001",
+        "convention": "ASSET",
+        "createdDate": "2026-09-01",
+        "note": "Entirely fictional marketing example.",
+        "reviewDays": 90
+      },
+      {
+        "id": "demo-wealth-8",
+        "name": "Education loan",
+        "kind": "STUDENT_LOAN",
+        "currency": "AED",
+        "source": "LOAN",
+        "sourceId": "60000000-0000-4000-8000-000000000002",
+        "convention": "POSITIVE_OWED",
+        "createdDate": "2026-09-01",
+        "note": "Entirely fictional marketing example.",
+        "reviewDays": 90
+      },
+      {
+        "id": "demo-wealth-9",
+        "name": "My car",
+        "kind": "VEHICLE",
+        "currency": "AED",
+        "source": "MANUAL",
+        "sourceId": null,
+        "convention": "ASSET",
+        "createdDate": "2026-09-01",
+        "note": "Entirely fictional marketing example.",
+        "reviewDays": 90
+      },
+      {
+        "id": "demo-wealth-10",
+        "name": "Gold savings",
+        "kind": "GOLD",
+        "currency": "AED",
+        "source": "MANUAL",
+        "sourceId": null,
+        "convention": "ASSET",
+        "createdDate": "2026-09-01",
+        "note": "Entirely fictional marketing example.",
+        "reviewDays": 90
+      },
+      {
+        "id": "demo-wealth-11",
+        "name": "Retirement fund",
+        "kind": "RETIREMENT",
+        "currency": "AED",
+        "source": "MANUAL",
+        "sourceId": null,
+        "convention": "ASSET",
+        "createdDate": "2026-09-01",
+        "note": "Entirely fictional marketing example.",
+        "reviewDays": 90
+      },
+      {
+        "id": "demo-wealth-12",
+        "name": "Credit card balance",
+        "kind": "CREDIT_CARD",
+        "currency": "AED",
+        "source": "MANUAL",
+        "sourceId": null,
+        "convention": "POSITIVE_OWED",
+        "createdDate": "2026-09-01",
+        "note": "Entirely fictional marketing example.",
+        "reviewDays": 90
+      }
+    ],
+    "policies": [
+      {
+        "id": "demo-wealth-1-policy",
+        "itemId": "demo-wealth-1",
+        "effectiveDate": "2026-09-01",
+        "included": true,
+        "ownership": "100",
+        "archived": false,
+        "recordedAt": "2026-09-01T12:00:00Z"
+      },
+      {
+        "id": "demo-wealth-2-policy",
+        "itemId": "demo-wealth-2",
+        "effectiveDate": "2026-09-01",
+        "included": true,
+        "ownership": "100",
+        "archived": false,
+        "recordedAt": "2026-09-01T12:00:00Z"
+      },
+      {
+        "id": "demo-wealth-3-policy",
+        "itemId": "demo-wealth-3",
+        "effectiveDate": "2026-09-01",
+        "included": true,
+        "ownership": "100",
+        "archived": false,
+        "recordedAt": "2026-09-01T12:00:00Z"
+      },
+      {
+        "id": "demo-wealth-4-policy",
+        "itemId": "demo-wealth-4",
+        "effectiveDate": "2026-09-01",
+        "included": true,
+        "ownership": "100",
+        "archived": false,
+        "recordedAt": "2026-09-01T12:00:00Z"
+      },
+      {
+        "id": "demo-wealth-5-policy",
+        "itemId": "demo-wealth-5",
+        "effectiveDate": "2026-09-01",
+        "included": true,
+        "ownership": "100",
+        "archived": false,
+        "recordedAt": "2026-09-01T12:00:00Z"
+      },
+      {
+        "id": "demo-wealth-6-policy",
+        "itemId": "demo-wealth-6",
+        "effectiveDate": "2026-09-01",
+        "included": true,
+        "ownership": "100",
+        "archived": false,
+        "recordedAt": "2026-09-01T12:00:00Z"
+      },
+      {
+        "id": "demo-wealth-7-policy",
+        "itemId": "demo-wealth-7",
+        "effectiveDate": "2026-09-01",
+        "included": true,
+        "ownership": "100",
+        "archived": false,
+        "recordedAt": "2026-09-01T12:00:00Z"
+      },
+      {
+        "id": "demo-wealth-8-policy",
+        "itemId": "demo-wealth-8",
+        "effectiveDate": "2026-09-01",
+        "included": true,
+        "ownership": "100",
+        "archived": false,
+        "recordedAt": "2026-09-01T12:00:00Z"
+      },
+      {
+        "id": "demo-wealth-9-policy",
+        "itemId": "demo-wealth-9",
+        "effectiveDate": "2026-09-01",
+        "included": true,
+        "ownership": "100",
+        "archived": false,
+        "recordedAt": "2026-09-01T12:00:00Z"
+      },
+      {
+        "id": "demo-wealth-10-policy",
+        "itemId": "demo-wealth-10",
+        "effectiveDate": "2026-09-01",
+        "included": true,
+        "ownership": "100",
+        "archived": false,
+        "recordedAt": "2026-09-01T12:00:00Z"
+      },
+      {
+        "id": "demo-wealth-11-policy",
+        "itemId": "demo-wealth-11",
+        "effectiveDate": "2026-09-01",
+        "included": true,
+        "ownership": "100",
+        "archived": false,
+        "recordedAt": "2026-09-01T12:00:00Z"
+      },
+      {
+        "id": "demo-wealth-12-policy",
+        "itemId": "demo-wealth-12",
+        "effectiveDate": "2026-09-01",
+        "included": true,
+        "ownership": "100",
+        "archived": false,
+        "recordedAt": "2026-09-01T12:00:00Z"
+      }
+    ],
+    "valuations": [
+      {
+        "id": "demo-wealth-9-2026-09-01",
+        "itemId": "demo-wealth-9",
+        "effectiveDate": "2026-09-01",
+        "amount": "46000",
+        "recordedAt": "2026-09-01T12:00:00Z"
+      },
+      {
+        "id": "demo-wealth-9-2026-10-01",
+        "itemId": "demo-wealth-9",
+        "effectiveDate": "2026-10-01",
+        "amount": "45500",
+        "recordedAt": "2026-10-01T12:00:00Z"
+      },
+      {
+        "id": "demo-wealth-9-2026-10-25",
+        "itemId": "demo-wealth-9",
+        "effectiveDate": "2026-10-25",
+        "amount": "45000",
+        "recordedAt": "2026-10-25T12:00:00Z"
+      },
+      {
+        "id": "demo-wealth-10-2026-09-01",
+        "itemId": "demo-wealth-10",
+        "effectiveDate": "2026-09-01",
+        "amount": "7800",
+        "recordedAt": "2026-09-01T12:00:00Z"
+      },
+      {
+        "id": "demo-wealth-10-2026-10-01",
+        "itemId": "demo-wealth-10",
+        "effectiveDate": "2026-10-01",
+        "amount": "8200",
+        "recordedAt": "2026-10-01T12:00:00Z"
+      },
+      {
+        "id": "demo-wealth-10-2026-10-25",
+        "itemId": "demo-wealth-10",
+        "effectiveDate": "2026-10-25",
+        "amount": "8500",
+        "recordedAt": "2026-10-25T12:00:00Z"
+      },
+      {
+        "id": "demo-wealth-11-2026-09-01",
+        "itemId": "demo-wealth-11",
+        "effectiveDate": "2026-09-01",
+        "amount": "72000",
+        "recordedAt": "2026-09-01T12:00:00Z"
+      },
+      {
+        "id": "demo-wealth-11-2026-10-01",
+        "itemId": "demo-wealth-11",
+        "effectiveDate": "2026-10-01",
+        "amount": "75000",
+        "recordedAt": "2026-10-01T12:00:00Z"
+      },
+      {
+        "id": "demo-wealth-11-2026-10-25",
+        "itemId": "demo-wealth-11",
+        "effectiveDate": "2026-10-25",
+        "amount": "78000",
+        "recordedAt": "2026-10-25T12:00:00Z"
+      },
+      {
+        "id": "demo-wealth-12-2026-09-01",
+        "itemId": "demo-wealth-12",
+        "effectiveDate": "2026-09-01",
+        "amount": "2400",
+        "recordedAt": "2026-09-01T12:00:00Z"
+      },
+      {
+        "id": "demo-wealth-12-2026-10-01",
+        "itemId": "demo-wealth-12",
+        "effectiveDate": "2026-10-01",
+        "amount": "2100",
+        "recordedAt": "2026-10-01T12:00:00Z"
+      },
+      {
+        "id": "demo-wealth-12-2026-10-25",
+        "itemId": "demo-wealth-12",
+        "effectiveDate": "2026-10-25",
+        "amount": "1800",
+        "recordedAt": "2026-10-25T12:00:00Z"
+      }
+    ],
+    "rates": [],
+    "snapshots": [],
+    "reviews": [
+      {
+        "id": "demo-review-2026-09-01",
+        "effectiveDate": "2026-09-01",
+        "assetsReviewed": true,
+        "debtsReviewed": true,
+        "recordedAt": "2026-09-01T12:00:00Z"
+      },
+      {
+        "id": "demo-review-2026-10-01",
+        "effectiveDate": "2026-10-01",
+        "assetsReviewed": true,
+        "debtsReviewed": true,
+        "recordedAt": "2026-10-01T12:00:00Z"
+      },
+      {
+        "id": "demo-review-2026-10-25",
+        "effectiveDate": "2026-10-25",
+        "assetsReviewed": true,
+        "debtsReviewed": true,
+        "recordedAt": "2026-10-25T12:00:00Z"
+      }
+    ]
+  },
+  "settings": [
+    {
+      "id": "70000000-0000-4000-8000-000000000001",
+      "theme": "DARK",
+      "currency": "AED",
+      "bufferAmount": 1500,
+      "name": "Alex Morgan · Demo"
+    }
+  ],
+  "sharedPrefs": {
+    "show_notifications": "false",
+    "hide_current_balance": "false",
+    "hide_income": "false",
+    "transfers_as_inc_exp": "false"
+  }
+}

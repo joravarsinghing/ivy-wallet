@@ -10,7 +10,8 @@ data class AccountData(
     val balance: Double,
     val balanceBaseCurrency: Double?,
     val monthlyExpenses: Double,
-    val monthlyIncome: Double
+    val monthlyIncome: Double,
+    val reservedForGoals: Double = 0.0,
 ) : Reorderable {
     override fun getItemOrderNum() = account.orderNum
 

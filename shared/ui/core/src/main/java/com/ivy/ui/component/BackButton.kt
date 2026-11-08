@@ -12,13 +12,5 @@ fun BackButton(
   onClick: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  IconButton(
-    modifier = modifier,
-    onClick = onClick,
-  ) {
-    Icon(
-      imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-      contentDescription = "Back"
-    )
-  }
+  com.ivy.design.system.JvyBackButton(onClick, modifier)
 }

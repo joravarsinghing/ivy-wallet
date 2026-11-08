@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,7 +77,7 @@ fun BoxWithConstraintsScope.AmountModal(
     amountSpacerTop: Dp = 64.dp,
     onAmountChanged: (Double) -> Unit,
 ) {
-    var amount by remember(id) {
+    var amount by rememberSaveable(id.toString()) {
         mutableStateOf(
             if (currency.isNotEmpty()) {
                 initialAmount?.takeIf { it != 0.0 }?.format(currency)
@@ -88,7 +89,7 @@ fun BoxWithConstraintsScope.AmountModal(
         )
     }
 
-    var calculatorModalVisible by remember(id) {
+    var calculatorModalVisible by rememberSaveable(id.toString()) {
         mutableStateOf(false)
     }
 

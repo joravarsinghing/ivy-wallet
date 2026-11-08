@@ -176,7 +176,9 @@ fun ModalPositiveButton(
     IvyButton(
         modifier = modifier,
         text = text,
-        backgroundGradient = GradientGreen,
+        backgroundGradient = com.ivy.wallet.ui.theme.Gradient.solid(androidx.compose.material3.MaterialTheme.colorScheme.primary),
+        textStyle = androidx.compose.material3.MaterialTheme.typography.labelLarge.copy(color = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary),
+        iconTint = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary,
         iconStart = iconStart,
         onClick = onClick,
         enabled = enabled
@@ -192,7 +194,7 @@ fun ModalDelete(
 ) {
     IvyCircleButton(
         modifier = Modifier
-            .size(40.dp)
+            .size(48.dp)
             .testTag(testTag),
         icon = R.drawable.ic_delete,
         backgroundGradient = GradientRed,
@@ -208,7 +210,7 @@ fun ModalTitle(
     text: String
 ) {
     Text(
-        modifier = Modifier.padding(horizontal = 32.dp),
+        modifier = Modifier.padding(horizontal = 24.dp),
         text = text,
         style = UI.typo.b1.style(
             color = UI.colors.pureInverse,

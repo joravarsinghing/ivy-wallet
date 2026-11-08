@@ -15,20 +15,20 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.biometric.BiometricManager
-import androidx.biometric.BiometricPrompt
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.core.content.ContextCompat
+import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.google.android.material.datepicker.MaterialDatePicker
-import com.google.android.material.timepicker.MaterialTimePicker
-import com.google.android.material.timepicker.TimeFormat
 import com.google.android.play.core.review.ReviewManagerFactory
 import com.ivy.IvyNavGraph
 import com.ivy.base.legacy.Theme
@@ -50,13 +50,10 @@ import com.ivy.navigation.NavigationRoot
 import com.ivy.ui.R
 import com.ivy.ui.time.TimeFormatter
 import com.ivy.ui.time.impl.DateTimePicker
-import com.ivy.wallet.ui.applocked.AppLockedScreen
 import com.ivy.widget.balance.WalletBalanceWidgetReceiver
 import com.ivy.widget.transaction.AddTransactionWidget
 import com.ivy.widget.transaction.AddTransactionWidgetCompact
 import dagger.hilt.android.AndroidEntryPoint
-import java.time.LocalDate
-import java.time.LocalTime
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -83,76 +80,178 @@ class RootActivity : AppCompatActivity(), RootScreen {
     @Inject
     lateinit var dateTimePicker: DateTimePicker
 
+    @Inject
+    lateinit var sharedPrefs: com.ivy.base.legacy.SharedPrefs
+
     private lateinit var createFileLauncher: ActivityResultLauncher<String>
-    private lateinit var onFileCreated: (fileUri: Uri) -> Unit
+    private var onFileCreated: ((fileUri: Uri) -> Unit)? = null
 
     private lateinit var openFileLauncher: ActivityResultLauncher<Unit>
-    private lateinit var onFileOpened: (fileUri: Uri) -> Unit
+    private var onFileOpened: ((fileUri: Uri) -> Unit)? = null
+    private data class ExportRequest(val name: String, val onCreated: (Uri) -> Unit)
+    private var pendingExport by mutableStateOf<ExportRequest?>(null)
+    private var pendingNavigationState: ArrayList<String>? = null
 
     private val viewModel: RootViewModel by viewModels()
+    private val securityUiViewModel: com.ivy.security.ui.SecurityViewModel by viewModels()
 
     @OptIn(ExperimentalFoundationApi::class, ExperimentalAnimationApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        // Fail private before Compose has read the user's unlocked-screen preference.
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         setupApp()
+        if (navigation.currentScreen == null) {
+            pendingNavigationState = savedInstanceState?.getStringArrayList("jvy.navigation.v1")
+            if (pendingNavigationState != null) {
+                savedInstanceState?.getString("jvy.mainTab.v1")?.let { name ->
+                    runCatching { com.ivy.legacy.data.model.MainTab.valueOf(name) }.getOrNull()?.let(ivyContext::selectMainTab)
+                }
+                savedInstanceState?.getStringArrayList("jvy.period.v1")?.let(com.ivy.legacy.data.model.TimePeriodSavedState::decode)?.let { period ->
+                    val localized = period.month?.let { com.ivy.legacy.data.model.Month.fromMonthValue(it.monthValue) }
+                    ivyContext.updateSelectedPeriodInMemory(period.copy(month = localized))
+                }
+            }
+        }
         setContent {
             val viewModel: RootViewModel = viewModel()
             val isSystemInDarkTheme = isSystemInDarkTheme()
+            // Read the mutable legacy theme once at the root so the entire app observes the
+            // same value. Recreating the design wrapper at each call site can otherwise leave
+            // parts of the navigation tree with colors from the previous theme.
+            val activeTheme = ivyContext.theme
+            val ivyDesign = remember(ivyContext) { appDesign(ivyContext) }
 
             LaunchedEffect(isSystemInDarkTheme) {
-                viewModel.start(isSystemInDarkTheme, intent)
+                viewModel.start(isSystemInDarkTheme, intent, pendingNavigationState)
             }
 
             val appLocked by viewModel.appLocked.collectAsState()
+            val lockSettings by viewModel.securitySettings.collectAsState()
+            LaunchedEffect(lockSettings.enabled) {
+                // Security settings bypass the legacy Settings toggle. Redact an already
+                // installed widget as soon as an app lock is enabled, not on the next launch.
+                WalletBalanceWidgetReceiver.updateBroadcast(this@RootActivity)
+            }
+            val capturePreference by viewModel.screenCapturePreferences.allowed.collectAsState()
+            val securityUi = securityUiViewModel
+            val sensitive = com.ivy.security.shouldProtectScreenCapture(
+                locked = appLocked, lockEnabled = lockSettings.enabled, preference = capturePreference,
+                credentialsVisible = navigation.currentScreen == com.ivy.navigation.SecurityScreen || securityUi.recoveryCode != null,
+            )
+            SideEffect {
+                if (sensitive) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            }
+            val savedScreens = rememberSaveableStateHolder()
+            val entryId = navigation.currentEntryId
+            androidx.compose.runtime.DisposableEffect(entryId) {
+                onDispose {
+                    if (entryId != null && !navigation.retainsEntry(entryId)) {
+                        savedScreens.removeState("route:$entryId")
+                    }
+                }
+            }
+            com.ivy.design.system.FinancialVisibilityProvider(sharedPrefs) {
+            NavigationRoot(navigation = navigation) { screen ->
             when (appLocked) {
                 null -> { // display nothing
                 }
                 true -> {
-                    IvyUI(
-                        design = appDesign(ivyContext),
-                        timeConverter = timeConverter,
-                        timeProvider = timeProvider,
-                        timeFormatter = timeFormatter,
-                    ) {
-                        AppLockedScreen(
-                            onShowOSBiometricsModal = {
-                                authenticateWithOSBiometricsModal(
-                                    biometricPromptCallback = viewModel.handleBiometricAuthResult()
-                                )
-                            },
-                            onContinueWithoutAuthentication = {
-                                viewModel.unlockApp()
-                            }
-                        )
-                    }
-                }
-
-                false -> {
-                    NavigationRoot(navigation = navigation) { screen ->
+                    key(activeTheme) {
                         IvyUI(
-                            design = appDesign(ivyContext),
-                            includeSurface = screen?.isLegacy ?: true,
+                            design = ivyDesign,
                             timeConverter = timeConverter,
                             timeProvider = timeProvider,
                             timeFormatter = timeFormatter,
                         ) {
-                            IvyNavGraph(screen)
+                            com.ivy.security.ui.SecurityLockScreen()
+                        }
+                    }
+                }
+
+                false -> {
+                    // Keep NavigationRoot alive so the current route survives a theme switch,
+                    // but recreate the themed screen subtree to discard stale colors.
+                    savedScreens.SaveableStateProvider("route:$entryId") {
+                        key(activeTheme) {
+                            IvyUI(
+                                design = ivyDesign,
+                                includeSurface = screen?.isLegacy ?: true,
+                                timeConverter = timeConverter,
+                                timeProvider = timeProvider,
+                                timeFormatter = timeFormatter,
+                            ) {
+                                IvyNavGraph(screen)
+                            }
                         }
                     }
                 }
             }
+            }
 
             IvyMaterial3Theme(
                 dark = isDarkThemeEnabled(
-                    ivyDesign = appDesign(ivyContext),
+                    ivyDesign = ivyDesign,
                     systemDarkTheme = isSystemInDarkTheme
                 ),
-                isTrueBlack = appDesign(ivyContext).context().theme == Theme.AMOLED_DARK
+                isTrueBlack = activeTheme == Theme.AMOLED_DARK
             ) {
-                dateTimePicker.Content()
+                if (appLocked == false) {
+                    if (viewModel.startupError) {
+                        androidx.compose.material3.AlertDialog(
+                            onDismissRequest = {},
+                            title = { androidx.compose.material3.Text(getString(R.string.jvy_startup_failed_title)) },
+                            text = { androidx.compose.material3.Text(getString(R.string.jvy_startup_failed_message)) },
+                            confirmButton = { com.ivy.design.system.JvyTextButton({
+                                viewModel.start(isSystemInDarkTheme, intent, pendingNavigationState)
+                            }) { androidx.compose.material3.Text(getString(R.string.jvy_startup_retry)) } },
+                            dismissButton = { com.ivy.design.system.JvyTextButton({ finish() }) {
+                                androidx.compose.material3.Text(getString(R.string.cancel))
+                            } },
+                        )
+                    } else if (viewModel.restorationNotice) {
+                        androidx.compose.material3.AlertDialog(
+                            onDismissRequest = viewModel::acknowledgeRestoration,
+                            title = { androidx.compose.material3.Text(getString(R.string.jvy_restore_review_title)) },
+                            text = { androidx.compose.material3.Text(getString(R.string.jvy_restore_review_message)) },
+                            confirmButton = { com.ivy.design.system.JvyTextButton(viewModel::acknowledgeRestoration) {
+                                androidx.compose.material3.Text(getString(R.string.done))
+                            } },
+                        )
+                    }
+                    dateTimePicker.Content()
+                    com.ivy.security.ui.SecurityRecoveryHost()
+                    pendingExport?.let { request ->
+                        androidx.compose.material3.AlertDialog(
+                            onDismissRequest = { pendingExport = null },
+                            title = { androidx.compose.material3.Text(getString(R.string.jvy_export_private_title)) },
+                            text = { androidx.compose.material3.Text(getString(R.string.jvy_export_private_message)) },
+                            confirmButton = { com.ivy.design.system.JvyTextButton({
+                                pendingExport = null
+                                onFileCreated = request.onCreated
+                                createFileLauncher.launch(request.name)
+                            }) { androidx.compose.material3.Text(getString(R.string.jvy_export_continue)) } },
+                            dismissButton = { com.ivy.design.system.JvyTextButton({ pendingExport = null }) {
+                                androidx.compose.material3.Text(getString(R.string.cancel))
+                            } },
+                        )
+                    }
+                }
+            }
             }
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        (if (navigation.currentScreen == null) pendingNavigationState else
+            navigation.saveState() ?: arrayListOf("jvy-navigation-unavailable"))?.let {
+            outState.putStringArrayList("jvy.navigation.v1", it)
+        }
+        outState.putString("jvy.mainTab.v1", ivyContext.mainTab.name)
+        com.ivy.legacy.data.model.TimePeriodSavedState.encode(ivyContext.selectedPeriod)?.let { outState.putStringArrayList("jvy.period.v1", it) }
+        super.onSaveInstanceState(outState)
     }
 
     private fun setupApp() {
@@ -165,70 +264,16 @@ class RootActivity : AppCompatActivity(), RootScreen {
         WalletBalanceWidgetReceiver.updateBroadcast(this)
     }
 
-    private companion object {
-        private const val MILLISECONDS_IN_DAY = 24 * 60 * 60 * 1000
-    }
-
     private fun setupDatePicker() {
-        ivyContext.onShowDatePicker = { minDate,
-                                        maxDate,
-                                        initialDate,
-                                        onDatePicked ->
-            val datePicker =
-                MaterialDatePicker.Builder.datePicker()
-                    .setSelection(
-                        if (initialDate != null) {
-                            initialDate.toEpochDay() * MILLISECONDS_IN_DAY
-                        } else {
-                            MaterialDatePicker.todayInUtcMilliseconds()
-                        }
-                    )
-                    .build()
-            datePicker.show(supportFragmentManager, "datePicker")
-            datePicker.addOnPositiveButtonClickListener {
-                onDatePicked(LocalDate.ofEpochDay(it / MILLISECONDS_IN_DAY))
-            }
-
-            if (minDate != null) {
-                datePicker.addOnCancelListener {
-                    onDatePicked(minDate)
-                }
-            }
-
-            if (maxDate != null) {
-                datePicker.addOnCancelListener {
-                    onDatePicked(maxDate)
-                }
-            }
-
-            if (initialDate != null) {
-                datePicker.addOnCancelListener {
-                    onDatePicked(initialDate)
-                }
-            }
+        val picker = dateTimePicker
+        ivyContext.onShowDatePicker = { minDate, maxDate, initialDate, onDatePicked ->
+            picker.pickCalendarDate(initialDate, minDate, maxDate, onDatePicked)
         }
     }
 
     private fun setupTimePicker() {
-        ivyContext.onShowTimePicker = { initialTime,
-                                        onTimePicked ->
-            val nowLocal = initialTime ?: timeProvider.localTimeNow()
-            val is24Hour = android.text.format.DateFormat.is24HourFormat(this)
-            val timeFormat = if (is24Hour) TimeFormat.CLOCK_24H else TimeFormat.CLOCK_12H
-
-            val picker =
-                MaterialTimePicker.Builder()
-                    .setTimeFormat(timeFormat)
-                    .setHour(nowLocal.hour)
-                    .setMinute(nowLocal.minute)
-                    .build()
-            picker.show(supportFragmentManager, "timePicker")
-            picker.addOnPositiveButtonClickListener {
-                onTimePicked(
-                    LocalTime.of(picker.hour, picker.minute).withSecond(0)
-                )
-            }
-        }
+        val picker = dateTimePicker
+        ivyContext.onShowTimePicker = { initialTime, onTimePicked -> picker.pickTime(initialTime, onTimePicked) }
     }
 
     private fun isDarkThemeEnabled(ivyDesign: IvyDesign, systemDarkTheme: Boolean): Boolean {
@@ -251,7 +296,11 @@ class RootActivity : AppCompatActivity(), RootScreen {
             createIntent = { _, fileName ->
                 Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                     addCategory(Intent.CATEGORY_OPENABLE)
-                    type = "application/csv"
+                    type = when {
+                        fileName.endsWith(".zip", ignoreCase = true) -> "application/zip"
+                        fileName.endsWith(".json", ignoreCase = true) -> "application/json"
+                        else -> "text/csv"
+                    }
                     putExtra(Intent.EXTRA_TITLE, fileName)
 
                     // Optionally, specify a URI for the directory that should be opened in
@@ -264,15 +313,17 @@ class RootActivity : AppCompatActivity(), RootScreen {
                 }
             }
         ) { _, intent ->
+            val callback = onFileCreated
+            onFileCreated = null
             intent?.data?.also {
-                onFileCreated(it)
+                if (callback != null) callback(it) else fileRequestExpired()
             }
         }
 
         ivyContext.createNewFile = { fileName, onFileCreatedCallback ->
-            onFileCreated = onFileCreatedCallback
-
-            createFileLauncher.launch(fileName)
+            if (pendingExport == null && onFileCreated == null) {
+                pendingExport = ExportRequest(fileName, onFileCreatedCallback)
+            }
         }
     }
 
@@ -283,8 +334,10 @@ class RootActivity : AppCompatActivity(), RootScreen {
                 type = "*/*"
             }
         ) { _, intent ->
+            val callback = onFileOpened
+            onFileOpened = null
             intent?.data?.also {
-                onFileOpened(it)
+                if (callback != null) callback(it) else fileRequestExpired()
             }
         }
 
@@ -295,9 +348,20 @@ class RootActivity : AppCompatActivity(), RootScreen {
         }
     }
 
+    private fun fileRequestExpired() {
+        Toast.makeText(this, getString(R.string.jvy_file_request_expired), Toast.LENGTH_LONG).show()
+    }
+
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (viewModel.isAppLockEnabled() && !hasFocus) {
+        // Exactly the same policy as the Compose observer: a focus change must not
+        // undo the owner's capture preference or expose a one-time recovery code.
+        if (com.ivy.security.shouldProtectScreenCapture(
+                locked = viewModel.appLocked.value,
+                lockEnabled = viewModel.securitySettings.value.enabled,
+                preference = viewModel.screenCapturePreferences.allowed.value,
+                credentialsVisible = navigation.currentScreen == com.ivy.navigation.SecurityScreen || securityUiViewModel.recoveryCode != null,
+            )) {
             window.setFlags(
                 WindowManager.LayoutParams.FLAG_SECURE,
                 WindowManager.LayoutParams.FLAG_SECURE
@@ -309,43 +373,10 @@ class RootActivity : AppCompatActivity(), RootScreen {
 
     override fun onResume() {
         super.onResume()
-        if (viewModel.isAppLockEnabled()) {
-            viewModel.checkUserInactiveTimeStatus()
-        }
     }
 
     override fun onPause() {
         super.onPause()
-        if (viewModel.isAppLockEnabled()) {
-            viewModel.startUserInactiveTimeCounter()
-        }
-    }
-
-    private fun authenticateWithOSBiometricsModal(
-        biometricPromptCallback: BiometricPrompt.AuthenticationCallback
-    ) {
-        val executor = ContextCompat.getMainExecutor(this)
-        val biometricPrompt = BiometricPrompt(
-            this,
-            executor,
-            biometricPromptCallback
-        )
-
-        val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle(
-                getString(R.string.authentication_required)
-            )
-            .setSubtitle(
-                getString(R.string.authentication_required_description)
-            )
-            .setAllowedAuthenticators(
-                BiometricManager.Authenticators.BIOMETRIC_WEAK or
-                        BiometricManager.Authenticators.DEVICE_CREDENTIAL
-            )
-            .setConfirmationRequired(false)
-            .build()
-
-        biometricPrompt.authenticate(promptInfo)
     }
 
     override fun onBackPressed() {
@@ -379,10 +410,10 @@ class RootActivity : AppCompatActivity(), RootScreen {
         val share = Intent.createChooser(
             Intent().apply {
                 action = Intent.ACTION_SEND
-                putExtra(Intent.EXTRA_TEXT, Constants.URL_IVY_WALLET_GOOGLE_PLAY)
+                putExtra(Intent.EXTRA_TEXT, Constants.URL_JVY_WALLET_REPO)
                 type = "text/plain"
             },
-            null
+            "Share Jvy Wallet"
         )
         startActivity(share)
     }

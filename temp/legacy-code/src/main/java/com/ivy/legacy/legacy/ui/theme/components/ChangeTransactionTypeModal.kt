@@ -36,7 +36,6 @@ import com.ivy.wallet.ui.theme.GradientIvy
 import com.ivy.wallet.ui.theme.White
 import com.ivy.wallet.ui.theme.modal.IvyModal
 import com.ivy.wallet.ui.theme.modal.ModalSet
-import com.ivy.wallet.ui.theme.modal.ModalTitle
 import java.util.UUID
 
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
@@ -58,6 +57,7 @@ fun BoxWithConstraintsScope.ChangeTransactionTypeModal(
     IvyModal(
         id = id,
         visible = visible,
+        title = title,
         dismiss = dismiss,
         PrimaryAction = {
             ModalSet {
@@ -69,12 +69,6 @@ fun BoxWithConstraintsScope.ChangeTransactionTypeModal(
             }
         }
     ) {
-        Spacer(Modifier.height(32.dp))
-
-        ModalTitle(text = title)
-
-        Spacer(Modifier.height(32.dp))
-
         TransactionTypeButton(
             transactionType = TransactionType.INCOME,
             selected = transactionType == TransactionType.INCOME,

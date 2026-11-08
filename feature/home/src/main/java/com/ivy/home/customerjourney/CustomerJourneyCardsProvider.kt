@@ -71,8 +71,7 @@ class CustomerJourneyCardsProvider @Inject constructor(
       adjustBalanceCard(),
       addPlannedPaymentCard(),
       didYouKnow_pinAddTransactionWidgetCard(),
-      didYouKnow_expensesPieChart(),
-      voteCard()
+      didYouKnow_expensesPieChart()
     )
 
     fun adjustBalanceCard() = CustomerJourneyCardModel(

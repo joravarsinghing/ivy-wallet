@@ -1,6 +1,10 @@
 package com.ivy.base.legacy
 
 import android.content.Context
+import android.content.SharedPreferences
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
@@ -34,9 +38,25 @@ class SharedPrefs @Inject constructor(
         // ----------------------------- Others -----------------------------------------------
         const val CATEGORY_SORT_ORDER = "categorySortOrder"
         const val DATA_BACKUP_COMPLETED = "data_backup_completed"
+
+        // ----------------------------- Net worth -----------------------------------------------
+        const val NET_WORTH_ASSET_ACCOUNT_IDS = "net_worth_asset_account_ids"
+        const val NET_WORTH_LIABILITY_ACCOUNT_IDS = "net_worth_liability_account_ids"
+        const val NET_WORTH_HISTORY = "net_worth_history"
+        const val LAST_BUDGET_ALERT_SIGNATURE = "last_budget_alert_signature"
     }
 
     private val preferences = appContext.getSharedPreferences(PREFS_FILENAME, Context.MODE_PRIVATE)
+
+    /** Listen before the first read so preference changes cannot race initialization. */
+    fun observeBoolean(key: String, default: Boolean = false) = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, changed ->
+            if (changed == key || changed == null) trySend(preferences.getBoolean(key, default))
+        }
+        preferences.registerOnSharedPreferenceChangeListener(listener)
+        trySend(preferences.getBoolean(key, default))
+        awaitClose { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
 
     fun has(key: String): Boolean {
         return preferences.contains(key)

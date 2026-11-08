@@ -4,9 +4,11 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -14,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -31,35 +34,25 @@ import com.ivy.base.legacy.stringRes
 import com.ivy.design.api.LocalTimeConverter
 import com.ivy.design.api.LocalTimeFormatter
 import com.ivy.design.api.LocalTimeProvider
+import com.ivy.domain.usecase.cashflow.PlannedCashflowType
 import com.ivy.frp.forward
 import com.ivy.frp.then2
-import com.ivy.home.Constants.SWIPE_HORIZONTAL_THRESHOLD
 import com.ivy.home.customerjourney.CustomerJourney
 import com.ivy.home.customerjourney.CustomerJourneyCardModel
 import com.ivy.legacy.IvyWalletPreview
 import com.ivy.legacy.data.AppBaseData
 import com.ivy.legacy.data.BufferInfo
 import com.ivy.legacy.data.LegacyDueSection
-import com.ivy.legacy.data.model.MainTab
 import com.ivy.legacy.data.model.Month
 import com.ivy.legacy.data.model.TimePeriod
 import com.ivy.legacy.ivyWalletCtx
-import com.ivy.legacy.ui.component.transaction.TransactionsDividerLine
-import com.ivy.legacy.ui.component.transaction.transactions
-import com.ivy.legacy.utils.horizontalSwipeListener
-import com.ivy.legacy.utils.rememberSwipeListenerState
-import com.ivy.legacy.utils.verticalSwipeListener
 import com.ivy.navigation.IvyPreview
 import com.ivy.navigation.screenScopedViewModel
 import com.ivy.ui.R
 import com.ivy.ui.rememberScrollPositionListState
-import com.ivy.wallet.domain.data.IvyCurrency
 import com.ivy.wallet.domain.pure.data.IncomeExpensePair
-import com.ivy.wallet.ui.theme.modal.BufferModal
-import com.ivy.wallet.ui.theme.modal.BufferModalData
 import com.ivy.wallet.ui.theme.modal.ChoosePeriodModal
 import com.ivy.wallet.ui.theme.modal.ChoosePeriodModalData
-import com.ivy.wallet.ui.theme.modal.CurrencyModal
 import com.ivy.wallet.ui.theme.modal.DeleteModal
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -71,6 +64,7 @@ import java.math.BigDecimal
 fun BoxWithConstraintsScope.HomeTab() {
     val viewModel: HomeViewModel = screenScopedViewModel()
     val uiState = viewModel.uiState()
+    HomeCalendarEffect { viewModel.onEvent(HomeEvent.RefreshHomePeriod) }
 
     HomeUi(uiState, viewModel::onEvent)
 }
@@ -86,41 +80,19 @@ fun BoxWithConstraintsScope.HomeUi(
 ) {
     val ivyContext = ivyWalletCtx()
 
-    var bufferModalData: BufferModalData? by remember { mutableStateOf(null) }
-    var currencyModalVisible by remember { mutableStateOf(false) }
-    var choosePeriodModal: ChoosePeriodModalData? by remember {
+    var choosePeriodModal: ChoosePeriodModalData? by rememberSaveable(stateSaver = com.ivy.wallet.ui.theme.modal.ChoosePeriodModalDataSaver) {
         mutableStateOf(null)
     }
-    var moreMenuExpanded by remember { mutableStateOf(ivyContext.moreMenuExpanded) }
-    var skipAllModalVisible by remember { mutableStateOf(false) }
-    val setMoreMenuExpanded = { expanded: Boolean ->
-        moreMenuExpanded = expanded
-        ivyContext.setMoreMenuExpanded(expanded)
-    }
+    var skipAllModalVisible by rememberSaveable { mutableStateOf(false) }
 
     val baseCurrency = uiState.baseData.baseCurrency
+    val homeTimeProvider = LocalTimeProvider.current
+    val homeTimeConverter = LocalTimeConverter.current
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .systemBarsPadding()
-            .verticalSwipeListener(
-                sensitivity = Constants.SWIPE_DOWN_THRESHOLD_OPEN_MORE_MENU,
-                state = rememberSwipeListenerState(),
-                onSwipeDown = {
-                    setMoreMenuExpanded(true)
-                }
-            )
-            .horizontalSwipeListener(
-                sensitivity = SWIPE_HORIZONTAL_THRESHOLD,
-                state = rememberSwipeListenerState(),
-                onSwipeLeft = {
-                    ivyContext.selectMainTab(MainTab.ACCOUNTS)
-                },
-                onSwipeRight = {
-                    ivyContext.selectMainTab(MainTab.ACCOUNTS)
-                }
-            )
     ) {
         val listState = rememberScrollPositionListState(
             key = "home_lazy_column",
@@ -130,43 +102,40 @@ fun BoxWithConstraintsScope.HomeUi(
                 ?.firstVisibleItemScrollOffset ?: 0
         )
 
-        HomeHeader(
-            expanded = uiState.expanded,
-            name = uiState.name,
-            period = uiState.period,
-            currency = baseCurrency,
-            balance = uiState.balance.toDouble(),
-            hideBalance = uiState.hideBalance,
-
-            onShowMonthModal = {
-                choosePeriodModal = ChoosePeriodModalData(
-                    period = uiState.period
-                )
-            },
-            onBalanceClick = {
-                onEvent(HomeEvent.BalanceClick)
-            },
-            onHiddenBalanceClick = {
-                onEvent(HomeEvent.HiddenBalanceClick)
-            },
-            onSelectNextMonth = {
-                onEvent(HomeEvent.SelectNextMonth)
-            },
-            onSelectPreviousMonth = {
-                onEvent(HomeEvent.SelectPreviousMonth)
-            }
-        )
-
         HomeLazyColumn(
+            name = uiState.name,
+            periodSelection = uiState.periodSelection,
+            appliedPeriodSelection = uiState.appliedPeriodSelection,
+            periodError = uiState.periodError,
+            periodCapped = uiState.periodCapped,
+            onHomePeriodSelected = { onEvent(HomeEvent.SetHomePeriod(it)) },
+            onOpenPeriodChooser = {
+                val selected = if (uiState.periodSelection == HomePeriodSelection.CurrentCycle) {
+                    val start = HomePeriodSelection.CurrentCycle.resolve(homeTimeProvider.localDateNow(),
+                        ivyContext.startDayOfMonth, null).window!!.from
+                    HomePeriodSelection.BudgetMonth(java.time.YearMonth.from(start)).asTimePeriod(homeTimeConverter)
+                } else uiState.period
+                choosePeriodModal = ChoosePeriodModalData(period = selected)
+            },
             hideBalance = uiState.hideBalance,
             hideIncome = uiState.hideIncome,
             onSetExpand = {
                 onEvent(HomeEvent.SetExpanded(it))
             },
             balance = uiState.balance,
-            onOpenMoreMenu = {
-                setMoreMenuExpanded(true)
-            },
+            protectedBuffer = uiState.buffer.amount,
+            visibleDashboardCards = uiState.visibleDashboardCards,
+            dashboardOrder = uiState.dashboardOrder,
+            spendingBreakdown = uiState.spendingBreakdown,
+            moneyComingUp = uiState.moneyComingUp,
+            trend = uiState.trend,
+            savedAnalytics = uiState.savedAnalytics,
+            onTrendRangeSelected = { onEvent(HomeEvent.SetTrendRange(it)) },
+            onTrendMetricToggle = { onEvent(HomeEvent.ToggleTrendMetric(it)) },
+            onOpenTrendEditor = { onEvent(HomeEvent.OpenTrendEditor) },
+            onCloseTrendEditor = { onEvent(HomeEvent.CloseTrendEditor) },
+            onOpenDashboardEditor = { onEvent(HomeEvent.OpenDashboardEditor) },
+            onOpenSavedReports = { onEvent(HomeEvent.OpenSavedReports) },
             onBalanceClick = {
                 onEvent(HomeEvent.BalanceClick)
             },
@@ -212,52 +181,14 @@ fun BoxWithConstraintsScope.HomeUi(
         )
     }
 
-    MoreMenu(
-        expanded = moreMenuExpanded,
-        theme = uiState.theme,
-        balance = uiState.balance.toDouble(),
-        currency = baseCurrency,
-        buffer = uiState.buffer.amount.toDouble(),
-        onSwitchTheme = {
-            onEvent(HomeEvent.SwitchTheme)
-        },
-        setExpanded = setMoreMenuExpanded,
-        onBufferClick = {
-            bufferModalData = BufferModalData(
-                balance = uiState.balance.toDouble(),
-                currency = baseCurrency,
-                buffer = uiState.buffer.amount.toDouble()
-            )
-        },
-        onCurrencyClick = {
-            currencyModalVisible = true
-        }
-    )
-
-    BufferModal(
-        modal = bufferModalData,
-        dismiss = {
-            bufferModalData = null
-        },
-        onBufferChanged = forward<Double>() then2 {
-            HomeEvent.SetBuffer(it)
-        } then2 onEvent
-    )
-
-    CurrencyModal(
-        title = stringResource(R.string.set_currency),
-        initialCurrency = IvyCurrency.fromCode(baseCurrency),
-        visible = currencyModalVisible,
-        dismiss = {
-            currencyModalVisible = false
-        },
-        onSetCurrency = forward<String>() then2 {
-            HomeEvent.SetCurrency(it)
-        } then2 onEvent
-    )
-
     ChoosePeriodModal(
         modal = choosePeriodModal,
+        updateGlobalPeriod = false,
+        validatePeriod = { selected ->
+            runCatching { homePeriodFromLegacy(selected, homeTimeProvider.localDateNow(),
+                homeTimeConverter).resolve(homeTimeProvider.localDateNow(), ivyContext.startDayOfMonth, null) }
+                .exceptionOrNull()?.let { "Choose a period that starts today or earlier." }
+        },
         dismiss = {
             choosePeriodModal = null
         },
@@ -277,6 +208,17 @@ fun BoxWithConstraintsScope.HomeUi(
         onEvent(HomeEvent.SkipAllPlanned(uiState.overdue.trns))
         skipAllModalVisible = false
     }
+
+    if (uiState.dashboardEditorVisible) {
+        HomeDashboardEditorDialog(
+            visibleCards = uiState.visibleDashboardCards,
+            onCardToggle = { onEvent(HomeEvent.ToggleDashboardCard(it)) },
+            onClose = { onEvent(HomeEvent.CloseDashboardEditor) },
+            onRestoreDefaults = { onEvent(HomeEvent.RestoreDashboardDefaults) },
+            cards = uiState.dashboardOrder.map(::HomeDashboardCardDefinition),
+            onMove = { card, offset -> onEvent(HomeEvent.MoveDashboardCard(card, offset)) },
+        )
+    }
 }
 
 @Suppress("LongParameterList")
@@ -295,6 +237,16 @@ fun HomeLazyColumn(
     upcoming: LegacyDueSection,
     overdue: LegacyDueSection,
     balance: BigDecimal,
+    protectedBuffer: BigDecimal,
+    visibleDashboardCards: Set<HomeDashboardCardId>,
+    spendingBreakdown: HomeSpendingBreakdownState,
+    moneyComingUp: MoneyComingUpState,
+    trend: HomeTrendState,
+    savedAnalytics: ImmutableList<com.ivy.data.db.entity.SavedAnalyticsEntity>,
+    onTrendRangeSelected: (HomeTrendRange) -> Unit,
+    onTrendMetricToggle: (HomeTrendMetric) -> Unit,
+    onOpenTrendEditor: () -> Unit,
+    onCloseTrendEditor: () -> Unit,
     stats: IncomeExpensePair,
     history: ImmutableList<TransactionHistoryItem>,
 
@@ -303,8 +255,9 @@ fun HomeLazyColumn(
     setUpcomingExpanded: (Boolean) -> Unit,
     setOverdueExpanded: (Boolean) -> Unit,
 
-    onOpenMoreMenu: () -> Unit,
     onBalanceClick: () -> Unit,
+    onOpenDashboardEditor: () -> Unit,
+    onOpenSavedReports: () -> Unit,
 
     onPayOrGet: (Transaction) -> Unit,
     onDismiss: (CustomerJourneyCardModel) -> Unit,
@@ -312,86 +265,105 @@ fun HomeLazyColumn(
     onHiddenIncomeClick: () -> Unit,
     onSkipTransaction: (Transaction) -> Unit,
     onSkipAllTransactions: (List<Transaction>) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    name: String = "",
+    periodSelection: HomePeriodSelection = HomePeriodSelection.CurrentCycle,
+    appliedPeriodSelection: HomePeriodSelection = HomePeriodSelection.CurrentCycle,
+    periodError: String? = null,
+    periodCapped: Boolean = false,
+    onHomePeriodSelected: (HomePeriodSelection) -> Unit = {},
+    onOpenPeriodChooser: () -> Unit = {},
+    dashboardOrder: List<HomeDashboardCardId> = defaultHomeDashboardCards.map { it.id },
 ) {
-    val ivyContext = ivyWalletCtx()
-
-    val nestedScrollConnection = remember {
-        object : NestedScrollConnection {
-            override fun onPostScroll(
-                consumed: Offset,
-                available: Offset,
-                source: NestedScrollSource
-            ): Offset {
-                onSetExpand(listState.firstVisibleItemScrollOffset == 0)
-                return super.onPostScroll(consumed, available, source)
-            }
-        }
-    }
-
-    val timeProvider = LocalTimeProvider.current
-    val timeConverter = LocalTimeConverter.current
-    val timeFormatter = LocalTimeFormatter.current
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .nestedScroll(nestedScrollConnection)
             .testTag("home_lazy_column"),
-        state = listState
+        state = listState,
+        contentPadding = PaddingValues(bottom = if (androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f) 224.dp else 176.dp),
     ) {
-        item {
-            CashFlowInfo(
-                currency = baseData.baseCurrency,
-                balance = balance.toDouble(),
-
-                hideBalance = hideBalance,
-
-                monthlyIncome = stats.income.toDouble(),
-                monthlyExpenses = stats.expense.toDouble(),
-
-                onOpenMoreMenu = onOpenMoreMenu,
-                onBalanceClick = onBalanceClick,
-                onHiddenBalanceClick = onHiddenBalanceClick,
-                percentExpanded = 1f,
-                hideIncome = hideIncome,
-                onHiddenIncomeClick = onHiddenIncomeClick
-            )
+        item(key = "current_position", contentType = "header") {
+            HomeCurrentHeader(name, baseData.baseCurrency, balance, hideBalance,
+                if (hideBalance) onHiddenBalanceClick else onBalanceClick)
+            Spacer(Modifier.height(16.dp))
         }
-        item {
+        item(key = "home_period", contentType = "controls") {
+            HomeTimelineControls(periodSelection, appliedPeriodSelection, trend.window, trend.loading,
+                periodError, periodCapped, onOpenPeriodChooser, onHomePeriodSelected,
+                { onHomePeriodSelected(periodSelection) })
+            Spacer(Modifier.height(16.dp))
+            HomePeriodSummary(stats, baseData.baseCurrency, hideBalance || hideIncome, trend.window,
+                if (hideBalance) onHiddenBalanceClick else onHiddenIncomeClick)
+            Spacer(Modifier.height(16.dp))
+        }
+        item(key = "dashboard_customize", contentType = "toolbar") {
+            HomeDashboardToolbar(onOpenEditor = onOpenDashboardEditor)
+        }
+
+        dashboardOrder.filter { it in visibleDashboardCards }.forEach { dashboardCard ->
+        when (dashboardCard) {
+        HomeDashboardCardId.MONEY_TRENDS -> item(key = "trend", contentType = "chart") {
             Spacer(Modifier.height(16.dp))
 
-            TransactionsDividerLine()
-        }
-
-        item {
-            CustomerJourney(
-                customerJourneyCards = customerJourneyCards,
-                onDismiss = onDismiss
+            HomeTrendCard(
+                state = trend,
+                currency = baseData.baseCurrency,
+                hideBalance = hideBalance,
+                onRangeSelected = onTrendRangeSelected,
+                onMetricToggle = onTrendMetricToggle,
+                onOpenEditor = onOpenTrendEditor,
+                onCloseEditor = onCloseTrendEditor,
             )
         }
 
-        transactions(
-            baseData = baseData,
-            upcoming = upcoming,
-            setUpcomingExpanded = setUpcomingExpanded,
-            overdue = overdue,
-            setOverdueExpanded = setOverdueExpanded,
-            history = history,
-            onPayOrGet = onPayOrGet,
-            emptyStateTitle = stringRes(R.string.no_transactions),
-            emptyStateText = stringRes(
-                R.string.no_transactions_description,
-                period.toDisplayLong(
-                    startDateOfMonth = ivyContext.startDayOfMonth,
-                    timeProvider = timeProvider,
-                    timeConverter = timeConverter,
-                    timeFormatter = timeFormatter,
-                )
-            ),
-            shouldShowAccountSpecificColorInTransactions = shouldShowAccountSpecificColorInTransactions,
-            onSkipTransaction = onSkipTransaction,
-            onSkipAllTransactions = onSkipAllTransactions
-        )
+        HomeDashboardCardId.SPENDING_BREAKDOWN -> item(key = "spending", contentType = "breakdown") {
+            Spacer(Modifier.height(16.dp))
+            HomeSpendingBreakdownCard(
+                state = spendingBreakdown,
+                dateWindow = trend.window,
+                currency = baseData.baseCurrency,
+                hideBalance = hideBalance,
+            )
+        }
+
+        HomeDashboardCardId.RECENT_ACTIVITY -> item(key = "activity", contentType = "activity") {
+            Spacer(Modifier.height(16.dp))
+            HomeCompactActivity(
+                baseData = baseData,
+                upcoming = upcoming,
+                overdue = overdue,
+                history = history,
+                dateWindow = trend.window,
+                showPlanned = false,
+                hideBalance = hideBalance,
+                onPayOrGet = onPayOrGet,
+                onSkipTransaction = onSkipTransaction,
+                onSkipAllTransactions = onSkipAllTransactions,
+            )
+        }
+        HomeDashboardCardId.SAFE_TO_SPEND -> item(key = "safe-to-spend", contentType = "outlook") {
+            Spacer(Modifier.height(16.dp))
+            androidx.compose.material3.Text(stringResource(R.string.jvy_home_today_upcoming),
+                Modifier.padding(horizontal = 24.dp), style = com.ivy.design.system.JvyTypography.SectionTitle)
+                Spacer(Modifier.height(16.dp))
+                SafeToSpendCard(balance, protectedBuffer, baseData.baseCurrency)
+        }
+        HomeDashboardCardId.MONEY_COMING_UP -> item(key = "money-coming-up", contentType = "outlook") {
+                Spacer(Modifier.height(16.dp))
+                MoneyComingUpCard(moneyComingUp, baseData.baseCurrency, hideBalance)
+        }
+        HomeDashboardCardId.SAVED_REPORTS -> if (savedAnalytics.isNotEmpty())
+            item(key = "saved_reports", contentType = "reports") {
+                Spacer(Modifier.height(16.dp))
+                HomeSavedReportsCard(savedAnalytics, onOpenSavedReports)
+            }
+        }
+        }
+        item(key = "journey", contentType = "journey") { CustomerJourney(customerJourneyCards = customerJourneyCards, onDismiss = onDismiss) }
+        if (upcoming.trns.isNotEmpty() || overdue.trns.isNotEmpty()) item(key = "planned-actions", contentType = "outlook") {
+            HomeCompactActivity(baseData, upcoming, overdue, emptyList(), hideBalance, onPayOrGet,
+                onSkipTransaction, onSkipAllTransactions, showRecent = false)
+        }
     }
 }
 
@@ -432,7 +404,27 @@ private fun BoxWithConstraintsScope.PreviewHomeTab(isDark: Boolean = false) {
                 hideBalance = false,
                 hideIncome = false,
                 expanded = false,
-                shouldShowAccountSpecificColorInTransactions = false
+                shouldShowAccountSpecificColorInTransactions = false,
+                moneyComingUp = MoneyComingUpState(
+                    status = MoneyComingUpStatus.CONTENT,
+                    currentAvailable = BigDecimal("1200.00"),
+                    upcomingIncome = BigDecimal("1500.00"),
+                    upcomingExpenses = BigDecimal("800.00"),
+                    lowestProjectedAvailable = BigDecimal("900.00"),
+                    safeToSpend = BigDecimal("900.00"),
+                    events = persistentListOf(
+                        MoneyComingUpEvent(
+                            date = java.time.LocalDate.of(2023, 1, 15),
+                            type = PlannedCashflowType.INCOME,
+                            amount = BigDecimal("1500.00"),
+                        ),
+                        MoneyComingUpEvent(
+                            date = java.time.LocalDate.of(2023, 1, 20),
+                            type = PlannedCashflowType.EXPENSE,
+                            amount = BigDecimal("800.00"),
+                        ),
+                    ),
+                )
             ),
             onEvent = {}
         )

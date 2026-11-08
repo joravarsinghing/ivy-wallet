@@ -6,6 +6,9 @@ import android.view.ViewGroup
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -214,6 +217,19 @@ private class Adapter<T : Reorderable>(
         onReorderInternalList(data)
     }
 
+    /** Same accounting-order update as dragging, without a precision gesture. */
+    @SuppressLint("NotifyDataSetChanged")
+    private fun moveBy(from: Int, delta: Int) {
+        val to = from + delta
+        if (from !in data.indices || to !in data.indices) return
+        val item = data[from] as? T ?: return
+        if (data[to] !is Reorderable) return
+        data.swap(from, to)
+        onItemMoved(item, to)
+        onReorderInternalList()
+        notifyDataSetChanged()
+    }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ItemViewHolder {
         return ItemViewHolder(ComposeView(parent.context))
     }
@@ -257,13 +273,25 @@ private class Adapter<T : Reorderable>(
                                 .testTag("reorder_drag_handle"),
                             icon = R.drawable.ic_drag_handle,
                             tint = UI.colors.gray,
-                            contentDescription = "reorder_$position"
+                            contentDescription = "Drag to reorder item ${position + 1}"
                         )
 
                         Spacer(Modifier.width(4.dp))
                     }
 
-                    ItemContent(adapterPosition, item)
+                    Row(Modifier.weight(1f)) { ItemContent(bindingAdapterPosition, item) }
+                    if (item is Reorderable) Column {
+                        androidx.compose.material3.IconButton(
+                            onClick = { moveBy(bindingAdapterPosition, -1) },
+                            enabled = position > 0 && data.getOrNull(position - 1) is Reorderable) {
+                            androidx.compose.material3.Icon(Icons.Outlined.KeyboardArrowUp, stringResource(R.string.jvy_move_up))
+                        }
+                        androidx.compose.material3.IconButton(
+                            onClick = { moveBy(bindingAdapterPosition, 1) },
+                            enabled = position < data.lastIndex && data.getOrNull(position + 1) is Reorderable) {
+                            androidx.compose.material3.Icon(Icons.Outlined.KeyboardArrowDown, stringResource(R.string.jvy_move_down))
+                        }
+                    }
                 }
             }
         }

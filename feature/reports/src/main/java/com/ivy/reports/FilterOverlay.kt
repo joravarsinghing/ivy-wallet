@@ -26,6 +26,9 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -106,14 +109,27 @@ fun BoxWithConstraintsScope.FilterOverlay(
     onSetFilter: (ReportFilter?) -> Unit,
     onTagSearch: (String) -> Unit
 ) {
+    // A hidden/exiting filter must own neither hit targets nor accessibility nodes.
+    // Removing it also discards an uncommitted draft before the next opening.
+    if (!visible) return
     val percentVisible by animateFloatAsState(
         targetValue = if (visible) 1f else 0f,
         animationSpec = springBounce()
     )
 
-    var localFilter by remember(filter) {
-        mutableStateOf(filter)
+    var draftRejected by rememberSaveable { mutableStateOf(false) }
+    val draft = rememberSaveable(filter?.id, saver = androidx.compose.runtime.saveable.Saver<ReportFilterDraft, List<String>>(
+        save = { ReportFilterState.save(it.value.value) },
+        restore = {
+            if (ReportFilterState.isCleared(it)) ReportFilterDraft(null)
+            else ReportFilterDraft(ReportFilterState.restore(it, accounts, categories, baseCurrency, allowInvalidDraft = true)
+                .also { restored -> draftRejected = restored == null } ?: filter)
+        },
+    )) {
+        ReportFilterDraft(filter)
     }
+    var localFilter by draft.value
+    if (draftRejected) com.ivy.legacy.ui.EditorRestorationNotice { draftRejected = false }
     val setLocalFilter = { newFilter: ReportFilter ->
         localFilter = newFilter
     }
@@ -125,15 +141,20 @@ fun BoxWithConstraintsScope.FilterOverlay(
         currentFilter ?: baseFilter
     }
 
-    var choosePeriodModal: ChoosePeriodModalData? by remember {
+    var choosePeriodModal: ChoosePeriodModalData? by rememberSaveable(stateSaver = androidx.compose.runtime.saveable.Saver<ChoosePeriodModalData?, List<String>>(
+        save = { modal -> modal?.let { ReportFilterState.save(ReportFilter.emptyFilter(baseCurrency).copy(id = it.id, period = it.period)) } },
+        restore = { saved -> ReportFilterState.restore(saved, emptyList(), emptyList(), baseCurrency)?.let { restored ->
+            restored.period?.let { period -> ChoosePeriodModalData(id = restored.id, period = period) }
+        } },
+    )) {
         mutableStateOf(null)
     }
-    var minAmountModalShown by remember { mutableStateOf(false) }
-    var maxAmountModalShown by remember { mutableStateOf(false) }
-    var includeKeywordModalShown by remember { mutableStateOf(false) }
-    var excludeKeywordModalShown by remember { mutableStateOf(false) }
-    var includedTagModalVisible by remember { mutableStateOf(false) }
-    var excludedTagModalVisible by remember { mutableStateOf(false) }
+    var minAmountModalShown by rememberSaveable { mutableStateOf(false) }
+    var maxAmountModalShown by rememberSaveable { mutableStateOf(false) }
+    var includeKeywordModalShown by rememberSaveable { mutableStateOf(false) }
+    var excludeKeywordModalShown by rememberSaveable { mutableStateOf(false) }
+    var includedTagModalVisible by rememberSaveable { mutableStateOf(false) }
+    var excludedTagModalVisible by rememberSaveable { mutableStateOf(false) }
     val includedTags by remember(localFilter) {
         derivedStateOf {
             localFilter?.includedTags?.toImmutableList() ?: persistentListOf()
@@ -163,194 +184,140 @@ fun BoxWithConstraintsScope.FilterOverlay(
                     }
                 }
                 .background(UI.colors.pure)
-                .systemBarsPadding()
-                .verticalScroll(rememberScrollState()),
+                .systemBarsPadding(),
         ) {
-            val modalId = remember {
-                UUID.randomUUID()
+            Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.filter), Modifier.weight(1f), style = com.ivy.design.system.JvyTypography.SectionTitle)
+                com.ivy.design.system.JvyCloseButton(onClose)
             }
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                val modalId = remember {
+                    UUID.randomUUID()
+                }
 
-            AddModalBackHandling(
-                modalId = modalId,
-                visible = visible
-            ) {
+                AddModalBackHandling(
+                    modalId = modalId,
+                    visible = visible
+                ) {
+                    onClose()
+                }
+
+                Spacer(Modifier.height(24.dp))
+
+                com.ivy.design.system.JvyTextButton({ localFilter = null }, Modifier.padding(horizontal = 24.dp)) {
+                    Text(stringResource(R.string.clean_filter))
+                }
+
+                Spacer(Modifier.height(24.dp))
+
+                TypeFilter(
+                    filter = localFilter,
+                    nonNullFilter = nonNullFilter,
+                    onSetFilter = setLocalFilter
+                )
+
+                FilterDivider()
+
+                val ivyContext = ivyWalletCtx()
+                PeriodFilter(
+                    filter = localFilter,
+                    onShowPeriodChooserModal = {
+                        choosePeriodModal = ChoosePeriodModalData(
+                            period = localFilter?.period ?: ivyContext.selectedPeriod
+                        )
+                    }
+                )
+
+                FilterDivider()
+
+                AccountsFilter(
+                    allAccounts = accounts,
+                    filter = localFilter,
+                    nonNullFilter = nonNullFilter,
+                    onSetFilter = setLocalFilter
+                )
+
+                FilterDivider()
+
+                CategoriesFilter(
+                    allCategories = categories,
+                    filter = localFilter,
+                    nonNullFilter = nonNullFilter,
+                    onSetFilter = setLocalFilter
+                )
+
+                FilterDivider()
+
+                AmountFilter(
+                    baseCurrency = baseCurrency,
+                    filter = localFilter,
+                    onShowMinAmountModal = {
+                        minAmountModalShown = true
+                    },
+                    onShowMaxAmountModal = {
+                        maxAmountModalShown = true
+                    }
+                )
+                if (localFilter?.validate() == false) Text(stringResource(com.ivy.reports.R.string.report_amount_range_error),
+                    Modifier.padding(horizontal = 24.dp).semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite },
+                    style = com.ivy.design.system.JvyTypography.Supporting, color = androidx.compose.material3.MaterialTheme.colorScheme.error)
+
+                FilterDivider()
+
+                KeywordsFilter(
+                    filter = localFilter,
+                    onSetFilter = setLocalFilter,
+                    nonNullFilter = nonNullFilter,
+                    onShowIncludeKeywordModal = {
+                        includeKeywordModalShown = true
+                    },
+                    onShowExcludeKeywordModal = {
+                        excludeKeywordModalShown = true
+                    }
+                )
+
+                FilterDivider()
+
+                TagsFilter(
+                    filter = localFilter,
+                    onIncludesTagButtonClick = {
+                        includedTagModalVisible = true
+                    },
+                    onExcludesTagButtonClick = {
+                        excludedTagModalVisible = true
+                    }
+                )
+
+                Spacer(Modifier.height(24.dp))
+            }
+            com.ivy.design.system.JvyPrimaryAction(stringResource(R.string.apply_filter), {
+                onSetFilter(localFilter)
                 onClose()
-            }
-
-            Spacer(Modifier.height(24.dp))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    modifier = Modifier.padding(
-                        start = 32.dp
-                    ),
-                    text = stringResource(R.string.filter),
-                    style = UI.typo.h2.style(
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                )
-
-                Spacer(Modifier.weight(1f))
-
-                Text(
-                    modifier = Modifier
-                        .clickable {
-                            localFilter = null
-                            onSetFilter(null)
-                        }
-                        .padding(all = 4.dp), // expand click area
-                    text = stringResource(R.string.clean_filter),
-                    style = UI.typo.b2.style(
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Gray
-                    )
-                )
-
-                Spacer(Modifier.width(24.dp))
-            }
-
-            Spacer(Modifier.height(24.dp))
-
-            TypeFilter(
-                filter = localFilter,
-                nonNullFilter = nonNullFilter,
-                onSetFilter = setLocalFilter
-            )
-
-            FilterDivider()
-
-            val ivyContext = ivyWalletCtx()
-            PeriodFilter(
-                filter = localFilter,
-                onShowPeriodChooserModal = {
-                    choosePeriodModal = ChoosePeriodModalData(
-                        period = filter?.period ?: ivyContext.selectedPeriod
-                    )
-                }
-            )
-
-            FilterDivider()
-
-            AccountsFilter(
-                allAccounts = accounts,
-                filter = localFilter,
-                nonNullFilter = nonNullFilter,
-                onSetFilter = setLocalFilter
-            )
-
-            FilterDivider()
-
-            CategoriesFilter(
-                allCategories = categories,
-                filter = localFilter,
-                nonNullFilter = nonNullFilter,
-                onSetFilter = setLocalFilter
-            )
-
-            FilterDivider()
-
-            AmountFilter(
-                baseCurrency = baseCurrency,
-                filter = localFilter,
-                onShowMinAmountModal = {
-                    minAmountModalShown = true
-                },
-                onShowMaxAmountModal = {
-                    maxAmountModalShown = true
-                }
-            )
-
-            FilterDivider()
-
-            KeywordsFilter(
-                filter = localFilter,
-                onSetFilter = setLocalFilter,
-                nonNullFilter = nonNullFilter,
-                onShowIncludeKeywordModal = {
-                    includeKeywordModalShown = true
-                },
-                onShowExcludeKeywordModal = {
-                    excludeKeywordModalShown = true
-                }
-            )
-
-            FilterDivider()
-
-            TagsFilter(
-                filter = localFilter,
-                onIncludesTagButtonClick = {
-                    includedTagModalVisible = true
-                },
-                onExcludesTagButtonClick = {
-                    excludedTagModalVisible = true
-                }
-            )
-
-            Spacer(Modifier.height(196.dp))
+            }, enabled = localFilter?.validate() != false)
         }
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .alpha(percentVisible)
-            .align(Alignment.BottomCenter)
-            .zIndex(200f)
-            .padding(bottom = 32.dp)
-    ) {
-        Spacer(Modifier.width(24.dp))
-
-        CloseButton {
-            onClose()
-        }
-
-        Spacer(Modifier.weight(1f))
-
-        IvyButton(
-            text = stringResource(R.string.apply_filter),
-            iconStart = R.drawable.ic_filter_xs,
-            backgroundGradient = GradientGreen,
-            padding = 10.dp,
-        ) {
-            if (localFilter != null) {
-                onSetFilter(localFilter!!)
-            }
-            onClose()
-        }
-
-        Spacer(Modifier.width(24.dp))
-    }
-
-    if (percentVisible > 0.01f) {
-        GradientCutBottom(
-            height = 196.dp,
-            alpha = percentVisible,
-            zIndex = 150f
-        )
     }
 
     ChoosePeriodModal(
         modal = choosePeriodModal,
         dismiss = { choosePeriodModal = null },
+        updateGlobalPeriod = false,
     ) { selectedPeriod ->
         localFilter = nonNullFilter(localFilter).copy(
             period = selectedPeriod
         )
     }
 
-    val minAmountModalId = remember(
-        nonNullFilter(filter).id,
-        nonNullFilter(filter).minAmount
+    val minAmountModalId = UUID.fromString(rememberSaveable(
+        nonNullFilter(localFilter).id,
+        nonNullFilter(localFilter).minAmount
     ) {
-        UUID.randomUUID()
-    }
+        UUID.randomUUID().toString()
+    })
     AmountModal(
         id = minAmountModalId,
         visible = minAmountModalShown,
         currency = baseCurrency,
-        initialAmount = filter?.minAmount?.takeIf { it > 0 },
+        initialAmount = localFilter?.minAmount?.takeIf { it > 0 },
         dismiss = {
             minAmountModalShown = false
         }
@@ -360,17 +327,17 @@ fun BoxWithConstraintsScope.FilterOverlay(
         )
     }
 
-    val maxAmountModalId = remember(
+    val maxAmountModalId = UUID.fromString(rememberSaveable(
         nonNullFilter(localFilter).id,
         nonNullFilter(localFilter).maxAmount
     ) {
-        UUID.randomUUID()
-    }
+        UUID.randomUUID().toString()
+    })
     AmountModal(
         id = maxAmountModalId,
         visible = maxAmountModalShown,
         currency = baseCurrency,
-        initialAmount = filter?.maxAmount?.takeIf { it > 0 },
+        initialAmount = localFilter?.maxAmount?.takeIf { it > 0 },
         dismiss = {
             maxAmountModalShown = false
         }
@@ -414,24 +381,17 @@ fun BoxWithConstraintsScope.FilterOverlay(
         },
         allTagList = allTags,
         selectedTagList = includedTags,
-        onTagAdd = {
-            // Do Nothing
-        },
-        onTagEdit = { oldTag, newTag ->
-            // Do Nothing
-        },
-        onTagDelete = {
-            // Do Nothing
-        },
-        onTagSelected = {
+        onTagSelected = { tag, complete ->
             localFilter = nonNullFilter(localFilter).copy(
-                includedTags = nonNullFilter(localFilter).includedTags.plus(it.id)
+                includedTags = nonNullFilter(localFilter).includedTags.plus(tag.id)
             )
+            complete(Result.success(Unit))
         },
-        onTagDeSelected = {
+        onTagDeSelected = { tag, complete ->
             localFilter = nonNullFilter(localFilter).copy(
-                includedTags = nonNullFilter(localFilter).includedTags.minus(it.id)
+                includedTags = nonNullFilter(localFilter).includedTags.minus(tag.id)
             )
+            complete(Result.success(Unit))
         },
         onTagSearch = {
             onTagSearch(it)
@@ -448,24 +408,17 @@ fun BoxWithConstraintsScope.FilterOverlay(
         },
         allTagList = allTags,
         selectedTagList = excludedTags,
-        onTagAdd = {
-            // Do Nothing
-        },
-        onTagEdit = { oldTag, newTag ->
-            // Do Nothing
-        },
-        onTagDelete = {
-            // Do Nothing
-        },
-        onTagSelected = {
+        onTagSelected = { tag, complete ->
             localFilter = nonNullFilter(localFilter).copy(
-                excludedTags = nonNullFilter(localFilter).excludedTags.plus(it.id)
+                excludedTags = nonNullFilter(localFilter).excludedTags.plus(tag.id)
             )
+            complete(Result.success(Unit))
         },
-        onTagDeSelected = {
+        onTagDeSelected = { tag, complete ->
             localFilter = nonNullFilter(localFilter).copy(
-                excludedTags = nonNullFilter(localFilter).excludedTags.minus(it.id)
+                excludedTags = nonNullFilter(localFilter).excludedTags.minus(tag.id)
             )
+            complete(Result.success(Unit))
         },
         onTagSearch = {
             onTagSearch(it)
@@ -604,18 +557,24 @@ private fun TypeFilterCheckbox(
         },
         checked = filter != null && filter.trnTypes.contains(trnType),
     ) { checked ->
+        val currentTypes = nonFilter(filter).trnTypes
         if (checked) {
-            // remove trn type
+            // The default report includes every type. Tapping one of those
+            // chips is the quick path to an only-this-type report.
+            val nextTypes = if (currentTypes.size == ReportFilter.allTransactionTypes().size) {
+                listOf(trnType)
+            } else {
+                currentTypes.filter { it != trnType }
+            }
             onSetFilter(
                 nonFilter(filter).copy(
-                    trnTypes = nonFilter(filter).trnTypes.plus(trnType)
+                    trnTypes = nextTypes
                 )
             )
         } else {
-            // add trn type
             onSetFilter(
                 nonFilter(filter).copy(
-                    trnTypes = nonFilter(filter).trnTypes.filter { it != trnType }
+                    trnTypes = currentTypes.plus(trnType).distinct()
                 )
             )
         }
@@ -699,18 +658,22 @@ private fun AccountsFilter(
                     filter?.accounts?.contains(account) == true
                 }
             ) { selected ->
+                val currentAccounts = nonNullFilter(filter).accounts
                 if (selected) {
-                    // remove account
+                    val nextAccounts = if (currentAccounts.size == allAccounts.size) {
+                        listOf(account)
+                    } else {
+                        currentAccounts.filter { it != account }
+                    }
                     onSetFilter(
                         nonNullFilter(filter).copy(
-                            accounts = nonNullFilter(filter).accounts.filter { it != account }
+                            accounts = nextAccounts
                         )
                     )
                 } else {
-                    // add account
                     onSetFilter(
                         nonNullFilter(filter).copy(
-                            accounts = nonNullFilter(filter).accounts
+                            accounts = currentAccounts
                                 .plus(account).sortedBy { it.orderNum }
                         )
                     )
@@ -771,18 +734,22 @@ private fun CategoriesFilter(
                     filter?.categories?.contains(category) == true
                 }
             ) { selected ->
+                val currentCategories = myNonNullFilter.categories
                 if (selected) {
-                    // remove category
+                    val nextCategories = if (currentCategories.size == allCategories.size) {
+                        listOf(category)
+                    } else {
+                        currentCategories.filter { it != category }
+                    }
                     onSetFilter(
                         myNonNullFilter.copy(
-                            categories = myNonNullFilter.categories.filter { it != category }
+                            categories = nextCategories
                         )
                     )
                 } else {
-                    // add category
                     onSetFilter(
                         myNonNullFilter.copy(
-                            categories = myNonNullFilter.categories
+                            categories = currentCategories
                                 .plus(category).sortedBy { it.orderNum }
                         )
                     )

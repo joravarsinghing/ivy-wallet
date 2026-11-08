@@ -5,6 +5,12 @@ import com.ivy.base.model.TransactionType
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import java.util.UUID
+import java.time.Instant
+
+/** Bounded query context, never a serialized transaction graph. */
+data class TransactionDateRange(val from: Instant, val to: Instant) {
+    init { require(from <= to); from.toEpochMilli(); to.toEpochMilli() }
+}
 
 data object MainScreen : Screen {
     override val isLegacy: Boolean
@@ -38,9 +44,11 @@ data class TransactionsScreen(
     val accountId: UUID? = null,
     val categoryId: UUID? = null,
     val unspecifiedCategory: Boolean? = false,
+    val allTransactions: Boolean = false,
     val transactionType: TransactionType? = null,
     val accountIdFilterList: List<UUID> = persistentListOf(),
-    val transactions: List<Transaction> = persistentListOf()
+    val transactions: List<Transaction> = persistentListOf(),
+    val restoredTransactionIds: List<UUID>? = null,
 ) : Screen {
     override val isLegacy: Boolean
         get() = true
@@ -51,7 +59,10 @@ data class PieChartStatisticScreen(
     val filterExcluded: Boolean = true,
     val accountList: ImmutableList<UUID> = persistentListOf(),
     val transactions: ImmutableList<Transaction> = persistentListOf(),
-    val treatTransfersAsIncomeExpense: Boolean = false
+    val treatTransfersAsIncomeExpense: Boolean = false,
+    val restoredTransactionIds: List<UUID>? = null,
+    val dateRange: TransactionDateRange? = null,
+    val cashFlowOnly: Boolean = false,
 ) : Screen {
     override val isLegacy: Boolean
         get() = true
@@ -112,6 +123,12 @@ data object BudgetScreen : Screen {
         get() = true
 }
 
+data object GoalsScreen : Screen
+
+data object SecurityScreen : Screen
+
+data object NetWorthScreen : Screen
+
 data object LoansScreen : Screen {
     override val isLegacy: Boolean
         get() = true
@@ -136,9 +153,7 @@ data object ExchangeRatesScreen : Screen {
 
 data object FeaturesScreen : Screen
 
-data object AttributionsScreen : Screen
 
-data object ContributorsScreen : Screen
 
 data object ReleasesScreen : Screen
 

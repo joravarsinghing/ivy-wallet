@@ -18,5 +18,6 @@ data class PlannedPaymentsScreenState(
     val recurringIncome: Double,
     val recurringExpenses: Double,
     val isOneTimePaymentsExpanded: Boolean,
-    val isRecurringPaymentsExpanded: Boolean
+    val isRecurringPaymentsExpanded: Boolean,
+    val forecast: CashFlowForecast = CashFlowForecast(),
 )

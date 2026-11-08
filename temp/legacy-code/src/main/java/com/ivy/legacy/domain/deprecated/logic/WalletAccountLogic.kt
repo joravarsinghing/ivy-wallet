@@ -22,6 +22,7 @@ import kotlinx.collections.immutable.toImmutableList
 import javax.inject.Inject
 import kotlin.math.abs
 import kotlin.math.absoluteValue
+import java.util.UUID
 
 @Deprecated("Migrate to FP Style")
 class WalletAccountLogic @Inject constructor(
@@ -42,15 +43,27 @@ class WalletAccountLogic @Inject constructor(
 
         isFiat: Boolean? = null,
         trnIsSyncedFlag: Boolean = false, // TODO: Remove this once Bank Integration trn sync is properly implemented
+    ) = adjustBalanceWithIdentity(account, actualBalance, newBalance, adjustTransactionTitle, isFiat, trnIsSyncedFlag, UUID.randomUUID())
+
+    suspend fun initializeBalance(account: Account, newBalance: Double, transactionId: UUID) =
+        adjustBalanceWithIdentity(account, 0.0, newBalance, "Adjust balance", null, false, transactionId)
+
+    private suspend fun adjustBalanceWithIdentity(
+        account: Account, actualBalance: Double?, newBalance: Double,
+        adjustTransactionTitle: String, isFiat: Boolean?, trnIsSyncedFlag: Boolean, transactionId: UUID,
     ) {
+        require(newBalance.isFinite()) { "Account balance must be finite." }
         val ab = actualBalance ?: calculateAccountBalance(account)
+        require(ab.isFinite()) { "Current account balance must be finite." }
         val diff = ab - newBalance
+        require(diff.isFinite()) { "Balance adjustment is out of range." }
 
         val finalDiff = if (isFiat == true && abs(diff) < 0.009) 0.0 else diff
         when {
             finalDiff < 0 -> {
                 // add income
-                Transaction(
+                val adjustment = Transaction(
+                    id = transactionId,
                     type = TransactionType.INCOME,
                     title = adjustTransactionTitle,
                     amount = diff.absoluteValue.toBigDecimal(),
@@ -58,14 +71,15 @@ class WalletAccountLogic @Inject constructor(
                     dateTime = timeProvider.utcNow(),
                     accountId = account.id,
                     isSynced = trnIsSyncedFlag
-                ).toDomain(transactionMapper)?.let {
-                    transactionRepository.save(it)
-                }
+                ).toDomain(transactionMapper)
+                checkNotNull(adjustment) { "Could not prepare balance adjustment." }
+                transactionRepository.save(adjustment)
             }
 
             finalDiff > 0 -> {
                 // add expense
-                Transaction(
+                val adjustment = Transaction(
+                    id = transactionId,
                     type = TransactionType.EXPENSE,
                     title = adjustTransactionTitle,
                     amount = diff.absoluteValue.toBigDecimal(),
@@ -73,9 +87,9 @@ class WalletAccountLogic @Inject constructor(
                     dateTime = timeProvider.utcNow(),
                     accountId = account.id,
                     isSynced = trnIsSyncedFlag
-                ).toDomain(transactionMapper)?.let {
-                    transactionRepository.save(it)
-                }
+                ).toDomain(transactionMapper)
+                checkNotNull(adjustment) { "Could not prepare balance adjustment." }
+                transactionRepository.save(adjustment)
             }
         }
     }

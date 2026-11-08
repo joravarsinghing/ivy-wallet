@@ -93,9 +93,13 @@ private fun ImportUI(
             .systemBarsPadding(),
         contentPadding = PaddingValues(
             horizontal = 8.dp,
-            vertical = 16.dp,
+            vertical = 0.dp,
         )
     ) {
+        item(key = "navigation_header") {
+            val nav = com.ivy.navigation.navigation()
+            com.ivy.design.system.JvyScreenHeader(stringResource(R.string.manual_csv_import), { nav.onBackPressed() }, horizontalPadding = 16.dp)
+        }
         item(key = "import_btn") {
             Spacer8()
             Spacer8()

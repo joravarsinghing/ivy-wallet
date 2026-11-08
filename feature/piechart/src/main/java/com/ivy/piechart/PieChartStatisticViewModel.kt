@@ -10,13 +10,14 @@ import androidx.lifecycle.viewModelScope
 import com.ivy.base.legacy.SharedPrefs
 import com.ivy.base.legacy.Transaction
 import com.ivy.base.model.TransactionType
+import com.ivy.base.threading.DispatchersProvider
 import com.ivy.base.time.TimeConverter
 import com.ivy.base.time.TimeProvider
 import com.ivy.data.db.dao.read.SettingsDao
 import com.ivy.data.model.Category
 import com.ivy.legacy.IvyWalletCtx
 import com.ivy.legacy.data.model.TimePeriod
-import com.ivy.legacy.utils.ioThread
+import com.ivy.legacy.datamodel.temp.toLegacyDomain
 import com.ivy.navigation.PieChartStatisticScreen
 import com.ivy.piechart.action.PieChartAct
 import com.ivy.ui.ComposeViewModel
@@ -25,8 +26,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.UUID
 import javax.inject.Inject
 
@@ -39,6 +40,8 @@ class PieChartStatisticViewModel @Inject constructor(
     private val sharedPrefs: SharedPrefs,
     private val timeProvider: TimeProvider,
     private val timeConverter: TimeConverter,
+    private val restoredTransactionDao: com.ivy.data.db.dao.read.TransactionDao,
+    private val dispatchers: DispatchersProvider,
 ) : ComposeViewModel<PieChartStatisticState, PieChartStatisticEvent>() {
 
     private var treatTransfersAsIncomeExpense by mutableStateOf(false)
@@ -51,7 +54,10 @@ class PieChartStatisticViewModel @Inject constructor(
     private var accountIdFilterList by mutableStateOf<ImmutableList<UUID>>(persistentListOf())
     private var showCloseButtonOnly by mutableStateOf(false)
     private var filterExcluded by mutableStateOf(false)
+    private var cashFlowOnly = false
     private var transactions by mutableStateOf<ImmutableList<Transaction>>(persistentListOf())
+    private var explicitTransactionSelection = false
+    private var fixedDateScope = false
     private var choosePeriodModal by mutableStateOf<ChoosePeriodModalData?>(null)
 
     @Composable
@@ -127,7 +133,7 @@ class PieChartStatisticViewModel @Inject constructor(
     }
 
     override fun onEvent(event: PieChartStatisticEvent) {
-        viewModelScope.launch(Dispatchers.Default) {
+        viewModelScope.launch(dispatchers.default) {
             when (event) {
                 is PieChartStatisticEvent.OnSelectNextMonth -> nextMonth()
                 is PieChartStatisticEvent.OnSelectPreviousMonth -> previousMonth()
@@ -142,13 +148,21 @@ class PieChartStatisticViewModel @Inject constructor(
     private fun start(
         screen: PieChartStatisticScreen
     ) {
-        viewModelScope.launch(Dispatchers.Default) {
+        viewModelScope.launch(dispatchers.default) {
+            val restored = screen.restoredTransactionIds?.let { ids -> withContext(dispatchers.io) {
+                restoredTransactionDao.findByIds(ids).filterNot { it.isDeleted }.map { it.toLegacyDomain() }.toImmutableList()
+            } }
+            explicitTransactionSelection = restored != null || screen.transactions.isNotEmpty()
+            fixedDateScope = screen.dateRange != null
+            cashFlowOnly = screen.cashFlowOnly
+            if (fixedDateScope) choosePeriodModal = null
             startInternally(
-                period = ivyContext.selectedPeriod,
+                period = screen.dateRange?.let { TimePeriod(fromToRange = com.ivy.legacy.data.model.FromToTimeRange(it.from, it.to)) }
+                    ?: ivyContext.selectedPeriod,
                 type = screen.type,
                 accountIdFilterList = screen.accountList,
                 filterExclude = screen.filterExcluded,
-                transactions = screen.transactions,
+                transactions = restored ?: screen.transactions,
                 transfersAsIncomeExpenseValue = screen.treatTransfersAsIncomeExpense
             )
         }
@@ -174,7 +188,7 @@ class PieChartStatisticViewModel @Inject constructor(
         filterExcludedValue: Boolean,
         transactionsValue: ImmutableList<Transaction>
     ) {
-        val settings = ioThread { settingsDao.findFirst() }
+        val settings = withContext(dispatchers.io) { settingsDao.findFirst() }
         val baseCurrencyValue = settings.currency
 
         period = periodValue
@@ -182,7 +196,7 @@ class PieChartStatisticViewModel @Inject constructor(
         accountIdFilterList = accountIdFilterListValue
         filterExcluded = filterExcludedValue
         transactions = transactionsValue
-        showCloseButtonOnly = transactionsValue.isNotEmpty()
+        showCloseButtonOnly = explicitTransactionSelection || fixedDateScope
         baseCurrency = baseCurrencyValue
     }
 
@@ -201,7 +215,7 @@ class PieChartStatisticViewModel @Inject constructor(
                 false
             ) && accountIdFilterList.isNotEmpty() && treatTransfersAsIncomeExpense
 
-        val pieChartActOutput = ioThread {
+        val pieChartActOutput = withContext(dispatchers.io) {
             pieChartAct(
                 PieChartAct.Input(
                     baseCurrency = baseCurrency,
@@ -210,7 +224,10 @@ class PieChartStatisticViewModel @Inject constructor(
                     accountIdFilterList = accountIdFilterList,
                     treatTransferAsIncExp = treatTransferAsIncExp,
                     existingTransactions = transactions,
-                    showAccountTransfersCategory = accountIdFilterList.isNotEmpty()
+                    useExplicitTransactions = explicitTransactionSelection,
+                    showAccountTransfersCategory = accountIdFilterList.isNotEmpty(),
+                    filterExcluded = filterExcluded,
+                    cashFlowOnly = cashFlowOnly,
                 )
             )
         }
@@ -225,6 +242,7 @@ class PieChartStatisticViewModel @Inject constructor(
     }
 
     private suspend fun onSetPeriod(periodValue: TimePeriod) {
+        if (fixedDateScope) return
         ivyContext.updateSelectedPeriodInMemory(periodValue)
         load(
             periodValue = periodValue
@@ -232,6 +250,7 @@ class PieChartStatisticViewModel @Inject constructor(
     }
 
     private suspend fun nextMonth() {
+        if (fixedDateScope) return
         val month = period.month
         val year = period.year ?: com.ivy.legacy.utils.dateNowUTC().year
         if (month != null) {
@@ -242,6 +261,7 @@ class PieChartStatisticViewModel @Inject constructor(
     }
 
     private suspend fun previousMonth() {
+        if (fixedDateScope) return
         val month = period.month
         val year = period.year ?: com.ivy.legacy.utils.dateNowUTC().year
         if (month != null) {
@@ -252,6 +272,7 @@ class PieChartStatisticViewModel @Inject constructor(
     }
 
     private suspend fun configureMonthModal(timePeriod: TimePeriod?) {
+        if (fixedDateScope) return
         val choosePeriodModalData = if (timePeriod != null) {
             ChoosePeriodModalData(period = timePeriod)
         } else {

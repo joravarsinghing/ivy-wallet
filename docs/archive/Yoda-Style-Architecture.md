@@ -1,8 +1,7 @@
-# Ivy's Ways, These Are
+# Jvy's Ways, These Are
 
-[![PRs welcome!](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Ivy-Apps/ivy-wallet/blob/main/CONTRIBUTING.md)
-[![GitHub Repo stars](https://img.shields.io/github/stars/Ivy-Apps/ivy-wallet?style=social)](https://github.com/Ivy-Apps/ivy-wallet/stargazers)
-[![Fork Ivy Wallet](https://img.shields.io/github/forks/Ivy-Apps/ivy-wallet?logo=github&style=social)](https://github.com/Ivy-Apps/ivy-wallet/fork)
+[![PRs welcome!](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](../../CONTRIBUTING.md)
+[![GitHub Repo stars](https://img.shields.io/github/stars/joravarsinghing/ivy-wallet?style=social)](https://github.com/joravarsinghing/ivy-wallet/stargazers)
 
 Solutions short and working, must be. Break the app, they must not.
 
@@ -93,10 +92,8 @@ To birth a new module... Invoke this chant in your terminal, you must:
 
 ["The Grug Brained Developer"](https://grugbrain.dev/), seek this scroll, you must. Tales of old engineering and fun, within it rests.
 
-Legacy code, surround us it does. To restore balance to the code force, visit ["devexp" issues](https://github.com/Ivy-Apps/ivy-wallet/labels/devexp) you must.
+Legacy code, surround us it does. To restore balance to the code force, visit ["devexp" issues](https://github.com/joravarsinghing/ivy-wallet/issues?q=label%3Adevexp) you must.
 
 ## Uncertain, you are?
 
-Seek knowledge in the "Development" realm of our [Telegram sanctuary](https://t.me/+ETavgioAvWg4NThk), you must. There, answers await.
-
-[![Telegram Group](https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/+ETavgioAvWg4NThk)
+Uncertain, you are? Open a GitHub issue or use the contact links in the [Jvy Wallet README](../../README.md), you must. There, answers await.

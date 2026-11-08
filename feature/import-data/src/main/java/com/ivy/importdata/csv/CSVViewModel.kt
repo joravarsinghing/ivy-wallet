@@ -24,13 +24,16 @@ import com.ivy.importdata.csv.domain.parseToAccountCurrency
 import com.ivy.importdata.csv.domain.parseTransactionType
 import com.ivy.navigation.Navigation
 import com.ivy.data.file.FileSystem
+import com.ivy.data.backup.ImportResult
 import com.opencsv.CSVReaderBuilder
 import com.opencsv.validators.LineValidator
 import com.opencsv.validators.RowValidator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -454,7 +457,7 @@ class CSVViewModel @Inject constructor(
         csv = processFile(uri, normalizeCSV = normalizeCSV)?.toImmutableList()
         columns = csv?.firstOrNull()
     } catch (e: Exception) {
-        e.printStackTrace()
+        timber.log.Timber.e("Could not open the selected CSV file.")
     }
 
     private fun processFile(
@@ -501,8 +504,7 @@ class CSVViewModel @Inject constructor(
             })
             .build()
 
-        return csvReader.readAll()
-            .map { CSVRow(it.toList()) }
+        return csvReader.use { it.readAll().map { row -> CSVRow(row.toList()) } }
     }
     // endregion
 
@@ -510,47 +512,57 @@ class CSVViewModel @Inject constructor(
         val csv = this.csv ?: return
         val emptyStatus = MappingStatus(emptyList(), false)
 
-        withContext(Dispatchers.IO) {
-            val result = csvImporter.import(
-                csv = csv,
-                importantFields = ImportantFields(
-                    amount = amount,
-                    date = date,
-                    type = type,
-                    account = account,
-                    accountCurrency = accountCurrency,
-                    amountStatus = emptyStatus,
-                    dateStatus = emptyStatus,
-                    accountStatus = emptyStatus,
-                    typeStatus = emptyStatus,
-                    accountCurrencyStatus = emptyStatus,
-                ),
-                transferFields = TransferFields(
-                    toAccount = toAccount,
-                    toAccountCurrency = toAccountCurrency,
-                    toAmount = toAmount,
-                    toAmountStatus = emptyStatus,
-                    toAccountStatus = emptyStatus,
-                    toAccountCurrencyStatus = emptyStatus,
-                ),
-                optionalFields = OptionalFields(
-                    category = category,
-                    title = title,
-                    description = description,
-                    categoryStatus = emptyStatus,
-                    titleStatus = emptyStatus,
-                    descriptionStatus = emptyStatus,
-                ),
-                onProgress = { progressPercent ->
-                    com.ivy.legacy.utils.uiThread {
-                        uiState = UIState.Processing(
-                            (progressPercent * 100).roundToInt()
-                        )
+        val result = try {
+            withContext(Dispatchers.IO) {
+                csvImporter.import(
+                    csv = csv,
+                    importantFields = ImportantFields(
+                        amount = amount,
+                        date = date,
+                        type = type,
+                        account = account,
+                        accountCurrency = accountCurrency,
+                        amountStatus = emptyStatus,
+                        dateStatus = emptyStatus,
+                        accountStatus = emptyStatus,
+                        typeStatus = emptyStatus,
+                        accountCurrencyStatus = emptyStatus,
+                    ),
+                    transferFields = TransferFields(
+                        toAccount = toAccount,
+                        toAccountCurrency = toAccountCurrency,
+                        toAmount = toAmount,
+                        toAmountStatus = emptyStatus,
+                        toAccountStatus = emptyStatus,
+                        toAccountCurrencyStatus = emptyStatus,
+                    ),
+                    optionalFields = OptionalFields(
+                        category = category,
+                        title = title,
+                        description = description,
+                        categoryStatus = emptyStatus,
+                        titleStatus = emptyStatus,
+                        descriptionStatus = emptyStatus,
+                    ),
+                    onProgress = { progressPercent ->
+                        com.ivy.legacy.utils.uiThread {
+                            uiState = UIState.Processing(
+                                (progressPercent * 100).roundToInt()
+                            )
+                        }
                     }
-                }
+                )
+            }
+        } catch (failure: CancellationException) {
+            throw failure
+        } catch (_: Exception) {
+            ImportResult(
+                rowsFound = (csv.size - 1).coerceAtLeast(0), transactionsImported = 0,
+                accountsImported = 0, categoriesImported = 0, failedRows = persistentListOf(),
+                errorMessage = "Import did not finish. Review your transactions before retrying."
             )
-            uiState = UIState.Result(result)
         }
+        uiState = UIState.Result(result)
     }
 
     private fun handleFinishImport(event: CSVEvent.FinishImport) {
@@ -560,7 +572,6 @@ class CSVViewModel @Inject constructor(
             event.onboardingViewModel.importFinished(
                 success = importSuccess
             )
-            nav.back()
         }
 
         nav.back()

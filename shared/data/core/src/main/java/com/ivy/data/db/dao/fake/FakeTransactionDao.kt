@@ -25,6 +25,10 @@ class FakeTransactionDao : TransactionDao, WriteTransactionDao {
         return findAll().take(1)
     }
 
+    override suspend fun findFirstSettledTime(accountIds: List<UUID>): Instant? = items
+        .asSequence().filter { !it.isDeleted && it.accountId in accountIds }
+        .mapNotNull { it.dateTime }.minOrNull()
+
     override suspend fun findAllByType(type: TransactionType): List<TransactionEntity> {
         return items.filter { !it.isDeleted && it.type == type }
             .sortedByDescending { it.dateTime }

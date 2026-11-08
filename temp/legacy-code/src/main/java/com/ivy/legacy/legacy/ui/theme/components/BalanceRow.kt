@@ -123,7 +123,7 @@ fun BalanceRow(
 
             if (!doubleRowDisplay) {
                 val balanceText = when {
-                    hiddenMode -> "****"
+                    hiddenMode || com.ivy.design.system.LocalFinancialVisibility.current.hidden -> "••••"
                     balanceAmountPrefix != null -> "$balanceAmountPrefix$integerPartFormatted"
                     else -> integerPartFormatted
                 }
@@ -158,7 +158,7 @@ fun BalanceRow(
             ) {
                 Text(
                     text = when {
-                        hiddenMode -> "****"
+                        hiddenMode || com.ivy.design.system.LocalFinancialVisibility.current.hidden -> "••••"
                         balanceAmountPrefix != null -> "$balanceAmountPrefix$integerPartFormatted"
                         else -> integerPartFormatted
                     },

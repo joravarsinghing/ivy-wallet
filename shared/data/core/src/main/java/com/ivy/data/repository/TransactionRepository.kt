@@ -40,6 +40,12 @@ class TransactionRepository @Inject constructor(
         )
     }
 
+    /** Coverage metadata only; do not load/map the complete wallet just to draw a quiet window. */
+    suspend fun findFirstSettledTime(accounts: List<AccountId>): Instant? = withContext(dispatchersProvider.io) {
+        accounts.map { it.value }.distinct().chunked(900)
+            .mapNotNull { transactionDao.findFirstSettledTime(it) }.minOrNull()
+    }
+
     suspend fun findAllIncomeByAccount(
         accountId: AccountId
     ): List<Income> = retrieveTrns(

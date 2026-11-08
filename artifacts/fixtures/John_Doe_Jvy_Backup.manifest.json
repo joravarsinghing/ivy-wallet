@@ -1,0 +1,15 @@
+{
+  "artifact": "E:\\AI\\joravar-ivy-wallet\\artifacts\\fixtures\\John_Doe_Jvy_Backup.zip",
+  "sizeBytes": 3017,
+  "sha256": "42B6FCB4DD81EF7CD5A30812F80EDDB272552F0383546D984679072BC096D9C2",
+  "jsonEncoding": "UTF-16 LE",
+  "jsonFiles": 1,
+  "rawJson": "E:\\AI\\joravar-ivy-wallet\\artifacts\\fixtures\\John_Doe_Jvy_Backup.json",
+  "accounts": 6,
+  "categories": 11,
+  "budgets": 3,
+  "transactions": 34,
+  "plannedPaymentRules": 5,
+  "loans": 2,
+  "tags": 0
+}

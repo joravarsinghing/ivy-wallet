@@ -1,7 +1,6 @@
 package com.ivy.search
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.viewModelScope
@@ -13,7 +12,12 @@ import com.ivy.data.repository.CategoryRepository
 import com.ivy.domain.features.Features
 import com.ivy.legacy.datamodel.Account
 import com.ivy.legacy.utils.getDefaultFIATCurrency
-import com.ivy.legacy.utils.ioThread
+import com.ivy.base.threading.DispatchersProvider
+import com.ivy.design.system.ProcessDraftState
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withContext
+import java.util.UUID
 import com.ivy.wallet.domain.action.account.AccountsAct
 import com.ivy.wallet.domain.action.settings.BaseCurrencyAct
 import com.ivy.wallet.domain.action.transaction.AllTrnsAct
@@ -33,7 +37,8 @@ class SearchViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
     private val baseCurrencyAct: BaseCurrencyAct,
     private val allTrnsAct: AllTrnsAct,
-    private val features: Features
+    private val features: Features,
+    private val dispatchers: DispatchersProvider,
 ) : ComposeViewModel<SearchState, SearchEvent>() {
 
     private val transactions =
@@ -42,6 +47,25 @@ class SearchViewModel @Inject constructor(
     private val accounts = mutableStateOf<ImmutableList<Account>>(persistentListOf())
     private val categories = mutableStateOf<ImmutableList<Category>>(persistentListOf())
     private val searchQuery = mutableStateOf("")
+    private val loading = mutableStateOf(false)
+    private val failed = mutableStateOf(false)
+    private val completedQuery = mutableStateOf<String?>(null)
+    private var searchJob: Job? = null
+    private var generation = 0L
+    private val startedEntry = mutableStateOf<UUID?>(null)
+    val readyEntry: UUID? get() = startedEntry.value
+
+    fun saveQuery(): List<String>? = ProcessDraftState.encode(mapOf("query" to searchQuery.value))
+    fun start(entry: UUID?, restored: List<String>?) {
+        if (entry == null) return
+        if (startedEntry.value == entry) {
+            if (searchJob?.isActive != true) search(searchQuery.value)
+            return
+        }
+        val query = ProcessDraftState.decode(restored)?.get("query")?.takeIf { it.length <= 4096 }.orEmpty()
+        search(query)
+        startedEntry.value = entry
+    }
 
     @Composable
     fun getShouldShowAccountSpecificColorInTransactions(): Boolean {
@@ -50,17 +74,19 @@ class SearchViewModel @Inject constructor(
 
     @Composable
     override fun uiState(): SearchState {
-        LaunchedEffect(Unit) {
-            search(searchQuery.value)
-        }
+        return currentState(getShouldShowAccountSpecificColorInTransactions())
+    }
 
+    internal fun currentState(showAccountColors: Boolean = false): SearchState {
         return SearchState(
             searchQuery = searchQuery.value,
             transactions = transactions.value,
             baseCurrency = baseCurrency.value,
             accounts = accounts.value,
             categories = categories.value,
-            shouldShowAccountSpecificColorInTransactions = getShouldShowAccountSpecificColorInTransactions()
+            shouldShowAccountSpecificColorInTransactions = showAccountColors,
+            loading = loading.value, failed = failed.value,
+            resultsMatchQuery = completedQuery.value == searchQuery.value,
         )
     }
 
@@ -73,26 +99,37 @@ class SearchViewModel @Inject constructor(
     private fun search(query: String) {
         searchQuery.value = query
         val normalizedQuery = query.lowercase().trim()
-
-        viewModelScope.launch {
-            val queryResult = ioThread {
+        val request = ++generation
+        searchJob?.cancel()
+        loading.value = true
+        failed.value = false
+        searchJob = viewModelScope.launch {
+            try {
+            val result = withContext(dispatchers.io) {
+                val currency = baseCurrencyAct(Unit)
                 val filteredTransactions = allTrnsAct(Unit)
                     .filter { transaction ->
-                        transaction.title.matchesQuery(normalizedQuery) ||
+                        normalizedQuery.isEmpty() || transaction.title.matchesQuery(normalizedQuery) ||
                                 transaction.description.matchesQuery(normalizedQuery)
                     }
-                trnsWithDateDivsAct(
+                val history = trnsWithDateDivsAct(
                     TrnsWithDateDivsAct.Input(
-                        baseCurrency = baseCurrencyAct(Unit),
+                        baseCurrency = currency,
                         transactions = filteredTransactions
                     )
                 ).toImmutableList()
+                SearchState(query, history, currency, accountsAct(Unit), categoryRepository.findAll().toImmutableList(), false)
             }
-
-            transactions.value = queryResult
-            baseCurrency.value = baseCurrencyAct(Unit)
-            accounts.value = accountsAct(Unit)
-            categories.value = categoryRepository.findAll().toImmutableList()
+            if (request == generation) {
+                completedQuery.value = query
+                transactions.value = result.transactions
+                baseCurrency.value = result.baseCurrency
+                accounts.value = result.accounts
+                categories.value = result.categories
+            }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { if (request == generation) failed.value = true }
+            finally { if (request == generation) loading.value = false }
         }
     }
 

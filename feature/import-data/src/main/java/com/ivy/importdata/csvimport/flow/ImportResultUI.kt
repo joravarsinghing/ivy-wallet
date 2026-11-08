@@ -2,6 +2,10 @@ package com.ivy.importdata.csvimport.flow
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -48,20 +52,20 @@ fun ImportResultUI(
         modifier = Modifier
             .fillMaxSize()
             .systemBarsPadding()
+            .verticalScroll(rememberScrollState())
     ) {
         Spacer(Modifier.height(16.dp))
 
         val nav = navigation()
-        BackButton(
-            modifier = Modifier.padding(start = 20.dp)
-        ) {
-            nav.onBackPressed()
-        }
+        com.ivy.design.system.JvyScreenHeader(stringResource(R.string.import_csv_file), { nav.onBackPressed() })
 
         Spacer(Modifier.height(24.dp))
 
-        val importSuccess = result.transactionsImported > 0 &&
-                result.transactionsImported > result.rowsFound / 2
+        val importSuccess = result.errorMessage == null &&
+            (result.transactionsImported > 0 ||
+                result.accountsImported > 0 ||
+                result.categoriesImported > 0 ||
+                result.duplicatesSkipped > 0)
         Text(
             modifier = Modifier.padding(horizontal = 32.dp),
             text = if (importSuccess) stringResource(R.string.success) else stringResource(R.string.failure),
@@ -79,21 +83,46 @@ fun ImportResultUI(
             0.0
         }
 
-        SuccessSectionUI(
-            result = result,
-            successPercent = successPercent,
-        )
+        val errorMessage = result.errorMessage
+        if (errorMessage != null) {
+            Text(
+                modifier = Modifier.padding(horizontal = 32.dp),
+                text = stringResource(
+                    R.string.import_error_details,
+                    errorMessage
+                ),
+                color = Red,
+                style = UI.typo.b2.style(fontWeight = FontWeight.Bold)
+            )
+        } else {
+            SuccessSectionUI(
+                result = result,
+                successPercent = successPercent,
+            )
 
-        IvyDividerLine(
-            modifier = Modifier.padding(horizontal = 24.dp)
-        )
+            IvyDividerLine(
+                modifier = Modifier.padding(horizontal = 24.dp)
+            )
 
-        FailedSectionUI(
-            result = result,
-            successPercent = successPercent,
-        )
+            FailedSectionUI(
+                result = result,
+                successPercent = successPercent,
+            )
+        }
 
-        // TODO: Implement "See failed imports"
+        if (result.failedRows.isNotEmpty()) {
+            var expanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+            com.ivy.design.system.JvyTextButton({ expanded = !expanded }, Modifier.padding(horizontal = 24.dp)) {
+                Text(if (expanded) "Hide failed rows" else "Review ${result.failedRows.size} failed rows")
+            }
+            if (expanded) result.failedRows.take(100).forEach { row ->
+                Text(failedImportRowText(row, com.ivy.design.system.LocalFinancialVisibility.current),
+                    Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+                    style = com.ivy.design.system.JvyTypography.Supporting)
+            }
+            if (expanded && result.failedRows.size > 100) Text("Showing the first 100 failed rows. Check the original file for the remaining rows.",
+                Modifier.padding(horizontal = 24.dp))
+        }
 
         if (!isManualCsvImport) {
             Spacer(modifier = Modifier.height(16.dp))
@@ -217,6 +246,22 @@ private fun SuccessSectionUI(
                 color = Gray
             )
         )
+
+        if (result.duplicatesSkipped > 0) {
+            Spacer(Modifier.height(4.dp))
+
+            Text(
+                modifier = Modifier.padding(horizontal = 32.dp),
+                text = stringResource(
+                    R.string.duplicate_transactions_skipped,
+                    result.duplicatesSkipped
+                ),
+                style = UI.typo.nB2.style(
+                    fontWeight = FontWeight.Bold,
+                    color = Gray
+                )
+            )
+        }
 
         Spacer(Modifier.height(32.dp))
     }

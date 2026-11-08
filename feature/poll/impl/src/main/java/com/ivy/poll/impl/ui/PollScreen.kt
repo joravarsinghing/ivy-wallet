@@ -1,5 +1,7 @@
 package com.ivy.poll.impl.ui
 
+import com.ivy.design.system.JvyScreenHeader
+
 import androidx.annotation.VisibleForTesting
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -15,13 +17,12 @@ import com.ivy.poll.impl.ui.composables.VotedContent
 import com.ivy.ui.component.BackButton
 
 @Composable
-fun PollScreen() {
-  val viewModel: PollViewModel = screenScopedViewModel()
-
-  PollUi(
-    uiState = viewModel.uiState(),
-    onEvent = viewModel::onEvent,
-  )
+fun PollScreen(modifier: Modifier = Modifier) {
+  val nav = com.ivy.navigation.navigation()
+  com.ivy.design.system.JvySubsectionScaffold("Survey closed", { nav.back() }, modifier = modifier) {
+    Text("This inherited Ivy Wallet survey is no longer active. Jvy does not collect survey responses.",
+      Modifier.padding(androidx.compose.ui.unit.Dp(24f)))
+  }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,16 +35,7 @@ internal fun PollUi(
   Scaffold(
     modifier = Modifier.systemBarsPadding(),
     topBar = {
-      TopAppBar(
-        navigationIcon = {
-          BackButton(
-            onClick = {
-              onEvent(PollUiEvent.BackClick)
-            }
-          )
-        },
-        title = { Text("Help us decide") }
-      )
+      JvyScreenHeader("Help us decide", { onEvent(PollUiEvent.BackClick) })
     },
     content = { padding ->
       Content(
@@ -69,9 +61,7 @@ private fun Content(
     )
 
     PollUiState.Voted -> VotedContent(
-      onBackClick = {
-        onEvent(PollUiEvent.BackClick)
-      }
+      modifier = modifier,
     )
   }
 }

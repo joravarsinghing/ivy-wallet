@@ -208,7 +208,6 @@ data class IvyCurrency(
                     fiatCurrency = fiat
                 )
             } catch (e: Exception) {
-                e.printStackTrace()
                 null
             }
         }

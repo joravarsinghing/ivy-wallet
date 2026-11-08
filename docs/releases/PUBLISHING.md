@@ -4,6 +4,20 @@ The owner authorized commit, push and release on 8 November 2026. The README
 must remain untouched. Publish the existing verified binary; do not rebuild it
 or allocate another version merely to upload assets.
 
+## Recorded remote state
+
+The release preparation was committed as
+`8ad55eb94e24b42139a746fabed9db6ae3181251` and pushed successfully to
+`joravar/wave-0-control-plane`. Annotated tag `v0.7.0` was pushed atomically
+and resolves to that same commit. Remote refs were read back to verify both.
+`main` remains at `710733dbe4729a437d573cdfb8429c50e617ded1`.
+The README matches the previously built source commit exactly.
+
+**GitHub release publication/assets are not completed or verified.** REST and
+GraphQL requests fail at the environment proxy with HTTP 403 before GitHub
+authentication. The existing APK/checksum are intact in `artifacts/apk/`;
+allowing the API and upload hosts is the next required external action.
+
 ## Access and identity
 
 - Repository: `joravarsinghing/ivy-wallet`.

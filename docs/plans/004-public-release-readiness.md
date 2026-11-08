@@ -13,6 +13,12 @@ publication is blocked pending approved network access, not claimed complete.
 See [publishing instructions](../releases/PUBLISHING.md). Device/cohort and legal
 acceptance remain separate gates; do not promote this to certified stable.
 
+Source and release preparation are now pushed to `joravar/wave-0-control-plane`.
+The remote annotated `v0.7.0` tag resolves to preparation commit `8ad55eb9`.
+Read-back confirmed `main` unchanged and the README untouched. GitHub release
+creation/asset upload remain blocked by proxy HTTP 403; a pushed tag is not
+reported as a published release. The publishing handoff records exact refs.
+
 Latest owner-requested APK: **0.7.0 / 232**, signed release built in **12m 12s**.
 Signature continuity with 0.6.0, package/version, non-debuggable flag, alignment,
 checksum, privacy manifest flags and temporary-key cleanup verified. See

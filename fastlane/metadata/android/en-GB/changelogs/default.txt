@@ -1,1 +1,1 @@
-Ivy Wallet periodic release, refer to (https://github.com/Ivy-Apps/ivy-wallet/releases) for changelog. If you find any issues, please report them in our GitHub repository.
+Jvy Wallet prerelease. See https://github.com/joravarsinghing/ivy-wallet/releases for version-specific changes and update guidance. Back up your wallet before updating. Report reproducible issues without private financial data at https://github.com/joravarsinghing/ivy-wallet/issues.

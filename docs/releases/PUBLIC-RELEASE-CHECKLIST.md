@@ -28,8 +28,11 @@ Current owner-requested candidate: **0.7.0 / 232**, privately signed and
 non-debuggable, certificate/package matching 0.6.0 (and its verified earlier chain).
 See the [0.7.0 evidence record](0.7.0-candidate.md) for test/lint, artifact hash,
 signature/manifest/alignment and key-cleanup checks.
-No connected upgrade, whole-app acceptance or publication has been completed;
-the remaining gates below still apply.
+The owner authorized commit/push and a GitHub release on 8 November 2026.
+Preparation is tracked in [the publishing handoff](PUBLISHING.md); the current
+cloud network blocks the GitHub API/upload hosts, so publication is not yet
+verified. No connected upgrade or whole-app acceptance has been completed;
+the remaining gates below still apply. Keep this release a prerelease.
 
 1. Build only on owner request with the numbered private-release script and
    `-Bump patch` for fixes (as in 0.5.1), or `-Bump minor` for a feature release.

@@ -4,6 +4,15 @@ Approved direction: owner-signed GitHub APK; English-first; no automatic crash
 diagnostics; guard implicit-currency records instead of migrating their schema.
 Premium means reliable, accessible and understandable, not a paid tier.
 
+Owner authorized commit, push and release on **8 November 2026**, explicitly
+reserving the README for their own changes. Prepared the accumulated changelog,
+v0.7.0 prerelease notes, public artifact metadata and Fastlane build-232 notes.
+The existing privately signed APK is reused, not rebuilt. Current environment
+allows Git transport but denies `api.github.com` and `uploads.github.com`;
+publication is blocked pending approved network access, not claimed complete.
+See [publishing instructions](../releases/PUBLISHING.md). Device/cohort and legal
+acceptance remain separate gates; do not promote this to certified stable.
+
 Latest owner-requested APK: **0.7.0 / 232**, signed release built in **12m 12s**.
 Signature continuity with 0.6.0, package/version, non-debuggable flag, alignment,
 checksum, privacy manifest flags and temporary-key cleanup verified. See

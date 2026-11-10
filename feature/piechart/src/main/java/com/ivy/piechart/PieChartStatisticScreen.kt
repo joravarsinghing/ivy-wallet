@@ -80,7 +80,6 @@ import com.ivy.wallet.ui.theme.components.IvyOutlinedButton
 import com.ivy.wallet.ui.theme.findContrastTextColor
 import com.ivy.wallet.ui.theme.gradientExpenses
 import com.ivy.wallet.ui.theme.modal.ChoosePeriodModal
-import com.ivy.wallet.ui.theme.pureBlur
 import com.ivy.wallet.ui.theme.toComposeColor
 import com.ivy.wallet.ui.theme.wallet.AmountCurrencyB1Row
 import kotlinx.collections.immutable.persistentListOf
@@ -263,7 +262,7 @@ private fun Header(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(pureBlur())
+            .background(androidx.compose.material3.MaterialTheme.colorScheme.background)
             .statusBarsPadding()
             .padding(top = 16.dp),
         verticalAlignment = Alignment.CenterVertically

@@ -1,5 +1,6 @@
 package com.ivy.design.system
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -24,7 +25,9 @@ fun JvyScreenHeader(title: String, onBack: (() -> Unit)?, subtitle: String? = nu
                     backEnabled: Boolean = true,
                     actions: @Composable RowScope.() -> Unit = {}) {
     val largeText = LocalDensity.current.fontScale > 1.3f && onBack != null
-    Column(Modifier.fillMaxWidth().padding(horizontal = horizontalPadding, vertical = 12.dp)) {
+    // Paint the full header, including its gutters, when pinned above scrolling content.
+    Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)
+        .padding(horizontal = horizontalPadding, vertical = 12.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
             if (onBack != null) JvyBackButton(onBack, backModifier,
                 tint = MaterialTheme.colorScheme.onBackground, enabled = backEnabled)

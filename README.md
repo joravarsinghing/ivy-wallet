@@ -1,419 +1,254 @@
 <div align="center">
 
-<img src="docs/assets/jvy-wallet-logo-hd.png" alt="Jvy Wallet" width="120" />
+<img src="docs/assets/jvy-wallet-logo-hd.png" alt="Jvy Wallet logo" width="112" />
 
 # Jvy Wallet
 
-### Know where you stand.
+### Know where you stand. Know what comes next.
 
-**The calm, local-first Android money manager that tells you what you can *safely* spend.**
-No bank sync. No ads. No cloud account. Just an honest ledger you control.
+**A private, local-first money manager for Android.** Track everyday spending, plan bills, protect savings, and understand your net worth — without linking a bank account or creating a cloud account.
 
-<br/>
+[![Download latest APK](https://img.shields.io/github/v/release/joravarsinghing/ivy-wallet?style=for-the-badge&label=Download%20APK&color=6D4AFF)](https://github.com/joravarsinghing/ivy-wallet/releases/latest)
+[![License GPLv3](https://img.shields.io/badge/License-GPL--3.0-blue?style=for-the-badge)](LICENSE)
 
-[![Download APK](https://img.shields.io/github/v/release/joravarsinghing/ivy-wallet?style=for-the-badge&logo=android&logoColor=white&label=Download&color=6D4AFF)](https://github.com/joravarsinghing/ivy-wallet/releases/latest)
-[![Stars](https://img.shields.io/github/stars/joravarsinghing/ivy-wallet?style=for-the-badge&logo=github&color=FFB400)](https://github.com/joravarsinghing/ivy-wallet/stargazers)
-[![License](https://img.shields.io/badge/License-GPL--3.0-blue?style=for-the-badge)](LICENSE)
+**Android 9+** · **No ads** · **No required account** · **Manual-first** · **Open source**
 
-![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?logo=android&logoColor=white)
-![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=white)
-![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-4285F4?logo=jetpackcompose&logoColor=white)
-![Local-first](https://img.shields.io/badge/Data-Local--first-success)
-![No ads](https://img.shields.io/badge/Ads-None-success)
-![No bank sync](https://img.shields.io/badge/Bank%20sync-None%20by%20design-lightgrey)
-[![Tests](https://img.shields.io/github/actions/workflow/status/joravarsinghing/ivy-wallet/test.yml?logo=githubactions&logoColor=white&label=tests)](https://github.com/joravarsinghing/ivy-wallet/actions/workflows/test.yml)
+[Get started](#getting-started) · [Features](#what-you-can-do) · [How to use](#how-to-use-jvy-wallet) · [Screenshots](#screenshots) · [Import & backup](#import-export-and-backup) · [Privacy](#privacy-and-security)
 
-Public-release acceptance, supported update paths and recovery rules are tracked in the [release checklist](docs/releases/PUBLIC-RELEASE-CHECKLIST.md). English is the first reviewed launch language; existing translations remain available but are not all release-certified. No automatic crash diagnostics are included in the next public release.
-[![Last commit](https://img.shields.io/github/last-commit/joravarsinghing/ivy-wallet?logo=git&logoColor=white)](https://github.com/joravarsinghing/ivy-wallet/commits)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
+<img src="docs/assets/marketing/01-home-dashboard.png" alt="Jvy Wallet dashboard screenshot" width="290" />
 
-[**Download**](#-install) · [**Features**](#-features) · [**Screenshots**](#-screenshots) · [**Privacy**](#-privacy--security) · [**Roadmap**](#-roadmap) · [**Contribute**](#-contributing)
-
-<br/>
-
-<img src="docs/assets/marketing/01-home-dashboard.png" alt="Jvy Wallet home dashboard with balance, cash flow and Safe to Spend" width="300" />
+<sub>Latest published APK: v0.7.0 (8 November 2026), build 232 — prerelease; physical-device acceptance is still in progress.</sub>
 
 </div>
 
 ---
 
-## 💡 Why Jvy Wallet?
+## Your money, explained
 
-Every budget comes down to one question:
+Jvy Wallet helps you answer five questions:
 
-> **What do I have, what's coming, and what can I safely do next?**
+- **How much do I have?** See balances across your cash and bank accounts.
+- **What can I safely spend?** Set aside actual money for goals and see what remains available.
+- **What is coming up?** See planned income and bills before they arrive.
+- **Where did my money go?** Explore spending patterns, budgets, transactions and reports.
+- **Am I building wealth?** Record assets, debts and dated valuations to review your net worth.
 
-Most finance apps answer with a wall of charts, a bank-sync login, or a subscription. Jvy Wallet answers in **one scan**: your balance, your upcoming commitments, and the amount that's genuinely **safe to spend** after goals and protected money are set aside.
+You enter or import your financial records; Jvy calculates from them. It does **not** connect to your bank, send money, trade investments or promise financial advice. Most everyday functions work offline; optional exchange-rate updates require internet access.
 
-It's **manual-first and fully explainable**. Every number traces back to a record you entered. It doesn't pretend to be a bank connection, an investment platform, or a financial adviser.
+## Getting started
 
-| | Typical finance app | **Jvy Wallet** |
-|---|---|---|
-| Bank login required | Usually | **Never** |
-| Where your data lives | Their servers | **Your device** |
-| Ads / data profile | Often | **None** |
-| "Safe to Spend" after goals | Rare | **Built in** |
-| Numbers you can explain | Black box | **Ledger is the source of truth** |
-| Switching in / out | Painful | **Guided CSV import + full backup** |
+1. **Install the APK.** Open [the latest GitHub release](https://github.com/joravarsinghing/ivy-wallet/releases/latest), download `Jvy_wallet_v0.7.0.apk` (or the file named for a newer published version), and open it on Android 9 or newer. Android may ask you to allow installation from your browser or file manager.
+2. **Choose your main currency.** Pick the currency in which you want your wallet-wide summaries. You can maintain accounts in other currencies too.
+3. **Add your accounts.** Create a cash account, bank account, or any other account you want to track. Enter or adjust its opening balance using the provided balance controls; don't record an opening balance again as salary.
+4. **Record a transaction.** Add an expense, income or transfer, selecting its account, category and date. Your ledger and summaries update from saved transactions.
+5. **Make a plan.** Add a budget, a savings goal or a planned bill in **Plan**.
+6. **Protect your data.** Configure app security in **More → Security** and create a full backup before upgrading or moving devices.
 
----
+**Coming from another app?** Use the import flow instead of manually re-entering years of history. [See supported formats](#import-export-and-backup).
 
-## ✨ Features
+## What you can do
+
+| Feature | What it helps you do |
+| --- | --- |
+| **Home and Safe to spend** | Understand your current money, reserved goals, upcoming commitments, cash flow, trends and recent activity. |
+| **Customizable dashboard** | Reorder cards, hide cards you don't need and restore the default layout. |
+| **Accounts** | Manage multiple accounts and currencies, inspect account activity, and distinguish balance from money reserved for goals. |
+| **Transactions and transfers** | Track income, expenses and money moving between accounts with categories, descriptions and dates. |
+| **Budgets** | Set spending limits for one or more categories and monitor usage and remaining allowances. |
+| **Planned payments** | Prepare for one-time and recurring bills or income without prematurely changing your ledger. |
+| **Goals** | Create savings targets, reserve real money across eligible accounts and see funding and deadline guidance. |
+| **Loans** | Track money borrowed or lent, remaining principal and recorded repayments. |
+| **Net worth** | Record what you own and owe, link existing accounts/loans where appropriate and review dated values and progress. |
+| **Reports and Explore** | Filter your records and explore spending, cash-flow, wealth, debt and goals visually. |
+| **Search, categories and tags** | Find and organize financial entries; remember categorization choices for future entries. |
+| **Exchange rates** | View daily reference quotes, refresh them manually and retain manual overrides. |
+| **Import, export and backup** | Bring in supported CSVs and Jvy/Ivy backups, export ledger CSV, and save native financial backups. |
+| **Privacy and security** | Lock the app, mask money on screen and manage capture/security preferences. |
+
+## Screenshots
+
+These Jvy Wallet screenshots use fictional financial data.
 
 <table>
 <tr>
-<td width="50%" valign="top">
-
-### 🧭 Know your position
-Balances across cash, banks, emergency funds and more, with **Safe to Spend** that accounts for goal reservations and protected money.
-
-</td>
-<td width="50%" valign="top">
-
-### 📅 Plan ahead
-One-time and recurring **planned payments** stay visible as projections until you post them. No surprises, no fake transactions.
-
-</td>
+<td width="50%" valign="top"><img src="docs/assets/marketing/01-home-dashboard.png" alt="Home dashboard in Jvy Wallet" /></td>
+<td width="50%" valign="top"><img src="docs/assets/marketing/02-planned-payments.png" alt="Planned payments in Jvy Wallet" /></td>
 </tr>
 <tr>
-<td valign="top">
-
-### 🎯 Give money a job
-**Goals** for purchases, travel, emergency funds, or anything personal. Reserved money is metadata, so your ledger stays clean.
-
-</td>
-<td valign="top">
-
-### 📈 Understand the pattern
-Daily and monthly **balance trends**, **reports**, **budgets**, and ranked category breakdowns, with honest handling of sparse history.
-
-</td>
+<td width="50%" valign="top"><img src="docs/assets/marketing/03-goals.png" alt="Goals in Jvy Wallet" /></td>
+<td width="50%" valign="top"><img src="docs/assets/marketing/04-loans.png" alt="Loans in Jvy Wallet" /></td>
 </tr>
 <tr>
-<td valign="top">
-
-### 🧾 Context on every entry
-Account, category, title, notes and amount recorded together, so your history is still useful a year later.
-
-</td>
-<td valign="top">
-
-### 🔄 Portable by design
-Full backups, CSV ledger export, and guided import from the apps you may already use.
-
-</td>
+<td width="50%" valign="top"><img src="docs/assets/marketing/05-accounts.png" alt="Accounts in Jvy Wallet" /></td>
+<td width="50%" valign="top"><img src="docs/assets/marketing/06-transactions.png" alt="Transactions in Jvy Wallet" /></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><img src="docs/assets/marketing/07-net-worth.png" alt="Net worth in Jvy Wallet" /></td>
+<td width="50%" valign="top"><img src="docs/assets/marketing/08-customize-home.png" alt="Customize Home in Jvy Wallet" /></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><img src="docs/assets/marketing/09-import.png" alt="Import in Jvy Wallet" /></td>
+<td width="50%"></td>
 </tr>
 </table>
 
-### Built around four decisions
 
-```mermaid
-flowchart LR
-    A[Jvy Wallet Home] --> B[What can I safely spend?]
-    A --> C[What is coming up?]
-    A --> D[Where did my money go?]
-    A --> E[What needs my attention?]
-    B --> B1[Balances · Reservations · Safe to Spend]
-    C --> C1[Planned income · Bills · Commitments]
-    D --> D1[Reports · Budgets · Trends]
-    E --> E1[Recent activity · Overdue · Goal progress]
-```
+## How to use Jvy Wallet
 
----
+### 1. Navigate the app
 
-## 🔄 Bring your history with you
+The five main sections are **Home · Accounts · Plan · Net worth · More**. On a phone they appear in the bottom navigation bar; on larger screens the app can use a navigation rail.
 
-Jvy Wallet keeps the import path local and explicit. Choose the source format, select its exported CSV, review the result, and import only what you recognize. Full Jvy/Ivy backup JSON and ZIP restores are also supported, including UTF-8 and UTF-16 files.
+- **Home:** overview, Safe to spend, Money coming up, shared history dates, spending and activity. Use **Customize** to reorder or hide optional cards. Choose a rolling range, your current budgeting cycle or a custom window; income/spending, trends, breakdown and activity all follow the same selected historical dates. Current balance and future forecasts are intentionally not historical-period totals.
+- **Accounts:** account balances, reserved/available money, account actions and activity. Account-level transfer activity can be displayed using its native sending/receiving currency values; internal transfers do not become new wallet-wide income.
+- **Plan:** open **Budgets**, **Planned payments**, **Goals** and **Loans**.
+- **Net worth:** manage assets, liabilities, historical valuations and progress.
+- **More:** find **Reports**, **Search**, **Categories**, **Security**, **Settings** and other utilities.
 
-<table>
-  <tr>
-    <td align="center"><img src="docs/assets/importers/ivy-wallet.png" alt="Ivy Wallet" width="56" /><br/><sub>Ivy Wallet</sub></td>
-    <td align="center"><img src="docs/assets/importers/money-manager.png" alt="Money Manager" width="56" /><br/><sub>Money Manager</sub></td>
-    <td align="center"><img src="docs/assets/importers/budgetbakers-wallet.png" alt="Wallet by BudgetBakers" width="56" /><br/><sub>Wallet</sub></td>
-    <td align="center"><img src="docs/assets/importers/spendee.png" alt="Spendee" width="56" /><br/><sub>Spendee</sub></td>
-    <td align="center"><img src="docs/assets/importers/monefy.png" alt="Monefy" width="56" /><br/><sub>Monefy</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/assets/importers/one-money.png" alt="1Money" width="56" /><br/><sub>1Money</sub></td>
-    <td align="center"><img src="docs/assets/importers/bluecoins.png" alt="Bluecoins" width="56" /><br/><sub>Bluecoins</sub></td>
-    <td align="center"><img src="docs/assets/importers/ktw-money-manager.png" alt="Money Manager by KTW" width="56" /><br/><sub>KTW Money Manager</sub></td>
-    <td align="center"><img src="docs/assets/importers/fortune-city.png" alt="Fortune City" width="56" /><br/><sub>Fortune City</sub></td>
-    <td align="center"><img src="docs/assets/importers/financisto.png" alt="Financisto" width="56" /><br/><sub>Financisto</sub></td>
-  </tr>
-</table>
+### 2. Record income, expenses and transfers
 
-Manual CSV import remains available for files from other apps. Source-app logos in this section identify import formats only; they are not Jvy branding. See the [import compatibility notes](docs/import-compatibility/README.md) for the evidence and current verification status of each format.
+1. Open the transaction-add action or choose an account and its **Add income / Add expense** action.
+2. Select **Income**, **Expense** or **Transfer**, as appropriate.
+3. Enter the amount and date, the account(s), and a meaningful title/category. Add notes or tags where useful.
+4. Save and check the resulting entry in your history.
 
-**An app isn’t listed?** The optional [AI conversion workflow](docs/import-compatibility/AI-CONVERSION.md) (implemented after 0.4.2) provides a copyable schema and guide in regular import and onboarding, with local validation and a confirmation preview. You choose whether to share an export with any external AI; Jvy does not upload it. Review the conversion report before importing.
+**Example:** Record `AED 48.00` for `Groceries` from your cash account. For a transfer from Cash to Bank, use **Transfer**, not an expense plus a second income. In different-currency transfers, review the actual sent and received amounts rather than assuming a bank exchange rate.
 
----
+To find an entry later, open **More → Search**, a category's activity, or the full transactions view. Search and Reports use the records and filters you select. When you correct and save a transaction category, Jvy can remember an offline title-based category rule for future entries; it does **not** silently change older transactions.
 
-## 📸 Screenshots
+### 3. Manage accounts and balances
 
-> *All screenshots use an illustrative "John Doe" dataset. No real finances are shown.*
+Open **Accounts** to add or edit accounts, inspect their activity, and review their native currencies. Use the account's balance-adjustment action when correcting an opening or reconciled amount; do not count a balance correction as earned income. The account view also shows money **reserved for goals** separately from its remaining available balance. An account total is not your full net worth: see **Net worth** for assets and liabilities beyond the everyday ledger.
 
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <img src="docs/assets/marketing/01-home-dashboard.png" alt="Home dashboard" />
-      <h4>Know where you stand</h4>
-      <p>Balance, cash flow, Safe to Spend and the next 30 days in one scan.</p>
-    </td>
-    <td width="50%" valign="top">
-      <img src="docs/assets/marketing/02-planned-payments.png" alt="Planned payments" />
-      <h4>Stay ahead of what's due</h4>
-      <p>One-time and recurring commitments, visible before they bite.</p>
-    </td>
-  </tr>
-  <tr>
-    <td valign="top">
-      <img src="docs/assets/marketing/03-goals-and-loans.png" alt="Goals and loans" />
-      <h4>Make progress visible</h4>
-      <p>Reserved money, deadlines, funding guidance and loans, with no hidden math.</p>
-    </td>
-    <td valign="top">
-      <img src="docs/assets/marketing/04-accounts.png" alt="Accounts" />
-      <h4>Every account, one view</h4>
-      <p>Cash, banks and emergency funds with account-level context.</p>
-    </td>
-  </tr>
-  <tr>
-    <td valign="top">
-      <img src="docs/assets/marketing/05-balance-trend.png" alt="Balance trend" />
-      <h4>See the trend, not just the total</h4>
-      <p>Daily and monthly views showing peaks, quiet periods and carried-forward balance.</p>
-    </td>
-    <td valign="top">
-      <img src="docs/assets/marketing/06-transactions.png" alt="Transactions" />
-      <h4>Every transaction has context</h4>
-      <p>Account, category, notes and amount, together.</p>
-    </td>
-  </tr>
-  <tr>
-    <td valign="top">
-      <img src="docs/assets/marketing/07-categories.png" alt="Categories" />
-      <h4>Organize spending your way</h4>
-      <p>Searchable categories with live totals.</p>
-    </td>
-    <td valign="top">
-      <img src="docs/assets/marketing/08-budgets.png" alt="Budgets" />
-      <h4>Give every month a plan</h4>
-      <p>See what remains before you spend it, including multi-category budgets.</p>
-    </td>
-  </tr>
-</table>
+### 4. Budget everyday spending
 
----
+Open **Plan → Budgets**, choose **Add**, set a limit and select the categories it covers. Watch the budget's progress and remaining amount as real categorized expenses are recorded. Multiple budgets may overlap: treat each as its own limit rather than adding their displayed totals together. If a budget goes over its limit, the app reflects that instead of hiding the overspend.
 
-## 📲 Install
+**Example:** `Dining out · AED 500` for your budgeting period. When you record AED 125 of dining expenses, you can see how much of that limit has been used.
 
-**Option 1: Download the APK (recommended)**
+### 5. Save toward goals and protect money
 
-1. Open the [**latest release**](https://github.com/joravarsinghing/ivy-wallet/releases/latest).
-2. Download `Jvy_wallet_vX.Y.Z.apk`.
-3. Verify it against the checksum manifest published alongside it.
-4. Allow installs from your browser or file manager when Android asks, then open the APK.
+Open **Plan → Goals** and create a goal with a name, type, target and optional deadline. Open the goal and **reserve money** from one or more eligible accounts, then review its progress and the funding amount needed before the deadline.
 
-**Option 2: Build from source**: see [Build from source](#-build-from-source).
+**Example:** A laptop costs AED 6,000. You reserve AED 1,500 from Bank and AED 500 from Cash. Jvy shows AED 2,000 reserved toward the target, with AED 4,000 remaining. Only the **AED 2,000 actually reserved** affects available money; it does not pretend the remaining AED 4,000 already exists.
 
----
+A reservation is an **internal earmark**, not a bank transfer or a new financial transaction. Check account currency eligibility and available funds before reserving. Emergency-fund coverage is based on actual reserved funds and the disclosed expense baseline — not merely on an ambitious target amount.
 
-## 🔒 Privacy & security
+### 6. Plan bills and expected income
 
-Jvy Wallet is for people who want useful money tools **without handing their financial history to an aggregator**.
+Open **Plan → Planned payments** to add a future expense or income and configure a one-time or recurring schedule. Review **Money coming up** on Home or the planned-payments forecast to see how upcoming events may change the money available.
 
-| | |
-|---|---|
-| 🔐 **Biometric app lock** | Android device credential or biometric (including fingerprint where supported). Relocks after inactivity. |
-| 🙈 **Privacy mode** | Hide balances and income on the dashboard; reveal them temporarily when you choose. |
-| 🏠 **Local-first** | No bank sync, no advertising profile, and no cloud account required for the core ledger. |
-| 💾 **Portable backups** | Export a full backup or a CSV ledger from Settings, and restore on another installation. |
-| 🔁 **Easy migration** | Guided CSV import from Wallet by BudgetBakers, Monefy, Spendee, Money Manager, 1Money, Bluecoins, KTW Money Manager, Fortune City, Financisto, and more. |
+**Example:** Set `Rent · AED 2,800 · monthly`. The payment remains a **projection** until you record/post the actual transaction. A forecast is not your bank balance or a guarantee: it uses the planned records you've entered and does not know about spending you haven't logged.
 
-> [!IMPORTANT]
-> Backups are **user-controlled files, not encrypted cloud storage**. Keep exports somewhere private, and use Android device security, a trusted password manager, or encrypted storage when sharing or archiving them.
+### 7. Track borrowing and lending
 
-Read the complete [Jvy Wallet Privacy Policy](docs/legal/PRIVACY_POLICY.md) for details about local storage, imports, backups, diagnostics, permissions, and deletion.
+Open **Plan → Loans** to record money you **borrowed** or **lent**, check remaining principal and add repayments. Review the loan detail and its principal history; principal and interest are shown distinctly when supported by recorded data. When loans use different currencies, review them separately rather than interpreting a sum of unrelated units as a single amount.
 
-<details>
-<summary><b>What Jvy Wallet deliberately does <u>not</u> do</b></summary>
+### 8. Track net worth, assets and debts
 
-<br/>
+Open **Net worth** to review the value of what you own minus what you owe. Add assets or liabilities and, where appropriate, **link an account or loan** rather than entering the same value twice. Record dated valuations to build a meaningful history and review progress over time.
 
-- ❌ Automatic bank synchronization
-- ❌ Investment advice or an investment platform
-- ❌ Cloud backup
-- ❌ Silently rewriting historical transactions or moving money between accounts
+**Example:** Track a vehicle, investment holdings and an outstanding loan alongside cash accounts. Values you never recorded are not invented; incomplete historical periods may appear as gaps. This is a record-keeping and valuation tool, not live portfolio trading or investment advice.
 
-Bank sync and cloud backup would each require a separate security and privacy review before being offered or marketed.
+### 9. Explore reports and charts
+
+Open **More → Reports**, apply the transaction filters and date range you want, then use **Explore** for additional visual analysis. The five groups are **Spending**, **Cash flow**, **Wealth**, **Debt** and **Goals**. Standard views cover category rankings, cash-flow comparisons, net-worth composition, loan principal and goal reservations; **Advanced** reveals additional charts when sufficient data exists.
+
+Spending and cash-flow views use your **applied transaction filters**. Wealth, Debt and Goals summarize their **current workspaces**, independently of those transaction filters. Charts provide exact values alongside visuals and don't draw made-up history where observations are missing. More contextual charts also appear in accounts, budgets, transactions, planned payments, loans and net-worth views.
+
+### 10. Use multiple currencies
+
+Set a main currency in **Settings** and give each account its correct currency. Visit **Exchange rates** to see the quote provider, provider date and time of last successful update. Tap **Refresh** when you want newer reference quotes; stale/offline conditions are labelled. Manual rate overrides are preserved when automatic quotes refresh.
+
+Jvy uses **daily reference rates**, not the exact rate a bank or card will execute. Don't infer an historical conversion from today's rate, and check unknown/unavailable conversions before trusting cross-currency reports.
+
+## Import, export and backup
+
+### Import from another money app
+
+Open **More → Settings → Import data** (or choose import during onboarding). Select your source and file, review the mapped data and result, and only then import into a wallet you have backed up.
+
+The repository includes CSV adapters for **Wallet by BudgetBakers, Money Manager, Spendee, Monefy, 1Money, Bluecoins, Money Manager by KTW, Fortune City and Financisto**, plus Ivy Wallet CSV compatibility and manual CSV mapping. The accepted shape depends on the app's export version; certain formats, such as Money Manager XLSX exports, must be converted to CSV first. **An adapter is not a guarantee that every source-app version and locale has been tested.** See [format-specific compatibility and limitations](docs/import-compatibility/README.md).
+
+For an unlisted app, **Other app / AI conversion** offers a copyable schema and instructions. You choose whether to use a third-party AI outside Jvy. Bring the resulting JSON back to Jvy for **local validation, review and explicit confirmation**. Jvy itself does not upload your wallet or export to an AI service. Check account balances, omitted fields, currencies and paired transfers yourself; a schema-valid file can still misunderstand the source. [Conversion guide](docs/import-compatibility/AI-CONVERSION.md).
+
+### Export or back up your data
+
+In **Settings**, use the available export/backup actions to save a **CSV ledger** or a **complete native Jvy/Ivy backup**. Native JSON/ZIP is the appropriate format for restoring the app's richer data; **CSV is not a complete backup**. Keep the original export until you've checked the import counts, accounts, transactions, transfers, goals, loans and net-worth values.
+
+**Important:** Native backup files are **not automatically encrypted**. Protect them in private or encrypted storage. Backups of financial data intentionally do **not** transfer your app PIN/recovery credentials.
+
+### Update without risking your records
+
+Before an APK update, create and verify a complete native backup. The v0.7.0 signed APK uses package `com.ivy.wallet`; an owner-signed installation with the **same certificate** may be eligible for an in-place update, but physical in-place acceptance remains pending. A `com.ivy.wallet.debug` build is a **separate app**. An original Ivy Wallet installation with a different signature cannot be replaced directly by Jvy, even if the package ID matches.
+
+**Never uninstall the existing app or clear storage just to work around a signing conflict.** First preserve a complete backup and validate its restore in a separate installation/device/profile. After updating or restoring, reconcile balances and key records before relying on them. [Latest release and update notes](https://github.com/joravarsinghing/ivy-wallet/releases/latest).
+
+## Privacy and security
+
+- **Your ledger stays local:** core use needs no bank login, Jvy cloud account or advertising profile.
+- **App lock:** PIN and biometric/device-supported authentication options, with recovery controls. Set these up in **More → Security**.
+- **Hide balances:** conceal sensitive values and financial chart details on screen; this is a display safeguard, **not data encryption**.
+- **Capture preferences:** control the app's screenshot/capture behavior through security settings; sensitive authentication surfaces remain protected.
+- **Offline core:** recording and reviewing your money works without a bank connection. Optional rate refreshes and external links use the network.
+- **Manual backups:** exported files are your responsibility to secure; Jvy does not provide automatic encrypted cloud backups.
+- **No automatic crash reporting** in this prerelease.
+
+Read the [Privacy Policy](docs/legal/PRIVACY_POLICY.md) and the bundled Terms within the app. Jvy Wallet does not move money between banks or provide financial recommendations.
+
+## Frequently asked questions
+
+<details><summary><strong>Does Jvy Wallet connect to my bank?</strong></summary>
+
+No. You record or import transactions yourself. There is no automatic bank synchronization.
+
+</details>
+<details><summary><strong>Is Safe to spend the same as my balance?</strong></summary>
+
+No. Your balance records the money in eligible accounts; Safe to spend factors in money reserved for goals and applicable planning context. Its forecast and your historical spending totals answer different questions.
+
+</details>
+<details><summary><strong>Will creating a goal or scheduled payment change my bank balance?</strong></summary>
+
+No. Goal reservations earmark existing money internally; scheduled payments are forecasts until posted as transactions.
+
+</details>
+<details><summary><strong>Can I transfer my old Ivy Wallet data?</strong></summary>
+
+Supported Ivy Wallet native JSON/ZIP backup restore and CSV import paths are available. Preserve your original backup and verify the restored records; compatibility can vary with older data and signing/install paths.
+
+</details>
+<details><summary><strong>Can I use it without internet?</strong></summary>
+
+Yes, for the everyday ledger and planning tools. Exchange-rate lookups and external web links require connectivity.
+
+</details>
+<details><summary><strong>Is v0.7.0 a stable, fully device-tested release?</strong></summary>
+
+No. It is a published prerelease. Focused tests, compilation and APK checks passed, but on-device upgrade, accessibility, performance and cohort acceptance are not complete. Keep backups and report reproducible problems.
 
 </details>
 
----
+## For developers and contributors
 
-## 🧠 Product principles
-
-<details open>
-<summary><b>Explainable money</b></summary>
-
-The ledger is the source of truth. Goals reserve money as metadata and never create fake transactions. Planned payments stay projections until you post them. Balance, Safe to Spend and reports can always be explained from the records you entered.
-</details>
-
-<details>
-<summary><b>Useful density</b></summary>
-
-Readable rows, compact summaries, clear hierarchy, and focused cards instead of oversized dashboards that repeat the same number. The Accounts tab owns detailed account management; Home shows only derived insights that answer a different question.
-</details>
-
-<details>
-<summary><b>Honest history</b></summary>
-
-Charts distinguish *missing* history from *real zero-activity* periods. Daily and monthly views use calendar identities, preserve gaps before the first observed activity, and never invent a trend from data that doesn't exist.
-</details>
-
-<details>
-<summary><b>Safe evolution</b></summary>
-
-Compatibility with supported Ivy Wallet backup data is preserved where possible. New features must not silently rewrite historical transactions, alter import meaning, or move money between accounts.
-</details>
-
----
-
-## 🗺️ Roadmap
-
-**Now**
-
-- Goal funding guidance, deadlines and multi-account reservations
-- Balance and cash-flow trends with daily/monthly ranges and sparse-history handling
-- Compact Home activity and ranked spending breakdowns
-- Reports that update from any filter and render useful zero-result states
-- Reliable imports, backup validation and recovery paths
-- Consistent, normal-sized mobile UI across Home, Accounts, Reports, Settings and entry screens
-
-**Next**
-
-- More explainable historical balance and net-worth views
-- Better goal funding plans and on-track guidance
-- Optional recurring-transaction and remembered-category suggestions
-- Monthly financial check-ins and emergency-fund planning
-- Stronger backup versioning, validation and recovery tools
-
-**Later**
-
-- Debt payoff and investment views, *only after the core ledger stays dependable*
-
-See [ROADMAP_STATUS.md](ROADMAP_STATUS.md) for live status.
-
----
-
-## 🛠️ Build from source
-
-**Requirements**
-
-- Android Studio with the bundled JDK
-- An Android device or emulator on a supported Android version
-- Primary manual QA target: Samsung Galaxy S22 Ultra, Android 16 / One UI 8
-
-**Run tests**
+Jvy Wallet is a Kotlin/Jetpack Compose Android project and an independent continuation of [Ivy Wallet](https://github.com/Ivy-Apps/ivy-wallet). To work locally, clone the repository, open it in Android Studio with its configured JDK, then run the Gradle tasks appropriate to your change.
 
 ```bash
 # macOS / Linux
 ./gradlew test
 
-# Windows
+# Windows PowerShell
 .\gradlew.bat test
 ```
 
-Before changing imports, balances, money calculations, reservations or chart bucketing, run the relevant compatibility, domain, UI-snapshot and regression tests.
+See [Contributing](CONTRIBUTING.md), [developer guidelines](docs/guidelines/README.md), [design language](docs/design/JVY-DESIGN-LANGUAGE.md), [APK generation rules](docs/standards/APK-GENERATION.md) and [release checklist](docs/releases/PUBLIC-RELEASE-CHECKLIST.md). Releases require the appropriate private signing setup; don't publish a debug build as a production APK. The public release's v0.7.0 source corresponds to commit `7768a762436d6ab3f4597063142325a310fd5edc` plus subsequent documentation/metadata preparation.
 
-**Build a numbered release APK** (Windows, from the repo root)
+Bug reports and pull requests are welcome at [GitHub Issues](https://github.com/joravarsinghing/ivy-wallet/issues). Include app version, Android version and steps to reproduce — **never attach real financial records, backup files, PINs or recovery codes**.
 
-```powershell
-.\scripts\build-jvy-apk.ps1 -Variant release
-```
+## Credits and license
 
-With your private signing credentials configured, this produces artifacts like `Jvy_wallet_v0.2.5.apk` in `artifacts/apk/`, records the Android `versionCode`, and writes a checksum manifest beside the APK. Legacy-compatible test updates require explicit `-Variant demo -AllowPublicTestKey` acknowledgement and are not production releases. Don't distribute the raw Gradle output filename. Full rules and signing/migration constraints: [APK generation standard](docs/standards/APK-GENERATION.md).
+Maintained by **Joravar Singh**, building on the original open-source [Ivy Wallet](https://github.com/Ivy-Apps/ivy-wallet) and its contributors. Licensed under the [GNU General Public License v3.0](LICENSE). See the bundled Terms for the relevant source and asset notices.
 
----
+[GitHub](https://github.com/joravarsinghing) · [LinkedIn](https://www.linkedin.com/in/joravarsingh/) · [Portfolio](https://joravarsinghing.github.io/portfolio/)
 
-## 🤝 Contributing
-
-Contributions are welcome, from bug reports to pull requests.
-
-1. Read the [Contributing guide](CONTRIBUTING.md) and [Developer guidelines](docs/guidelines/README.md).
-2. Read the [Jvy design language](docs/design/JVY-DESIGN-LANGUAGE.md) and [Mobile UI standards](docs/guidelines/Mobile-UI-Standards.md) before touching any screen. The shared Raleway/Open Sans typography, shapes, logo, navigation and responsive/accessibility rules are mandatory for every new or modified feature.
-3. Open an issue or draft PR early, and include reproducible steps and screenshots.
-
-> [!WARNING]
-> Please **never** include real financial records in public issues or screenshots.
-
-<details>
-<summary><b>All documentation</b></summary>
-
-- [Roadmap status](ROADMAP_STATUS.md)
-- [Developer guidelines](docs/guidelines/README.md)
-- [Jvy design language — mandatory UI tokens and patterns](docs/design/JVY-DESIGN-LANGUAGE.md)
-- [Mobile UI standards](docs/guidelines/Mobile-UI-Standards.md)
-- [Goal and saving-pool plan](docs/plans/001-goals-and-saving-pools.md)
-- [Dashboard research notes](docs/recon/BUDGETBAKERS-UI-REFERENCE-AND-JVY-MASHUP.md)
-- [APK generation standard](docs/standards/APK-GENERATION.md)
-- [Audit hardening and remaining release checks](docs/standards/AUDIT-HARDENING.md)
-- [Agent instructions](AGENTS.md)
-- [Contributing guide](CONTRIBUTING.md)
-
-</details>
-
----
-
-## ❓ FAQ
-
-<details>
-<summary><b>Does Jvy Wallet connect to my bank?</b></summary>
-No, and that's deliberate. You record your own transactions, which keeps the app private and every number explainable.
-</details>
-
-<details>
-<summary><b>Where is my data stored?</b></summary>
-On your device. No cloud account is required for the core ledger.
-</details>
-
-<details>
-<summary><b>Can I bring my data from another app?</b></summary>
-Yes. Guided CSV import supports Wallet by BudgetBakers, Monefy, Spendee, Money Manager, 1Money, Bluecoins, KTW Money Manager, Fortune City, Financisto and other supported formats, plus compatible Ivy Wallet backups.
-</details>
-
-<details>
-<summary><b>How is this related to Ivy Wallet?</b></summary>
-Jvy Wallet is an independent continuation of the open-source Ivy Wallet. It preserves compatibility with supported Ivy Wallet data where possible, while branding, product direction, releases and support are maintained independently.
-</details>
-
-<details>
-<summary><b>Is it financial advice?</b></summary>
-No. It's a ledger and planning tool, not an adviser or investment platform.
-</details>
-
----
-
-## 🙏 Credits & license
-
-Jvy Wallet is an independent continuation of [Ivy Wallet](https://github.com/Ivy-Apps/ivy-wallet), maintained by **Joravar Singh**. Thanks to the original authors and contributors whose open-source work made this possible.
-
-Distributed under the **[GNU General Public License v3.0](LICENSE)**.
-
-## 📬 Contact & support
-
-[![GitHub](https://img.shields.io/badge/GitHub-joravarsinghing-181717?logo=github&logoColor=white)](https://github.com/joravarsinghing)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-joravarsingh-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/joravarsingh/)
-[![Portfolio](https://img.shields.io/badge/Portfolio-visit-6D4AFF?logo=googlechrome&logoColor=white)](https://joravarsinghing.github.io/portfolio/)
-
-For support, [open an issue](https://github.com/joravarsinghing/ivy-wallet/issues) with reproducible steps and screenshots.
-
-<div align="center">
-
-<br/>
-
-**If Jvy Wallet helps you see your money clearly, a ⭐ goes a long way.**
-
-[![Star History Chart](https://api.star-history.com/svg?repos=joravarsinghing/ivy-wallet&type=Date)](https://star-history.com/#joravarsinghing/ivy-wallet&Date)
-
-</div>
+<div align="center"><strong>If Jvy Wallet helps you manage money with more clarity, consider starring the repository. ⭐</strong></div>

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -24,7 +25,9 @@ import androidx.compose.ui.unit.dp
 import com.ivy.data.backup.ImportResult
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
+import com.ivy.design.system.JvyPrimaryAction
 import com.ivy.importdata.csv.Spacer8
+import com.ivy.importdata.R as ImportDataR
 import com.ivy.legacy.utils.format
 import com.ivy.navigation.CSVScreen
 import com.ivy.navigation.navigation
@@ -45,6 +48,7 @@ fun ImportResultUI(
     result: ImportResult,
     launchedFromOnboarding: Boolean,
     isManualCsvImport: Boolean = false,
+    isWalletBackup: Boolean = false,
     onTryAgain: (() -> Unit)? = null,
     onFinish: () -> Unit,
 ) {
@@ -57,7 +61,8 @@ fun ImportResultUI(
         Spacer(Modifier.height(16.dp))
 
         val nav = navigation()
-        com.ivy.design.system.JvyScreenHeader(stringResource(R.string.import_csv_file), { nav.onBackPressed() })
+        val title = if (isWalletBackup) ImportDataR.string.jvy_wallet_backup else R.string.import_csv_file
+        com.ivy.design.system.JvyScreenHeader(stringResource(title), { nav.onBackPressed() })
 
         Spacer(Modifier.height(24.dp))
 
@@ -65,13 +70,20 @@ fun ImportResultUI(
             (result.transactionsImported > 0 ||
                 result.accountsImported > 0 ||
                 result.categoriesImported > 0 ||
-                result.duplicatesSkipped > 0)
+                result.duplicatesSkipped > 0 || isWalletBackup)
+        val outcome = when {
+            isWalletBackup && importSuccess -> ImportDataR.string.jvy_wallet_backup_restored
+            isWalletBackup -> ImportDataR.string.jvy_wallet_backup_restore_failed
+            importSuccess -> R.string.success
+            else -> R.string.failure
+        }
+        val errorColor = if (isWalletBackup) MaterialTheme.colorScheme.error else Red
         Text(
             modifier = Modifier.padding(horizontal = 32.dp),
-            text = if (importSuccess) stringResource(R.string.success) else stringResource(R.string.failure),
+            text = stringResource(outcome),
             style = UI.typo.h2.style(
                 fontWeight = FontWeight.Black,
-                color = if (importSuccess) UI.colors.pureInverse else Red
+                color = if (importSuccess) UI.colors.pureInverse else errorColor
             )
         )
 
@@ -91,23 +103,25 @@ fun ImportResultUI(
                     R.string.import_error_details,
                     errorMessage
                 ),
-                color = Red,
+                color = errorColor,
                 style = UI.typo.b2.style(fontWeight = FontWeight.Bold)
             )
         } else {
             SuccessSectionUI(
                 result = result,
-                successPercent = successPercent,
+                successPercent = successPercent.takeUnless { isWalletBackup },
             )
 
-            IvyDividerLine(
-                modifier = Modifier.padding(horizontal = 24.dp)
-            )
+            if (!isWalletBackup) {
+                IvyDividerLine(
+                    modifier = Modifier.padding(horizontal = 24.dp)
+                )
 
-            FailedSectionUI(
-                result = result,
-                successPercent = successPercent,
-            )
+                FailedSectionUI(
+                    result = result,
+                    successPercent = successPercent,
+                )
+            }
         }
 
         if (result.failedRows.isNotEmpty()) {
@@ -124,7 +138,7 @@ fun ImportResultUI(
                 Modifier.padding(horizontal = 24.dp))
         }
 
-        if (!isManualCsvImport) {
+        if (!isManualCsvImport && !isWalletBackup) {
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
@@ -160,30 +174,37 @@ fun ImportResultUI(
 
         Spacer8()
 
-        OnboardingButton(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            text = stringResource(R.string.finish),
-            textColor = White,
-            backgroundGradient = GradientIvy,
-            hasNext = true,
-            enabled = true
-        ) {
-            onFinish()
-        }
-
-        if (onTryAgain != null) {
-            Spacer(Modifier.height(12.dp))
-
-            Button(
-                modifier = Modifier
+        if (isWalletBackup) {
+            JvyPrimaryAction(
+                label = stringResource(if (onTryAgain == null) R.string.finish else R.string.try_again),
+                onClick = onTryAgain ?: onFinish,
+            )
+        } else {
+            OnboardingButton(
+                Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                onClick = onTryAgain,
+                    .padding(horizontal = 16.dp),
+                text = stringResource(R.string.finish),
+                textColor = White,
+                backgroundGradient = GradientIvy,
+                hasNext = true,
                 enabled = true
             ) {
-                Text(text = stringResource(R.string.try_again))
+                onFinish()
+            }
+
+            if (onTryAgain != null) {
+                Spacer(Modifier.height(12.dp))
+
+                Button(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp),
+                    onClick = onTryAgain,
+                    enabled = true
+                ) {
+                    Text(text = stringResource(R.string.try_again))
+                }
             }
         }
 
@@ -194,34 +215,37 @@ fun ImportResultUI(
 @Composable
 private fun SuccessSectionUI(
     result: ImportResult,
-    successPercent: Double,
+    successPercent: Double?,
 ) {
+    val countColor = if (successPercent == null) MaterialTheme.colorScheme.onSurface else Gray
     Column {
-        Text(
-            modifier = Modifier.padding(horizontal = 32.dp),
-            text = stringResource(R.string.imported),
-            style = UI.typo.b1.style(
-                color = Green,
-                fontWeight = FontWeight.Black
+        if (successPercent != null) {
+            Text(
+                modifier = Modifier.padding(horizontal = 32.dp),
+                text = stringResource(R.string.imported),
+                style = UI.typo.b1.style(
+                    color = Green,
+                    fontWeight = FontWeight.Black
+                )
             )
-        )
 
-        Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(8.dp))
 
-        Text(
-            modifier = Modifier.padding(horizontal = 32.dp),
-            text = "${successPercent.format(2)}%",
-            style = UI.typo.nH2.style(
-                fontWeight = FontWeight.Normal
+            Text(
+                modifier = Modifier.padding(horizontal = 32.dp),
+                text = "${successPercent.format(2)}%",
+                style = UI.typo.nH2.style(
+                    fontWeight = FontWeight.Normal
+                )
             )
-        )
+        }
 
         Text(
             modifier = Modifier.padding(horizontal = 32.dp),
             text = stringResource(R.string.transactions_imported, result.transactionsImported),
             style = UI.typo.nB2.style(
                 fontWeight = FontWeight.Bold,
-                color = Gray
+                color = countColor
             )
         )
 
@@ -232,7 +256,7 @@ private fun SuccessSectionUI(
             text = stringResource(R.string.accounts_imported, result.accountsImported),
             style = UI.typo.nB2.style(
                 fontWeight = FontWeight.Bold,
-                color = Gray
+                color = countColor
             )
         )
 
@@ -243,7 +267,7 @@ private fun SuccessSectionUI(
             text = stringResource(R.string.categories_imported, result.categoriesImported),
             style = UI.typo.nB2.style(
                 fontWeight = FontWeight.Bold,
-                color = Gray
+                color = countColor
             )
         )
 
@@ -258,7 +282,7 @@ private fun SuccessSectionUI(
                 ),
                 style = UI.typo.nB2.style(
                     fontWeight = FontWeight.Bold,
-                    color = Gray
+                    color = countColor
                 )
             )
         }

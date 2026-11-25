@@ -1,4 +1,9 @@
 <resources>
+    <string name="import_jvy_wallet_backup">Restore Jvy Wallet backup (ZIP or JSON)</string>
+    <string name="jvy_wallet_backup">Jvy Wallet backup</string>
+    <string name="restoring_jvy_wallet_backup">Restoring your backup…</string>
+    <string name="jvy_wallet_backup_restored">Backup restored</string>
+    <string name="jvy_wallet_backup_restore_failed">Couldn’t restore backup</string>
     <string name="ai_import_entry_title">Your app isn’t listed?</string>
     <string name="ai_import_entry_body">Use our file format and an AI you choose to convert your export. Review it before adding anything.</string>
     <string name="ai_import_open">Other app / AI conversion</string>

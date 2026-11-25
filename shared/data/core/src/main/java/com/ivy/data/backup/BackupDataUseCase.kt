@@ -184,7 +184,7 @@ class BackupDataUseCase @Inject constructor(
         var imported = false
         return@withContext try {
             val jsonString = readBackupPayload(backupFileUri, onProgress)
-                ?: error("The selected file is not a readable Ivy Wallet backup.")
+                ?: error("The selected file is not a readable wallet backup.")
 
             importJson(jsonString, onProgress).also {
                 imported = it.errorMessage == null
@@ -577,7 +577,7 @@ class BackupDataUseCase @Inject constructor(
 
     private fun Throwable.userFacingImportMessage(): String = when (this) {
         is kotlinx.serialization.SerializationException ->
-            "This file is not a supported Ivy Wallet backup, or it is damaged."
+            "This file is not a supported wallet backup, or it is damaged."
 
         else -> message?.takeIf { it.isNotBlank() }
             ?: "The import could not be completed. Check the result before retrying."

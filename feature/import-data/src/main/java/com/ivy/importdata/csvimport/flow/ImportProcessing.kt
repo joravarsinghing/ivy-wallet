@@ -19,6 +19,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
+import com.ivy.importdata.R as ImportDataR
 import com.ivy.legacy.IvyWalletPreview
 import com.ivy.ui.R
 import com.ivy.wallet.ui.theme.GradientGreen
@@ -27,7 +28,8 @@ import com.ivy.wallet.ui.theme.components.IvyDividerLine
 
 @Composable
 fun ImportProcessing(
-    progressPercent: Int
+    progressPercent: Int,
+    isWalletBackup: Boolean = false,
 ) {
     Column(
         modifier = Modifier
@@ -37,7 +39,8 @@ fun ImportProcessing(
     ) {
         androidx.activity.compose.BackHandler { /* Do not interrupt a financial import in flight. */ }
         val nav = com.ivy.navigation.navigation()
-        com.ivy.design.system.JvyScreenHeader(stringResource(R.string.import_csv_file), { nav.onBackPressed() },
+        val title = if (isWalletBackup) ImportDataR.string.jvy_wallet_backup else R.string.import_csv_file
+        com.ivy.design.system.JvyScreenHeader(stringResource(title), { nav.onBackPressed() },
             backEnabled = false)
         Spacer(Modifier.height(16.dp))
 
@@ -67,7 +70,10 @@ fun ImportProcessing(
         Spacer(modifier = Modifier.weight(1f))
 
         Text(
-            text = stringResource(R.string.importing_the_csv_file),
+            text = stringResource(
+                if (isWalletBackup) ImportDataR.string.restoring_jvy_wallet_backup
+                else R.string.importing_the_csv_file
+            ),
             style = UI.typo.b2.style(
                 fontWeight = FontWeight.Bold
             )

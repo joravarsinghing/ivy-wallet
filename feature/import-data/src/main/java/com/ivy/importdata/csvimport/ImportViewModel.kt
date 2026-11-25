@@ -52,6 +52,9 @@ class ImportViewModel @Inject constructor(
     private val _importResult = MutableLiveData<ImportResult>()
     val importResult = _importResult.asLiveData()
 
+    private val _isWalletBackup = MutableLiveData(false)
+    val isWalletBackup = _isWalletBackup.asLiveData()
+
     private val _aiPreview = MutableLiveData<AiImportPreview?>(null)
     val aiPreview = _aiPreview.asLiveData()
     private val _aiError = MutableLiveData<String?>(null)
@@ -96,6 +99,7 @@ class ImportViewModel @Inject constructor(
     }
 
     fun openAiGuide() {
+        _isWalletBackup.value = false
         _aiError.value = null
         _aiPreview.value = null
         _importStep.value = ImportStep.AI_GUIDE
@@ -166,26 +170,30 @@ class ImportViewModel @Inject constructor(
     fun uploadFile(context: Context) {
         val importType = importType.value ?: return
 
+        selectImportFile { fileUri ->
+            if (hasCSVExtension(context, fileUri)) {
+                restoreCSVFile(fileUri, importType)
+            } else {
+                restoreBackup(fileUri)
+            }
+        }
+    }
+
+    fun selectBackupFile() = selectImportFile(isWalletBackup = true, importFile = ::restoreBackup)
+
+    private fun selectImportFile(
+        isWalletBackup: Boolean = false,
+        importFile: suspend (Uri) -> ImportResult,
+    ) {
         ivyContext.openFile { fileUri ->
             viewModelScope.launch {
+                if (_importStep.value == ImportStep.LOADING) return@launch
                 TestIdlingResource.increment()
                 try {
-                    _importStep.value = ImportStep.LOADING
+                    _isWalletBackup.value = isWalletBackup
                     _importProgressPercent.value = 0
-
-                    _importResult.value = if (hasCSVExtension(context, fileUri)) {
-                        restoreCSVFile(fileUri = fileUri, importType = importType)
-                    } else {
-                        backupDataUseCase.importBackupFile(
-                            backupFileUri = fileUri
-                        ) { progressPercent ->
-                            com.ivy.legacy.utils.uiThread {
-                                _importProgressPercent.value =
-                                    (progressPercent * 100).roundToInt()
-                            }
-                        }
-                    }
-
+                    _importStep.value = ImportStep.LOADING
+                    _importResult.value = importFile(fileUri)
                     _importStep.value = ImportStep.RESULT
                 } catch (e: CancellationException) {
                     throw e
@@ -199,6 +207,13 @@ class ImportViewModel @Inject constructor(
             }
         }
     }
+
+    private suspend fun restoreBackup(fileUri: Uri): ImportResult =
+        backupDataUseCase.importBackupFile(fileUri) { progressPercent ->
+            com.ivy.legacy.utils.uiThread {
+                _importProgressPercent.value = (progressPercent * 100).roundToInt()
+            }
+        }
 
     @ExperimentalStdlibApi
     private suspend fun restoreCSVFile(fileUri: Uri, importType: ImportType): ImportResult {
@@ -283,7 +298,7 @@ class ImportViewModel @Inject constructor(
             val result = importResult.value
             val importSuccess = result != null &&
                 result.errorMessage == null &&
-                (result.transactionsImported > 0 || result.accountsImported > 0 ||
+                (isWalletBackup.value == true || result.transactionsImported > 0 || result.accountsImported > 0 ||
                     result.categoriesImported > 0 || result.duplicatesSkipped > 0)
             onboardingViewModel.importFinished(
                 success = importSuccess
@@ -295,6 +310,7 @@ class ImportViewModel @Inject constructor(
     }
 
     private fun resetState() {
+        _isWalletBackup.value = false
         _aiPreview.value = null
         _aiError.value = null
         _importStep.value = ImportStep.IMPORT_FROM

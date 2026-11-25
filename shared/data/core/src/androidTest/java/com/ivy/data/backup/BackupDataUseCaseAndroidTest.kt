@@ -188,6 +188,8 @@ class BackupDataUseCaseAndroidTest {
 
     private suspend fun backupTestCase(version: String) {
         importBackupZipTestCase(version)
+        closeDb()
+        createDb()
         importBackupJsonTestCase(version)
 
         // close and re-open the db to ensure fresh data
@@ -225,12 +227,11 @@ class BackupDataUseCaseAndroidTest {
         useCase.importBackupFile(backupUri, onProgress = {}).shouldBeSuccessful()
         val exportedFileUri = tempAndroidFile("exported", ".zip").toUri()
 
-        // then
         useCase.exportToFile(exportedFileUri)
-        val reImportRes = useCase.importBackupFile(backupUri, onProgress = {})
+        closeDb()
+        createDb()
 
-        // then
-        reImportRes.shouldBeSuccessful()
+        useCase.importBackupFile(exportedFileUri, onProgress = {}).shouldBeSuccessful()
     }
 
     private fun copyTestResourceToInternalStorage(resPath: String): Uri {

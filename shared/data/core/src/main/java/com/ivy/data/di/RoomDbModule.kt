@@ -2,6 +2,7 @@ package com.ivy.data.di
 
 import android.content.Context
 import com.ivy.data.db.IvyRoomDatabase
+import com.ivy.data.db.dao.WealthDao
 import com.ivy.data.db.dao.read.AccountDao
 import com.ivy.data.db.dao.read.BudgetDao
 import com.ivy.data.db.dao.read.CategoryDao
@@ -122,6 +123,9 @@ object RoomDbModule {
 
     @Provides
     fun provideGoalAllocationDao(db: IvyRoomDatabase): GoalAllocationDao = db.goalAllocationDao
+
+    @Provides
+    fun provideWealthDao(db: IvyRoomDatabase): WealthDao = db.wealthDao
 
     @Provides
     fun provideExchangeRatesDao(

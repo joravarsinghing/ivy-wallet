@@ -15,4 +15,7 @@ interface WealthDao {
     fun observe(): Flow<List<WealthRecordEntity>>
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun save(records: List<WealthRecordEntity>)
+
+    @Query("DELETE FROM wealth_records")
+    suspend fun deleteAll()
 }

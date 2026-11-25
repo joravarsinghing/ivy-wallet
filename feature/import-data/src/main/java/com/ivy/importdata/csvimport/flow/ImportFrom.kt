@@ -29,6 +29,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
+import com.ivy.design.system.JvyPrimaryAction
+import com.ivy.importdata.R as ImportDataR
 import com.ivy.legacy.domain.deprecated.logic.csv.model.ImportType
 import com.ivy.navigation.CSVScreen
 import com.ivy.navigation.navigation
@@ -44,6 +46,7 @@ fun BoxWithConstraintsScope.ImportFrom(
     launchedFromOnboarding: Boolean,
 
     onSkip: () -> Unit = {},
+    onChooseBackupFile: () -> Unit = {},
     onImportFrom: (ImportType) -> Unit = {},
     onAiGuide: () -> Unit = {},
 ) {
@@ -64,6 +67,13 @@ fun BoxWithConstraintsScope.ImportFrom(
                 onSkip = onSkip
             )
             // onboarding toolbar include paddingBottom 16.dp
+        }
+
+        item(key = "jvy-wallet-backup") {
+            JvyPrimaryAction(
+                label = stringResource(ImportDataR.string.import_jvy_wallet_backup),
+                onClick = onChooseBackupFile,
+            )
         }
 
         item(key = "ai-conversion") {

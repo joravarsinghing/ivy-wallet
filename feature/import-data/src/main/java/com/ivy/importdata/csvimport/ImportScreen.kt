@@ -27,6 +27,7 @@ fun BoxWithConstraintsScope.ImportCSVScreen(screen: ImportScreen) {
     val importType by viewModel.importType.observeAsState()
     val importProgressPercent by viewModel.importProgressPercent.observeAsState(0)
     val importResult by viewModel.importResult.observeAsState()
+    val isWalletBackup by viewModel.isWalletBackup.observeAsState(false)
     val aiPreview by viewModel.aiPreview.observeAsState()
     val aiError by viewModel.aiError.observeAsState()
 
@@ -43,8 +44,10 @@ fun BoxWithConstraintsScope.ImportCSVScreen(screen: ImportScreen) {
         importType = importType,
         importProgressPercent = importProgressPercent,
         importResult = importResult,
+        isWalletBackup = isWalletBackup,
         aiPreview = aiPreview,
         aiError = aiError,
+        onChooseBackupFile = viewModel::selectBackupFile,
         onAiGuide = viewModel::openAiGuide,
         onChooseAiFile = viewModel::selectAiFile,
         onConfirmAiImport = viewModel::confirmAiImport,
@@ -75,8 +78,10 @@ private fun BoxWithConstraintsScope.UI(
     importType: ImportType?,
     importProgressPercent: Int,
     importResult: ImportResult?,
+    isWalletBackup: Boolean = false,
     aiPreview: com.ivy.data.backup.AiImportPreview? = null,
     aiError: String? = null,
+    onChooseBackupFile: () -> Unit = {},
     onAiGuide: () -> Unit = {},
     onChooseAiFile: () -> Unit = {},
     onConfirmAiImport: () -> Unit = {},
@@ -92,6 +97,7 @@ private fun BoxWithConstraintsScope.UI(
                 hasSkip = screen.launchedFromOnboarding,
                 launchedFromOnboarding = screen.launchedFromOnboarding,
                 onSkip = onSkip,
+                onChooseBackupFile = onChooseBackupFile,
                 onAiGuide = onAiGuide,
                 onImportFrom = onChooseImportType
             )
@@ -120,7 +126,8 @@ private fun BoxWithConstraintsScope.UI(
 
         ImportStep.LOADING -> {
             ImportProcessing(
-                progressPercent = importProgressPercent
+                progressPercent = importProgressPercent,
+                isWalletBackup = isWalletBackup,
             )
         }
 
@@ -128,6 +135,8 @@ private fun BoxWithConstraintsScope.UI(
             ImportResultUI(
                 result = importResult!!,
                 launchedFromOnboarding = screen.launchedFromOnboarding,
+                isWalletBackup = isWalletBackup,
+                onTryAgain = onChooseBackupFile.takeIf { isWalletBackup && importResult.errorMessage != null },
             ) {
                 onFinish()
             }

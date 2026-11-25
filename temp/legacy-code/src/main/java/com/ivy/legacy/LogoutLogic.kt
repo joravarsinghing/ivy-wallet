@@ -6,13 +6,19 @@ import androidx.datastore.preferences.core.edit
 import com.ivy.base.legacy.SharedPrefs
 import com.ivy.data.DataObserver
 import com.ivy.data.DataWriteEvent
+import com.ivy.data.db.dao.WealthDao
 import com.ivy.data.db.dao.read.UserDao
 import com.ivy.data.db.dao.write.WriteBudgetDao
+import com.ivy.data.db.dao.write.WriteCategoryRuleDao
+import com.ivy.data.db.dao.write.WriteGoalAllocationDao
+import com.ivy.data.db.dao.write.WriteGoalDao
 import com.ivy.data.db.dao.write.WriteLoanDao
 import com.ivy.data.db.dao.write.WriteLoanRecordDao
 import com.ivy.data.db.dao.write.WritePlannedPaymentRuleDao
+import com.ivy.data.db.dao.write.WriteSavedAnalyticsDao
 import com.ivy.data.db.dao.write.WriteSettingsDao
 import com.ivy.data.repository.AccountRepository
+import com.ivy.data.repository.AtomicWriteRepository
 import com.ivy.data.repository.CategoryRepository
 import com.ivy.data.repository.ExchangeRatesRepository
 import com.ivy.data.repository.TagRepository
@@ -39,7 +45,13 @@ class LogoutLogic @Inject constructor(
     private val writeBudgetDao: WriteBudgetDao,
     private val writeLoanDao: WriteLoanDao,
     private val writeLoanRecordDao: WriteLoanRecordDao,
-    private val exchangeRatesRepository: ExchangeRatesRepository
+    private val exchangeRatesRepository: ExchangeRatesRepository,
+    private val writeGoalAllocationDao: WriteGoalAllocationDao,
+    private val writeGoalDao: WriteGoalDao,
+    private val writeCategoryRuleDao: WriteCategoryRuleDao,
+    private val writeSavedAnalyticsDao: WriteSavedAnalyticsDao,
+    private val wealthDao: WealthDao,
+    private val atomicWrite: AtomicWriteRepository,
 ) {
     suspend fun logout() {
         ioThread {
@@ -55,7 +67,12 @@ class LogoutLogic @Inject constructor(
         navigation.navigateTo(OnboardingScreen)
     }
 
-    private suspend fun deleteAllData() {
+    private suspend fun deleteAllData() = atomicWrite.run {
+        writeGoalAllocationDao.deleteAll()
+        writeGoalDao.deleteAll()
+        writeCategoryRuleDao.deleteAll()
+        writeSavedAnalyticsDao.deleteAll()
+        wealthDao.deleteAll()
         accountRepository.deleteAll()
         transactionRepository.deleteAll()
         categoryRepository.deleteAll()
